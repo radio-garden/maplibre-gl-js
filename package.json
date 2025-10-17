@@ -2,17 +2,17 @@
   "name": "maplibre-gl",
   "description": "BSD licensed community fork of mapbox-gl, a WebGL interactive maps library",
   "version": "5.7.2",
-  "main": "dist/esm/src/index.js",
-  "module": "dist/esm/src/index.js",
+  "main": "dist/maplibre-gl.js",
+  "module": "dist/maplibre-gl.mjs",
   "style": "dist/maplibre-gl.css",
   "exports": {
     ".": {
       "types": "./dist/maplibre-gl.d.ts",
-      "default": "./dist/esm/src/index.js"
+      "default": "./dist/maplibre-gl.mjs"
     },
     "./core": {
       "types": "./dist/maplibre-gl-core.d.ts",
-      "default": "./dist/esm/src/core.js"
+      "default": "./dist/maplibre-gl-core.mjs"
     },
     "./worker": {
       "types": "./dist/maplibre-gl-worker.d.ts",
