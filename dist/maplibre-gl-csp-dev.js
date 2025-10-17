@@ -11,17 +11,17 @@ typeof define === 'function' && define.amd ? define(['exports'], factory) :
 var name = "maplibre-gl";
 var description = "BSD licensed community fork of mapbox-gl, a WebGL interactive maps library";
 var version$2 = "5.7.2";
-var main = "dist/esm/src/index.js";
-var module = "dist/esm/src/index.js";
+var main = "dist/maplibre-gl.js";
+var module = "dist/maplibre-gl.mjs";
 var style = "dist/maplibre-gl.css";
 var exports$1 = {
 	".": {
 		types: "./dist/maplibre-gl.d.ts",
-		"default": "./dist/esm/src/index.js"
+		"default": "./dist/maplibre-gl.mjs"
 	},
 	"./core": {
 		types: "./dist/maplibre-gl-core.d.ts",
-		"default": "./dist/esm/src/core.js"
+		"default": "./dist/maplibre-gl-core.mjs"
 	},
 	"./worker": {
 		types: "./dist/maplibre-gl-worker.d.ts",
