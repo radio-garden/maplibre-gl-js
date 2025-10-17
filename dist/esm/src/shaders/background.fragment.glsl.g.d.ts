@@ -1,3 +1,0 @@
-declare const _default: "uniform vec4 u_color;uniform float u_opacity;void main() {fragColor=u_color*u_opacity;\n#ifdef OVERDRAW_INSPECTOR\nfragColor=vec4(1.0);\n#endif\n}";
-export default _default;
-//# sourceMappingURL=background.fragment.glsl.g.d.ts.map

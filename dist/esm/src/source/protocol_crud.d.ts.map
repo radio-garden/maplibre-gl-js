@@ -1,1 +1,0 @@
-{"version":3,"file":"protocol_crud.d.ts","sourceRoot":"","sources":["../../../../src/source/protocol_crud.ts"],"names":[],"mappings":"AAAA,OAAO,EAAC,KAAK,iBAAiB,EAAS,MAAM,gBAAgB,CAAC;AAE9D,wBAAgB,WAAW,CAAC,GAAG,EAAE,MAAM,qBAEtC;AA4BD,wBAAgB,WAAW,CAAC,cAAc,EAAE,MAAM,EAAE,MAAM,EAAE,iBAAiB,QAE5E;AAWD,wBAAgB,cAAc,CAAC,cAAc,EAAE,MAAM,QAEpD"}

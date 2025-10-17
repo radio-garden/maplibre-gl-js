@@ -1,1 +1,0 @@
-{"version":3,"file":"dictionary_coder.d.ts","sourceRoot":"","sources":["../../../../src/util/dictionary_coder.ts"],"names":[],"mappings":"AAAA,qBAAa,eAAe;IACxB,eAAe,EAAE;QAAC,CAAC,CAAC,EAAE,MAAM,GAAG,MAAM,CAAA;KAAC,CAAC;IACvC,eAAe,EAAE,KAAK,CAAC,MAAM,CAAC,CAAC;gBAEnB,OAAO,EAAE,KAAK,CAAC,MAAM,CAAC;IAUlC,MAAM,CAAC,MAAM,EAAE,MAAM;IAIrB,MAAM,CAAC,CAAC,EAAE,MAAM;CAInB"}

@@ -1,1 +1,0 @@
-{"version":3,"file":"pixels_to_tile_units.d.ts","sourceRoot":"","sources":["../../../../src/source/pixels_to_tile_units.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAC,gBAAgB,EAAC,MAAM,WAAW,CAAC;AAahD,wBAAgB,iBAAiB,CAC7B,IAAI,EAAE;IACF,MAAM,EAAE,gBAAgB,CAAC;IACzB,QAAQ,EAAE,MAAM,CAAC;CACpB,EACD,UAAU,EAAE,MAAM,EAClB,CAAC,EAAE,MAAM,GACV,MAAM,CAER"}

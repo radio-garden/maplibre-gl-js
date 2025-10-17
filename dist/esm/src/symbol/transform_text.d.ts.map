@@ -1,1 +1,0 @@
-{"version":3,"file":"transform_text.d.ts","sourceRoot":"","sources":["../../../../src/symbol/transform_text.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAC,gBAAgB,EAAC,MAAM,yCAAyC,CAAC;AAC9E,OAAO,KAAK,EAAC,OAAO,EAAC,MAAM,kCAAkC,CAAC;AAC9D,OAAO,KAAK,EAAC,SAAS,EAAC,MAAM,kCAAkC,CAAC;AAiBhE,wBAAgB,aAAa,CAAC,IAAI,EAAE,SAAS,EAAE,KAAK,EAAE,gBAAgB,EAAE,OAAO,EAAE,OAAO,GAAG,SAAS,CAKnG"}

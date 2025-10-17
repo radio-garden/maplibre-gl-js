@@ -1,1 +1,0 @@
-{"version":3,"file":"rtl_text_plugin_status.d.ts","sourceRoot":"","sources":["../../../../src/source/rtl_text_plugin_status.ts"],"names":[],"mappings":"AAeA,MAAM,MAAM,eAAe,GACX,aAAa,GACb,UAAU,GACV,WAAW,GACX,SAAS,GACT,QAAQ,GACR,OAAO,CAAC;AAKxB,MAAM,MAAM,WAAW,GAAG;IACtB,YAAY,EAAE,eAAe,CAAC;IAC9B,SAAS,EAAE,MAAM,CAAC;CACrB,CAAC;AAEF,eAAO,MAAM,wBAAwB,oBAAoB,CAAC"}

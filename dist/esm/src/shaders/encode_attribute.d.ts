@@ -1,2 +1,0 @@
-export declare function packUint8ToFloat(a: number, b: number): number;
-//# sourceMappingURL=encode_attribute.d.ts.map

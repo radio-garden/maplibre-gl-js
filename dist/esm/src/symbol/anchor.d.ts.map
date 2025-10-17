@@ -1,1 +1,0 @@
-{"version":3,"file":"anchor.d.ts","sourceRoot":"","sources":["../../../../src/symbol/anchor.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,wBAAwB,CAAC;AAI3C,qBAAa,MAAO,SAAQ,KAAK;IAC7B,KAAK,EAAE,GAAG,CAAC;IACX,OAAO,CAAC,EAAE,MAAM,CAAC;gBAEL,CAAC,EAAE,MAAM,EAAE,CAAC,EAAE,MAAM,EAAE,KAAK,EAAE,MAAM,EAAE,OAAO,CAAC,EAAE,MAAM;IAQjE,KAAK;CAGR"}

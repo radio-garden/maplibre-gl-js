@@ -1,3 +1,0 @@
-declare const _default: "#ifdef GL_ES\nprecision mediump float;\n#else\n#if !defined(lowp)\n#define lowp\n#endif\n#if !defined(mediump)\n#define mediump\n#endif\n#if !defined(highp)\n#define highp\n#endif\n#endif\nout highp vec4 fragColor;";
-export default _default;
-//# sourceMappingURL=_prelude.fragment.glsl.g.d.ts.map
