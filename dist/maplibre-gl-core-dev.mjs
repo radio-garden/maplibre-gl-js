@@ -66353,6 +66353,8 @@ class GlobeTransform {
         this._mercatorTransform.apply(this, true, this.isGlobeRendering);
         this._helper._nearZ = this._mercatorTransform.nearZ;
         this._helper._farZ = this._mercatorTransform.farZ;
+        // Set pixelPerMeter - needed for getCameraAltitude() calculation
+        this._helper._pixelPerMeter = mercatorZfromAltitude(1, this.center.lat) * this.worldSize;
     }
     calculateFogMatrix(unwrappedTileID) {
         return this.currentTransform.calculateFogMatrix(unwrappedTileID);
