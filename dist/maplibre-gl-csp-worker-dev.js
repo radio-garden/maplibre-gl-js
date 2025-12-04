@@ -613,6 +613,16 @@ var source_vector = {
 		type: "boolean",
 		"default": false
 	},
+	encoding: {
+		type: "enum",
+		values: {
+			mvt: {
+			},
+			mlt: {
+			}
+		},
+		"default": "mvt"
+	},
 	"*": {
 		type: "*"
 	}
@@ -2557,10 +2567,11 @@ var paint_line = {
 		expression: {
 			interpolated: false,
 			parameters: [
-				"zoom"
+				"zoom",
+				"feature"
 			]
 		},
-		"property-type": "cross-faded"
+		"property-type": "cross-faded-data-driven"
 	},
 	"line-pattern": {
 		type: "resolvedImage",
@@ -10873,9 +10884,6 @@ function validateProperty(options, propertyType) {
     }
     const errors = [];
     if (options.layerType === 'symbol') {
-        if (propertyKey === 'text-field' && style && !style.glyphs) {
-            errors.push(new ValidationError(key, value, 'use of "text-field" requires a style "glyphs" property'));
-        }
         if (propertyKey === 'text-font' && isFunction$1(deepUnbundle(value)) && unbundle(value.type) === 'identity') {
             errors.push(new ValidationError(key, value, '"text-font" does not support identity functions'));
         }
@@ -11671,10 +11679,7 @@ validateStyleMin.paintProperty = wrapCleanErrors(injectValidateSpec(validatePain
 validateStyleMin.layoutProperty = wrapCleanErrors(injectValidateSpec(validateLayoutProperty$1));
 function injectValidateSpec(validator) {
     return function (options) {
-        return validator({
-            ...options,
-            validateSpec: validate,
-        });
+        return validator(Object.assign({}, options, { validateSpec: validate }));
     };
 }
 function sortErrors(errors) {
@@ -27593,6 +27598,37 @@ register('StructArrayLayout10ui20', StructArrayLayout10ui20);
 /**
  * @internal
  * Implementation of the StructArray layout:
+ * [0] - Uint16[8]
+ *
+ */
+class StructArrayLayout8ui16 extends StructArray {
+    _refreshViews() {
+        this.uint8 = new Uint8Array(this.arrayBuffer);
+        this.uint16 = new Uint16Array(this.arrayBuffer);
+    }
+    emplaceBack(v0, v1, v2, v3, v4, v5, v6, v7) {
+        const i = this.length;
+        this.resize(i + 1);
+        return this.emplace(i, v0, v1, v2, v3, v4, v5, v6, v7);
+    }
+    emplace(i, v0, v1, v2, v3, v4, v5, v6, v7) {
+        const o2 = i * 8;
+        this.uint16[o2 + 0] = v0;
+        this.uint16[o2 + 1] = v1;
+        this.uint16[o2 + 2] = v2;
+        this.uint16[o2 + 3] = v3;
+        this.uint16[o2 + 4] = v4;
+        this.uint16[o2 + 5] = v5;
+        this.uint16[o2 + 6] = v6;
+        this.uint16[o2 + 7] = v7;
+        return i;
+    }
+}
+StructArrayLayout8ui16.prototype.bytesPerElement = 16;
+register('StructArrayLayout8ui16', StructArrayLayout8ui16);
+/**
+ * @internal
+ * Implementation of the StructArray layout:
  * [0] - Int16[4]
  * [8] - Uint16[4]
  * [16] - Int16[4]
@@ -28278,6 +28314,8 @@ class LineLayoutArray extends StructArrayLayout2i4ub8 {
 class LineExtLayoutArray extends StructArrayLayout2f8 {
 }
 class PatternLayoutArray extends StructArrayLayout10ui20 {
+}
+class DashLayoutArray extends StructArrayLayout8ui16 {
 }
 class SymbolLayoutArray extends StructArrayLayout4i4ui4i24 {
 }
@@ -45148,6 +45186,7 @@ class VerticalPerspectiveTransform {
         const matrix = clone$6(this._globeViewProjMatrixNoCorrectionInverted);
         scale$5(matrix, matrix, [1, 1, -1]);
         this._cachedFrustum = Frustum.fromInvProjectionMatrix(matrix, 1, 0, this._cachedClippingPlane, true);
+        this._helper._pixelPerMeter = mercatorZfromAltitude(1, this.center.lat) * this.worldSize;
     }
     calculateFogMatrix(_unwrappedTileID) {
         warnOnce('calculateFogMatrix is not supported on globe projection.');
@@ -49454,7 +49493,7 @@ function requireGeojsonRewind () {
 var geojsonRewindExports = requireGeojsonRewind();
 var rewind$1 = /*@__PURE__*/getDefaultExportFromCjs(geojsonRewindExports);
 
-class n extends VectorTileFeature{constructor(t,r){super(new Pbf,0,r,[],[]),this.feature=t,this.type=t.type,this.properties=t.tags?t.tags:{},"id"in t&&("string"==typeof t.id?this.id=parseInt(t.id,10):"number"!=typeof t.id||isNaN(t.id)||(this.id=t.id));}loadGeometry(){const e=[],r=1===this.feature.type?[this.feature.geometry]:this.feature.geometry;for(const i of r){const r=[];for(const e of i)r.push(new Point(e[0],e[1]));e.push(r);}return e}}class o extends VectorTileLayer{constructor(t,r){super(new Pbf),this.layers={_geojsonTileLayer:this},this.name="_geojsonTileLayer",this.version=r?r.version:1,this.extent=r?r.extent:4096,this.length=t.length,this.features=t;}feature(e){return new n(this.features[e],this.extent)}}function s(t){const r=new Pbf;return function(e,t){for(const r in e.layers)t.writeMessage(3,f,e.layers[r]);}(t,r),r.finish()}function a(e,t){const r={};for(const i in e)r[i]=new o(e[i].features,t),r[i].name=i,r[i].version=t?t.version:1,r[i].extent=t?t.extent:4096;return s({layers:r})}function f(e,t){t.writeVarintField(15,e.version||1),t.writeStringField(1,e.name||""),t.writeVarintField(5,e.extent||4096);const r={keys:[],values:[],keycache:{},valuecache:{}};for(let i=0;i<e.length;i++)r.feature=e.feature(i),t.writeMessage(2,u,r);const i=r.keys;for(const e of i)t.writeStringField(3,e);const n=r.values;for(const e of n)t.writeMessage(4,y,e);}function u(e,t){if(!e.feature)return;const r=e.feature;void 0!==r.id&&t.writeVarintField(1,r.id),t.writeMessage(2,c,e),t.writeVarintField(3,r.type),t.writeMessage(4,p,r);}function c(e,t){for(const r in e.feature?.properties){let i=e.feature.properties[r],n=e.keycache[r];if(null===i)continue;void 0===n&&(e.keys.push(r),n=e.keys.length-1,e.keycache[r]=n),t.writeVarint(n),"string"!=typeof i&&"boolean"!=typeof i&&"number"!=typeof i&&(i=JSON.stringify(i));const o=typeof i+":"+i;let s=e.valuecache[o];void 0===s&&(e.values.push(i),s=e.values.length-1,e.valuecache[o]=s),t.writeVarint(s);}}function l(e,t){return (t<<3)+(7&e)}function h(e){return e<<1^e>>31}function p(e,t){const r=e.loadGeometry(),i=e.type;let n=0,o=0;for(const s of r){let r=1;1===i&&(r=s.length),t.writeVarint(l(1,r));const a=3===i?s.length-1:s.length;for(let e=0;e<a;e++){1===e&&1!==i&&t.writeVarint(l(2,a-1));const r=s[e].x-n,f=s[e].y-o;t.writeVarint(h(r)),t.writeVarint(h(f)),n+=r,o+=f;}3===e.type&&t.writeVarint(l(7,1));}}function y(e,t){const r=typeof e;"string"===r?t.writeStringField(1,e):"boolean"===r?t.writeBooleanField(7,e):"number"===r&&(e%1!=0?t.writeDoubleField(3,e):e<0?t.writeSVarintField(6,e):t.writeVarintField(5,e));}
+class i{constructor(e,t){this.feature=e,this.type=e.type,this.properties=e.tags?e.tags:{},this.extent=t,"id"in e&&("string"==typeof e.id?this.id=parseInt(e.id,10):"number"!=typeof e.id||isNaN(e.id)||(this.id=e.id));}loadGeometry(){const e=[],i=1===this.feature.type?[this.feature.geometry]:this.feature.geometry;for(const n of i){const i=[];for(const e of n)i.push(new Point(e[0],e[1]));e.push(i);}return e}}const n="_geojsonTileLayer";class r{constructor(e,t){this.layers={[n]:this},this.name=n,this.version=t?t.version:1,this.extent=t?t.extent:4096,this.length=e.length,this.features=e;}feature(e){return new i(this.features[e],this.extent)}}function o(t){const i=new Pbf;return function(e,t){for(const i in e.layers)t.writeMessage(3,a,e.layers[i]);}(t,i),i.finish()}function s(e,t){const i={};for(const n in e)i[n]=new r(e[n].features,t),i[n].name=n,i[n].version=t?t.version:1,i[n].extent=t?t.extent:4096;return o({layers:i})}function a(e,t){t.writeVarintField(15,e.version||1),t.writeStringField(1,e.name||""),t.writeVarintField(5,e.extent||4096);const i={keys:[],values:[],keycache:{},valuecache:{}};for(let n=0;n<e.length;n++)i.feature=e.feature(n),t.writeMessage(2,f,i);const n=i.keys;for(const e of n)t.writeStringField(3,e);const r=i.values;for(const e of r)t.writeMessage(4,y,e);}function f(e,t){if(!e.feature)return;const i=e.feature;void 0!==i.id&&t.writeVarintField(1,i.id),t.writeMessage(2,c,e),t.writeVarintField(3,i.type),t.writeMessage(4,h,i);}function c(e,t){for(const i in e.feature?.properties){let n=e.feature.properties[i],r=e.keycache[i];if(null===n)continue;void 0===r&&(e.keys.push(i),r=e.keys.length-1,e.keycache[i]=r),t.writeVarint(r),"string"!=typeof n&&"boolean"!=typeof n&&"number"!=typeof n&&(n=JSON.stringify(n));const o=typeof n+":"+n;let s=e.valuecache[o];void 0===s&&(e.values.push(n),s=e.values.length-1,e.valuecache[o]=s),t.writeVarint(s);}}function u(e,t){return (t<<3)+(7&e)}function l(e){return e<<1^e>>31}function h(e,t){const i=e.loadGeometry(),n=e.type;let r=0,o=0;for(const s of i){let i=1;1===n&&(i=s.length),t.writeVarint(u(1,i));const a=3===n?s.length-1:s.length;for(let e=0;e<a;e++){1===e&&1!==n&&t.writeVarint(u(2,a-1));const i=s[e].x-r,f=s[e].y-o;t.writeVarint(l(i)),t.writeVarint(l(f)),r+=i,o+=f;}3===e.type&&t.writeVarint(u(7,1));}}function y(e,t){const i=typeof e;"string"===i?t.writeStringField(1,e):"boolean"===i?t.writeBooleanField(7,e):"number"===i&&(e%1!=0?t.writeDoubleField(3,e):e<0?t.writeSVarintField(6,e):t.writeVarintField(5,e));}
 
 const defaultOptions$1 = {
     minZoom: 0,   // min zoom to generate clusters on
@@ -50781,11 +50820,11 @@ class GeoJSONWorkerSource extends VectorTileWorkerSource {
             if (!geoJSONTile) {
                 return null;
             }
-            const geojsonWrapper = new o(geoJSONTile.features, { version: 2, extent: EXTENT$1 });
+            const geojsonWrapper = new r(geoJSONTile.features, { version: 2, extent: EXTENT$1 });
             // Encode the geojson-vt tile into binary vector tile form.  This
             // is a convenience that allows `FeatureIndex` to operate the same way
             // across `VectorTileSource` and `GeoJSONSource` data.
-            let pbf = s(geojsonWrapper);
+            let pbf = o(geojsonWrapper);
             if (pbf.byteOffset !== 0 || pbf.byteLength !== pbf.buffer.byteLength) {
                 // Compatibility with node Buffer (https://github.com/mapbox/pbf/issues/35)
                 pbf = new Uint8Array(pbf);

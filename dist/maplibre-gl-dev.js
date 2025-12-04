@@ -39,7 +39,7 @@ function define(moduleName, _dependencies, moduleFactory) {
 
 
 
-define('shared', ['exports'], (function (exports) { 'use strict';
+define('shared', ['exports'], (function (exports$1) { 'use strict';
 
 /******************************************************************************
 Copyright (c) Microsoft Corporation.
@@ -10269,7 +10269,7 @@ function testWebpTextureUpload(gl) {
  * use a lambda function to determine when the queue should be throttled (e.g. when isMoving())
  * and manually calling {@link processQueue} in the render loop.
  */
-exports.ImageRequest = void 0;
+exports$1.ImageRequest = void 0;
 (function (ImageRequest) {
     let imageRequestQueue;
     let currentParallelImageRequests;
@@ -10451,8 +10451,8 @@ exports.ImageRequest = void 0;
             image.src = url;
         });
     };
-})(exports.ImageRequest || (exports.ImageRequest = {}));
-exports.ImageRequest.resetRequestQueue();
+})(exports$1.ImageRequest || (exports$1.ImageRequest = {}));
+exports$1.ImageRequest.resetRequestQueue();
 
 function _addEventListener(type, listener, listenerList) {
     const listenerExists = listenerList[type] && listenerList[type].indexOf(listener) !== -1;
@@ -10739,6 +10739,16 @@ var source_vector = {
 	volatile: {
 		type: "boolean",
 		"default": false
+	},
+	encoding: {
+		type: "enum",
+		values: {
+			mvt: {
+			},
+			mlt: {
+			}
+		},
+		"default": "mvt"
 	},
 	"*": {
 		type: "*"
@@ -12684,10 +12694,11 @@ var paint_line = {
 		expression: {
 			interpolated: false,
 			parameters: [
-				"zoom"
+				"zoom",
+				"feature"
 			]
 		},
-		"property-type": "cross-faded"
+		"property-type": "cross-faded-data-driven"
 	},
 	"line-pattern": {
 		type: "resolvedImage",
@@ -21000,9 +21011,6 @@ function validateProperty(options, propertyType) {
     }
     const errors = [];
     if (options.layerType === 'symbol') {
-        if (propertyKey === 'text-field' && style && !style.glyphs) {
-            errors.push(new ValidationError(key, value, 'use of "text-field" requires a style "glyphs" property'));
-        }
         if (propertyKey === 'text-font' && isFunction$1(deepUnbundle(value)) && unbundle(value.type) === 'identity') {
             errors.push(new ValidationError(key, value, '"text-font" does not support identity functions'));
         }
@@ -21798,10 +21806,7 @@ validateStyleMin.paintProperty = wrapCleanErrors(injectValidateSpec(validatePain
 validateStyleMin.layoutProperty = wrapCleanErrors(injectValidateSpec(validateLayoutProperty$1));
 function injectValidateSpec(validator) {
     return function (options) {
-        return validator({
-            ...options,
-            validateSpec: validate,
-        });
+        return validator(Object.assign({}, options, { validateSpec: validate }));
     };
 }
 function sortErrors(errors) {
@@ -26827,6 +26832,37 @@ register('StructArrayLayout10ui20', StructArrayLayout10ui20);
 /**
  * @internal
  * Implementation of the StructArray layout:
+ * [0] - Uint16[8]
+ *
+ */
+class StructArrayLayout8ui16 extends StructArray {
+    _refreshViews() {
+        this.uint8 = new Uint8Array(this.arrayBuffer);
+        this.uint16 = new Uint16Array(this.arrayBuffer);
+    }
+    emplaceBack(v0, v1, v2, v3, v4, v5, v6, v7) {
+        const i = this.length;
+        this.resize(i + 1);
+        return this.emplace(i, v0, v1, v2, v3, v4, v5, v6, v7);
+    }
+    emplace(i, v0, v1, v2, v3, v4, v5, v6, v7) {
+        const o2 = i * 8;
+        this.uint16[o2 + 0] = v0;
+        this.uint16[o2 + 1] = v1;
+        this.uint16[o2 + 2] = v2;
+        this.uint16[o2 + 3] = v3;
+        this.uint16[o2 + 4] = v4;
+        this.uint16[o2 + 5] = v5;
+        this.uint16[o2 + 6] = v6;
+        this.uint16[o2 + 7] = v7;
+        return i;
+    }
+}
+StructArrayLayout8ui16.prototype.bytesPerElement = 16;
+register('StructArrayLayout8ui16', StructArrayLayout8ui16);
+/**
+ * @internal
+ * Implementation of the StructArray layout:
  * [0] - Int16[4]
  * [8] - Uint16[4]
  * [16] - Int16[4]
@@ -27512,6 +27548,8 @@ class LineLayoutArray extends StructArrayLayout2i4ub8 {
 class LineExtLayoutArray extends StructArrayLayout2f8 {
 }
 class PatternLayoutArray extends StructArrayLayout10ui20 {
+}
+class DashLayoutArray extends StructArrayLayout8ui16 {
 }
 class SymbolLayoutArray extends StructArrayLayout4i4ui4i24 {
 }
@@ -30369,12 +30407,12 @@ class LngLatBounds {
     }
 }
 
-exports.PerformanceMarkers = void 0;
+exports$1.PerformanceMarkers = void 0;
 (function (PerformanceMarkers) {
     PerformanceMarkers["create"] = "create";
     PerformanceMarkers["load"] = "load";
     PerformanceMarkers["fullLoad"] = "fullLoad";
-})(exports.PerformanceMarkers || (exports.PerformanceMarkers = {}));
+})(exports$1.PerformanceMarkers || (exports$1.PerformanceMarkers = {}));
 let lastFrameTime = null;
 let frameTimes = [];
 const minFramerateTarget = 60;
@@ -30398,13 +30436,13 @@ const PerformanceUtils = {
         frameTimes = [];
         performance.clearMeasures(loadTimeKey);
         performance.clearMeasures(fullLoadTimeKey);
-        for (const marker in exports.PerformanceMarkers) {
-            performance.clearMarks(exports.PerformanceMarkers[marker]);
+        for (const marker in exports$1.PerformanceMarkers) {
+            performance.clearMarks(exports$1.PerformanceMarkers[marker]);
         }
     },
     getPerformanceMetrics() {
-        performance.measure(loadTimeKey, exports.PerformanceMarkers.create, exports.PerformanceMarkers.load);
-        performance.measure(fullLoadTimeKey, exports.PerformanceMarkers.create, exports.PerformanceMarkers.fullLoad);
+        performance.measure(loadTimeKey, exports$1.PerformanceMarkers.create, exports$1.PerformanceMarkers.load);
+        performance.measure(fullLoadTimeKey, exports$1.PerformanceMarkers.create, exports$1.PerformanceMarkers.fullLoad);
         const loadTime = performance.getEntriesByName(loadTimeKey)[0].duration;
         const fullLoadTime = performance.getEntriesByName(fullLoadTimeKey)[0].duration;
         const totalFrames = frameTimes.length;
@@ -37054,7 +37092,7 @@ class ImageSource extends Evented {
             this.url = this.options.url;
             this._request = new AbortController();
             try {
-                const image = yield exports.ImageRequest.getImage(this.map._requestManager.transformRequest(this.url, "Image" /* ResourceType.Image */), this._request);
+                const image = yield exports$1.ImageRequest.getImage(this.map._requestManager.transformRequest(this.url, "Image" /* ResourceType.Image */), this._request);
                 this._request = null;
                 this._loaded = true;
                 if (image && image.data) {
@@ -38146,7 +38184,7 @@ class RasterTileSource extends Evented {
             const url = tile.tileID.canonical.url(this.tiles, this.map.getPixelRatio(), this.scheme);
             tile.abortController = new AbortController();
             try {
-                const response = yield exports.ImageRequest.getImage(this.map._requestManager.transformRequest(url, "Tile" /* ResourceType.Tile */), tile.abortController, this.map._refreshExpiredTiles);
+                const response = yield exports$1.ImageRequest.getImage(this.map._requestManager.transformRequest(url, "Tile" /* ResourceType.Tile */), tile.abortController, this.map._refreshExpiredTiles);
                 delete tile.abortController;
                 if (tile.aborted) {
                     tile.state = 'unloaded';
@@ -38393,7 +38431,7 @@ class RasterDEMTileSource extends RasterTileSource {
             tile.neighboringTiles = this._getNeighboringTiles(tile.tileID);
             tile.abortController = new AbortController();
             try {
-                const response = yield exports.ImageRequest.getImage(request, tile.abortController, this.map._refreshExpiredTiles);
+                const response = yield exports$1.ImageRequest.getImage(request, tile.abortController, this.map._refreshExpiredTiles);
                 delete tile.abortController;
                 if (tile.aborted) {
                     tile.state = 'unloaded';
@@ -39376,7 +39414,7 @@ function requireGeojsonRewind () {
 var geojsonRewindExports = requireGeojsonRewind();
 var rewind$1 = /*@__PURE__*/getDefaultExportFromCjs$1(geojsonRewindExports);
 
-class n extends VectorTileFeature{constructor(t,r){super(new Pbf,0,r,[],[]),this.feature=t,this.type=t.type,this.properties=t.tags?t.tags:{},"id"in t&&("string"==typeof t.id?this.id=parseInt(t.id,10):"number"!=typeof t.id||isNaN(t.id)||(this.id=t.id));}loadGeometry(){const e=[],r=1===this.feature.type?[this.feature.geometry]:this.feature.geometry;for(const i of r){const r=[];for(const e of i)r.push(new Point(e[0],e[1]));e.push(r);}return e}}class o extends VectorTileLayer{constructor(t,r){super(new Pbf),this.layers={_geojsonTileLayer:this},this.name="_geojsonTileLayer",this.version=r?r.version:1,this.extent=r?r.extent:4096,this.length=t.length,this.features=t;}feature(e){return new n(this.features[e],this.extent)}}function s(t){const r=new Pbf;return function(e,t){for(const r in e.layers)t.writeMessage(3,f,e.layers[r]);}(t,r),r.finish()}function a(e,t){const r={};for(const i in e)r[i]=new o(e[i].features,t),r[i].name=i,r[i].version=t?t.version:1,r[i].extent=t?t.extent:4096;return s({layers:r})}function f(e,t){t.writeVarintField(15,e.version||1),t.writeStringField(1,e.name||""),t.writeVarintField(5,e.extent||4096);const r={keys:[],values:[],keycache:{},valuecache:{}};for(let i=0;i<e.length;i++)r.feature=e.feature(i),t.writeMessage(2,u,r);const i=r.keys;for(const e of i)t.writeStringField(3,e);const n=r.values;for(const e of n)t.writeMessage(4,y,e);}function u(e,t){if(!e.feature)return;const r=e.feature;void 0!==r.id&&t.writeVarintField(1,r.id),t.writeMessage(2,c,e),t.writeVarintField(3,r.type),t.writeMessage(4,p,r);}function c(e,t){for(const r in e.feature?.properties){let i=e.feature.properties[r],n=e.keycache[r];if(null===i)continue;void 0===n&&(e.keys.push(r),n=e.keys.length-1,e.keycache[r]=n),t.writeVarint(n),"string"!=typeof i&&"boolean"!=typeof i&&"number"!=typeof i&&(i=JSON.stringify(i));const o=typeof i+":"+i;let s=e.valuecache[o];void 0===s&&(e.values.push(i),s=e.values.length-1,e.valuecache[o]=s),t.writeVarint(s);}}function l(e,t){return (t<<3)+(7&e)}function h(e){return e<<1^e>>31}function p(e,t){const r=e.loadGeometry(),i=e.type;let n=0,o=0;for(const s of r){let r=1;1===i&&(r=s.length),t.writeVarint(l(1,r));const a=3===i?s.length-1:s.length;for(let e=0;e<a;e++){1===e&&1!==i&&t.writeVarint(l(2,a-1));const r=s[e].x-n,f=s[e].y-o;t.writeVarint(h(r)),t.writeVarint(h(f)),n+=r,o+=f;}3===e.type&&t.writeVarint(l(7,1));}}function y(e,t){const r=typeof e;"string"===r?t.writeStringField(1,e):"boolean"===r?t.writeBooleanField(7,e):"number"===r&&(e%1!=0?t.writeDoubleField(3,e):e<0?t.writeSVarintField(6,e):t.writeVarintField(5,e));}
+class i{constructor(e,t){this.feature=e,this.type=e.type,this.properties=e.tags?e.tags:{},this.extent=t,"id"in e&&("string"==typeof e.id?this.id=parseInt(e.id,10):"number"!=typeof e.id||isNaN(e.id)||(this.id=e.id));}loadGeometry(){const e=[],i=1===this.feature.type?[this.feature.geometry]:this.feature.geometry;for(const n of i){const i=[];for(const e of n)i.push(new Point(e[0],e[1]));e.push(i);}return e}}const n="_geojsonTileLayer";class r{constructor(e,t){this.layers={[n]:this},this.name=n,this.version=t?t.version:1,this.extent=t?t.extent:4096,this.length=e.length,this.features=e;}feature(e){return new i(this.features[e],this.extent)}}function o(t){const i=new Pbf;return function(e,t){for(const i in e.layers)t.writeMessage(3,a,e.layers[i]);}(t,i),i.finish()}function s(e,t){const i={};for(const n in e)i[n]=new r(e[n].features,t),i[n].name=n,i[n].version=t?t.version:1,i[n].extent=t?t.extent:4096;return o({layers:i})}function a(e,t){t.writeVarintField(15,e.version||1),t.writeStringField(1,e.name||""),t.writeVarintField(5,e.extent||4096);const i={keys:[],values:[],keycache:{},valuecache:{}};for(let n=0;n<e.length;n++)i.feature=e.feature(n),t.writeMessage(2,f,i);const n=i.keys;for(const e of n)t.writeStringField(3,e);const r=i.values;for(const e of r)t.writeMessage(4,y,e);}function f(e,t){if(!e.feature)return;const i=e.feature;void 0!==i.id&&t.writeVarintField(1,i.id),t.writeMessage(2,c,e),t.writeVarintField(3,i.type),t.writeMessage(4,h,i);}function c(e,t){for(const i in e.feature?.properties){let n=e.feature.properties[i],r=e.keycache[i];if(null===n)continue;void 0===r&&(e.keys.push(i),r=e.keys.length-1,e.keycache[i]=r),t.writeVarint(r),"string"!=typeof n&&"boolean"!=typeof n&&"number"!=typeof n&&(n=JSON.stringify(n));const o=typeof n+":"+n;let s=e.valuecache[o];void 0===s&&(e.values.push(n),s=e.values.length-1,e.valuecache[o]=s),t.writeVarint(s);}}function u(e,t){return (t<<3)+(7&e)}function l(e){return e<<1^e>>31}function h(e,t){const i=e.loadGeometry(),n=e.type;let r=0,o=0;for(const s of i){let i=1;1===n&&(i=s.length),t.writeVarint(u(1,i));const a=3===n?s.length-1:s.length;for(let e=0;e<a;e++){1===e&&1!==n&&t.writeVarint(u(2,a-1));const i=s[e].x-r,f=s[e].y-o;t.writeVarint(l(i)),t.writeVarint(l(f)),r+=i,o+=f;}3===e.type&&t.writeVarint(u(7,1));}}function y(e,t){const i=typeof e;"string"===i?t.writeStringField(1,e):"boolean"===i?t.writeBooleanField(7,e):"number"===i&&(e%1!=0?t.writeDoubleField(3,e):e<0?t.writeSVarintField(6,e):t.writeVarintField(5,e));}
 
 const ARRAY_TYPES = [
     Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array,
@@ -41030,11 +41068,11 @@ class GeoJSONWorkerSource extends VectorTileWorkerSource {
             if (!geoJSONTile) {
                 return null;
             }
-            const geojsonWrapper = new o(geoJSONTile.features, { version: 2, extent: EXTENT$1 });
+            const geojsonWrapper = new r(geoJSONTile.features, { version: 2, extent: EXTENT$1 });
             // Encode the geojson-vt tile into binary vector tile form.  This
             // is a convenience that allows `FeatureIndex` to operate the same way
             // across `VectorTileSource` and `GeoJSONSource` data.
-            let pbf = s(geojsonWrapper);
+            let pbf = o(geojsonWrapper);
             if (pbf.byteOffset !== 0 || pbf.byteLength !== pbf.buffer.byteLength) {
                 // Compatibility with node Buffer (https://github.com/mapbox/pbf/issues/35)
                 pbf = new Uint8Array(pbf);
@@ -48007,6 +48045,7 @@ class VerticalPerspectiveTransform {
         const matrix = clone$6(this._globeViewProjMatrixNoCorrectionInverted);
         scale$5(matrix, matrix, [1, 1, -1]);
         this._cachedFrustum = Frustum.fromInvProjectionMatrix(matrix, 1, 0, this._cachedClippingPlane, true);
+        this._helper._pixelPerMeter = mercatorZfromAltitude(1, this.center.lat) * this.worldSize;
     }
     calculateFogMatrix(_unwrappedTileID) {
         warnOnce('calculateFogMatrix is not supported on globe projection.');
@@ -51218,198 +51257,198 @@ function registerGlobeProjection() {
     };
 }
 
-exports.AJAXError = AJAXError;
-exports.Actor = Actor;
-exports.AlphaImage = AlphaImage;
-exports.Bounds = Bounds;
-exports.CanonicalTileID = CanonicalTileID;
-exports.CanvasSource = CanvasSource;
-exports.CollisionBoxArray = CollisionBoxArray;
-exports.Color = Color;
-exports.ColorMode = ColorMode;
-exports.CullFaceMode = CullFaceMode;
-exports.DataConstantProperty = DataConstantProperty;
-exports.DepthMode = DepthMode;
-exports.EXTENT = EXTENT$1;
-exports.EdgeInsets = EdgeInsets;
-exports.ErrorEvent = ErrorEvent;
-exports.EvaluationParameters = EvaluationParameters;
-exports.Event = Event;
-exports.Evented = Evented;
-exports.GLOBAL_DISPATCHER_ID = GLOBAL_DISPATCHER_ID;
-exports.GeoJSONFeature = GeoJSONFeature;
-exports.GeoJSONSource = GeoJSONSource;
-exports.ImagePosition = ImagePosition;
-exports.ImageSource = ImageSource;
-exports.LineStripIndexArray = LineStripIndexArray;
-exports.LngLat = LngLat;
-exports.LngLatBounds = LngLatBounds;
-exports.MercatorCameraHelper = MercatorCameraHelper;
-exports.MercatorCoordinate = MercatorCoordinate;
-exports.MercatorShaderDefine = MercatorShaderDefine;
-exports.MercatorShaderVariantKey = MercatorShaderVariantKey;
-exports.MercatorTransform = MercatorTransform;
-exports.Mesh = Mesh;
-exports.NORTH_POLE_Y = NORTH_POLE_Y;
-exports.OverscaledTileID = OverscaledTileID;
-exports.PerformanceUtils = PerformanceUtils;
-exports.Point = Point;
-exports.Pos3dArray = Pos3dArray;
-exports.PosArray = PosArray;
-exports.Properties = Properties;
-exports.RGBAImage = RGBAImage;
-exports.RasterBoundsArray = RasterBoundsArray;
-exports.RasterDEMTileSource = RasterDEMTileSource;
-exports.RasterTileSource = RasterTileSource;
-exports.SOUTH_POLE_Y = SOUTH_POLE_Y;
-exports.SegmentVector = SegmentVector;
-exports.StencilMode = StencilMode;
-exports.Texture = Texture;
-exports.Transitionable = Transitionable;
-exports.TriangleIndexArray = TriangleIndexArray;
-exports.Uniform1f = Uniform1f;
-exports.Uniform1i = Uniform1i;
-exports.Uniform2f = Uniform2f;
-exports.Uniform3f = Uniform3f;
-exports.Uniform4f = Uniform4f;
-exports.UniformColor = UniformColor;
-exports.UniformMatrix4f = UniformMatrix4f;
-exports.VectorTileSource = VectorTileSource;
-exports.VideoSource = VideoSource;
-exports.Worker = Worker;
-exports.ZoomHistory = ZoomHistory;
-exports.__awaiter = __awaiter;
-exports.addProtocol = addProtocol;
-exports.backgroundPatternUniforms = backgroundPatternUniforms;
-exports.backgroundUniforms = backgroundUniforms;
-exports.bezier = bezier;
-exports.browser = browser;
-exports.circleUniforms = circleUniforms;
-exports.clamp = clamp$1;
-exports.clone = clone;
-exports.collisionCircleUniforms = collisionCircleUniforms;
-exports.collisionUniforms = collisionUniforms;
-exports.config = config;
-exports.copy = copy$5;
-exports.coveringTiles = coveringTiles;
-exports.coveringZoomLevel = coveringZoomLevel;
-exports.create = create$5;
-exports.createCalculateTileZoomFunction = createCalculateTileZoomFunction;
-exports.createLayout = createLayout;
-exports.createMat4f64 = createMat4f64;
-exports.createStyleLayer = createStyleLayer;
-exports.createTileMesh = createTileMesh;
-exports.deepEqual = deepEqual$1;
-exports.defaultEasing = defaultEasing;
-exports.derefLayers = derefLayers;
-exports.diff = diff;
-exports.earthRadius = earthRadius;
-exports.emitValidationErrors = emitValidationErrors;
-exports.emptyStyle = emptyStyle;
-exports.equals = equals$6;
-exports.exactEquals = exactEquals$5;
-exports.extend = extend$1;
-exports.featureFilter = featureFilter;
-exports.fillExtrusionPatternUniforms = fillExtrusionPatternUniforms;
-exports.fillExtrusionUniforms = fillExtrusionUniforms;
-exports.fillOutlinePatternUniforms = fillOutlinePatternUniforms;
-exports.fillOutlineUniforms = fillOutlineUniforms;
-exports.fillPatternUniforms = fillPatternUniforms;
-exports.fillUniforms = fillUniforms;
-exports.filterObject = filterObject;
-exports.fromScaling = fromScaling;
-exports.getAngleDelta = getAngleDelta;
-exports.getArrayBuffer = getArrayBuffer;
-exports.getGlobeRadiusPixels = getGlobeRadiusPixels;
-exports.getJSON = getJSON;
-exports.getMercatorHorizon = getMercatorHorizon;
-exports.getReferrer = getReferrer;
-exports.heatmapTextureUniforms = heatmapTextureUniforms;
-exports.heatmapUniforms = heatmapUniforms;
-exports.hillshadePrepareUniforms = hillshadePrepareUniforms;
-exports.hillshadeUniforms = hillshadeUniforms;
-exports.identity = identity$2;
-exports.interpolateFactory = interpolateFactory;
-exports.isAbortError = isAbortError;
-exports.isCustomStyleLayer = isCustomStyleLayer;
-exports.isImageBitmap = isImageBitmap;
-exports.isInBoundsForZoomLngLat = isInBoundsForZoomLngLat;
-exports.isPointableEvent = isPointableEvent;
-exports.isSafari = isSafari;
-exports.isTouchableEvent = isTouchableEvent;
-exports.isTouchableOrPointableType = isTouchableOrPointableType;
-exports.isWebGL2 = isWebGL2;
-exports.keysDifference = keysDifference;
-exports.lineGradientUniforms = lineGradientUniforms;
-exports.linePatternUniforms = linePatternUniforms;
-exports.lineSDFUniforms = lineSDFUniforms;
-exports.lineUniforms = lineUniforms;
-exports.makeRequest = makeRequest;
-exports.mapObject = mapObject;
-exports.multiply = multiply$5;
-exports.ortho = ortho;
-exports.parseCacheControl = parseCacheControl;
-exports.parseGlyphPbf = parseGlyphPbf;
-exports.pick = pick;
-exports.posAttributes = posAttributes;
-exports.potpack = potpack;
-exports.projectionErrorMeasurementUniforms = projectionErrorMeasurementUniforms;
-exports.rasterUniforms = rasterUniforms;
-exports.registerBackground = registerBackground;
-exports.registerCanvasSource = registerCanvasSource;
-exports.registerCircle = registerCircle;
-exports.registerColorRelief = registerColorRelief;
-exports.registerFill = registerFill;
-exports.registerFillExtrusion = registerFillExtrusion;
-exports.registerGeoJSONSource = registerGeoJSONSource;
-exports.registerGlobeProjection = registerGlobeProjection;
-exports.registerHeatmap = registerHeatmap;
-exports.registerHillshade = registerHillshade;
-exports.registerImageSource = registerImageSource;
-exports.registerLine = registerLine;
-exports.registerMercatorProjection = registerMercatorProjection;
-exports.registerRaster = registerRaster;
-exports.registerRasterDEMSource = registerRasterDEMSource;
-exports.registerRasterSource = registerRasterSource;
-exports.registerSymbol = registerSymbol;
-exports.registerTerrain = registerTerrain;
-exports.registerUtilityShaders = registerUtilityShaders;
-exports.registerVectorSource = registerVectorSource;
-exports.registerVerticalPerspectiveProjection = registerVerticalPerspectiveProjection;
-exports.registerVideoSource = registerVideoSource;
-exports.registry = registry;
-exports.removeProtocol = removeProtocol;
-exports.rotateX = rotateX$3;
-exports.rotateY = rotateY$3;
-exports.rotateZ = rotateZ$3;
-exports.scale = scale$5;
-exports.scaleZoom = scaleZoom;
-exports.sphericalToCartesian = sphericalToCartesian;
-exports.symbolIconUniforms = symbolIconUniforms;
-exports.symbolSDFUniforms = symbolSDFUniforms;
-exports.symbolTextAndIconUniforms = symbolTextAndIconUniforms;
-exports.terrainCoordsUniforms = terrainCoordsUniforms;
-exports.terrainDepthUniforms = terrainDepthUniforms;
-exports.terrainPreludeUniforms = terrainPreludeUniforms;
-exports.terrainUniforms = terrainUniforms;
-exports.toEvaluationFeature = toEvaluationFeature;
-exports.transformMat4 = transformMat4$2;
-exports.transformMat4$1 = transformMat4$1;
-exports.transformMat4$2 = transformMat4;
-exports.translate = translate$2;
-exports.transpileFragmentShaderToWebGL1 = transpileFragmentShaderToWebGL1;
-exports.transpileVertexShaderToWebGL1 = transpileVertexShaderToWebGL1;
-exports.unicodeBlockLookup = unicodeBlockLookup;
-exports.uniqueId = uniqueId;
-exports.v8Spec = v8Spec;
-exports.validateCustomStyleLayer = validateCustomStyleLayer;
-exports.validateLight = validateLight;
-exports.validateSky = validateSky;
-exports.validateStyle = validateStyle;
-exports.warnOnce = warnOnce;
-exports.webpSupported = webpSupported;
-exports.wrap = wrap$1;
-exports.zoomScale = zoomScale;
+exports$1.AJAXError = AJAXError;
+exports$1.Actor = Actor;
+exports$1.AlphaImage = AlphaImage;
+exports$1.Bounds = Bounds;
+exports$1.CanonicalTileID = CanonicalTileID;
+exports$1.CanvasSource = CanvasSource;
+exports$1.CollisionBoxArray = CollisionBoxArray;
+exports$1.Color = Color;
+exports$1.ColorMode = ColorMode;
+exports$1.CullFaceMode = CullFaceMode;
+exports$1.DataConstantProperty = DataConstantProperty;
+exports$1.DepthMode = DepthMode;
+exports$1.EXTENT = EXTENT$1;
+exports$1.EdgeInsets = EdgeInsets;
+exports$1.ErrorEvent = ErrorEvent;
+exports$1.EvaluationParameters = EvaluationParameters;
+exports$1.Event = Event;
+exports$1.Evented = Evented;
+exports$1.GLOBAL_DISPATCHER_ID = GLOBAL_DISPATCHER_ID;
+exports$1.GeoJSONFeature = GeoJSONFeature;
+exports$1.GeoJSONSource = GeoJSONSource;
+exports$1.ImagePosition = ImagePosition;
+exports$1.ImageSource = ImageSource;
+exports$1.LineStripIndexArray = LineStripIndexArray;
+exports$1.LngLat = LngLat;
+exports$1.LngLatBounds = LngLatBounds;
+exports$1.MercatorCameraHelper = MercatorCameraHelper;
+exports$1.MercatorCoordinate = MercatorCoordinate;
+exports$1.MercatorShaderDefine = MercatorShaderDefine;
+exports$1.MercatorShaderVariantKey = MercatorShaderVariantKey;
+exports$1.MercatorTransform = MercatorTransform;
+exports$1.Mesh = Mesh;
+exports$1.NORTH_POLE_Y = NORTH_POLE_Y;
+exports$1.OverscaledTileID = OverscaledTileID;
+exports$1.PerformanceUtils = PerformanceUtils;
+exports$1.Point = Point;
+exports$1.Pos3dArray = Pos3dArray;
+exports$1.PosArray = PosArray;
+exports$1.Properties = Properties;
+exports$1.RGBAImage = RGBAImage;
+exports$1.RasterBoundsArray = RasterBoundsArray;
+exports$1.RasterDEMTileSource = RasterDEMTileSource;
+exports$1.RasterTileSource = RasterTileSource;
+exports$1.SOUTH_POLE_Y = SOUTH_POLE_Y;
+exports$1.SegmentVector = SegmentVector;
+exports$1.StencilMode = StencilMode;
+exports$1.Texture = Texture;
+exports$1.Transitionable = Transitionable;
+exports$1.TriangleIndexArray = TriangleIndexArray;
+exports$1.Uniform1f = Uniform1f;
+exports$1.Uniform1i = Uniform1i;
+exports$1.Uniform2f = Uniform2f;
+exports$1.Uniform3f = Uniform3f;
+exports$1.Uniform4f = Uniform4f;
+exports$1.UniformColor = UniformColor;
+exports$1.UniformMatrix4f = UniformMatrix4f;
+exports$1.VectorTileSource = VectorTileSource;
+exports$1.VideoSource = VideoSource;
+exports$1.Worker = Worker;
+exports$1.ZoomHistory = ZoomHistory;
+exports$1.__awaiter = __awaiter;
+exports$1.addProtocol = addProtocol;
+exports$1.backgroundPatternUniforms = backgroundPatternUniforms;
+exports$1.backgroundUniforms = backgroundUniforms;
+exports$1.bezier = bezier;
+exports$1.browser = browser;
+exports$1.circleUniforms = circleUniforms;
+exports$1.clamp = clamp$1;
+exports$1.clone = clone;
+exports$1.collisionCircleUniforms = collisionCircleUniforms;
+exports$1.collisionUniforms = collisionUniforms;
+exports$1.config = config;
+exports$1.copy = copy$5;
+exports$1.coveringTiles = coveringTiles;
+exports$1.coveringZoomLevel = coveringZoomLevel;
+exports$1.create = create$5;
+exports$1.createCalculateTileZoomFunction = createCalculateTileZoomFunction;
+exports$1.createLayout = createLayout;
+exports$1.createMat4f64 = createMat4f64;
+exports$1.createStyleLayer = createStyleLayer;
+exports$1.createTileMesh = createTileMesh;
+exports$1.deepEqual = deepEqual$1;
+exports$1.defaultEasing = defaultEasing;
+exports$1.derefLayers = derefLayers;
+exports$1.diff = diff;
+exports$1.earthRadius = earthRadius;
+exports$1.emitValidationErrors = emitValidationErrors;
+exports$1.emptyStyle = emptyStyle;
+exports$1.equals = equals$6;
+exports$1.exactEquals = exactEquals$5;
+exports$1.extend = extend$1;
+exports$1.featureFilter = featureFilter;
+exports$1.fillExtrusionPatternUniforms = fillExtrusionPatternUniforms;
+exports$1.fillExtrusionUniforms = fillExtrusionUniforms;
+exports$1.fillOutlinePatternUniforms = fillOutlinePatternUniforms;
+exports$1.fillOutlineUniforms = fillOutlineUniforms;
+exports$1.fillPatternUniforms = fillPatternUniforms;
+exports$1.fillUniforms = fillUniforms;
+exports$1.filterObject = filterObject;
+exports$1.fromScaling = fromScaling;
+exports$1.getAngleDelta = getAngleDelta;
+exports$1.getArrayBuffer = getArrayBuffer;
+exports$1.getGlobeRadiusPixels = getGlobeRadiusPixels;
+exports$1.getJSON = getJSON;
+exports$1.getMercatorHorizon = getMercatorHorizon;
+exports$1.getReferrer = getReferrer;
+exports$1.heatmapTextureUniforms = heatmapTextureUniforms;
+exports$1.heatmapUniforms = heatmapUniforms;
+exports$1.hillshadePrepareUniforms = hillshadePrepareUniforms;
+exports$1.hillshadeUniforms = hillshadeUniforms;
+exports$1.identity = identity$2;
+exports$1.interpolateFactory = interpolateFactory;
+exports$1.isAbortError = isAbortError;
+exports$1.isCustomStyleLayer = isCustomStyleLayer;
+exports$1.isImageBitmap = isImageBitmap;
+exports$1.isInBoundsForZoomLngLat = isInBoundsForZoomLngLat;
+exports$1.isPointableEvent = isPointableEvent;
+exports$1.isSafari = isSafari;
+exports$1.isTouchableEvent = isTouchableEvent;
+exports$1.isTouchableOrPointableType = isTouchableOrPointableType;
+exports$1.isWebGL2 = isWebGL2;
+exports$1.keysDifference = keysDifference;
+exports$1.lineGradientUniforms = lineGradientUniforms;
+exports$1.linePatternUniforms = linePatternUniforms;
+exports$1.lineSDFUniforms = lineSDFUniforms;
+exports$1.lineUniforms = lineUniforms;
+exports$1.makeRequest = makeRequest;
+exports$1.mapObject = mapObject;
+exports$1.multiply = multiply$5;
+exports$1.ortho = ortho;
+exports$1.parseCacheControl = parseCacheControl;
+exports$1.parseGlyphPbf = parseGlyphPbf;
+exports$1.pick = pick;
+exports$1.posAttributes = posAttributes;
+exports$1.potpack = potpack;
+exports$1.projectionErrorMeasurementUniforms = projectionErrorMeasurementUniforms;
+exports$1.rasterUniforms = rasterUniforms;
+exports$1.registerBackground = registerBackground;
+exports$1.registerCanvasSource = registerCanvasSource;
+exports$1.registerCircle = registerCircle;
+exports$1.registerColorRelief = registerColorRelief;
+exports$1.registerFill = registerFill;
+exports$1.registerFillExtrusion = registerFillExtrusion;
+exports$1.registerGeoJSONSource = registerGeoJSONSource;
+exports$1.registerGlobeProjection = registerGlobeProjection;
+exports$1.registerHeatmap = registerHeatmap;
+exports$1.registerHillshade = registerHillshade;
+exports$1.registerImageSource = registerImageSource;
+exports$1.registerLine = registerLine;
+exports$1.registerMercatorProjection = registerMercatorProjection;
+exports$1.registerRaster = registerRaster;
+exports$1.registerRasterDEMSource = registerRasterDEMSource;
+exports$1.registerRasterSource = registerRasterSource;
+exports$1.registerSymbol = registerSymbol;
+exports$1.registerTerrain = registerTerrain;
+exports$1.registerUtilityShaders = registerUtilityShaders;
+exports$1.registerVectorSource = registerVectorSource;
+exports$1.registerVerticalPerspectiveProjection = registerVerticalPerspectiveProjection;
+exports$1.registerVideoSource = registerVideoSource;
+exports$1.registry = registry;
+exports$1.removeProtocol = removeProtocol;
+exports$1.rotateX = rotateX$3;
+exports$1.rotateY = rotateY$3;
+exports$1.rotateZ = rotateZ$3;
+exports$1.scale = scale$5;
+exports$1.scaleZoom = scaleZoom;
+exports$1.sphericalToCartesian = sphericalToCartesian;
+exports$1.symbolIconUniforms = symbolIconUniforms;
+exports$1.symbolSDFUniforms = symbolSDFUniforms;
+exports$1.symbolTextAndIconUniforms = symbolTextAndIconUniforms;
+exports$1.terrainCoordsUniforms = terrainCoordsUniforms;
+exports$1.terrainDepthUniforms = terrainDepthUniforms;
+exports$1.terrainPreludeUniforms = terrainPreludeUniforms;
+exports$1.terrainUniforms = terrainUniforms;
+exports$1.toEvaluationFeature = toEvaluationFeature;
+exports$1.transformMat4 = transformMat4$2;
+exports$1.transformMat4$1 = transformMat4$1;
+exports$1.transformMat4$2 = transformMat4;
+exports$1.translate = translate$2;
+exports$1.transpileFragmentShaderToWebGL1 = transpileFragmentShaderToWebGL1;
+exports$1.transpileVertexShaderToWebGL1 = transpileVertexShaderToWebGL1;
+exports$1.unicodeBlockLookup = unicodeBlockLookup;
+exports$1.uniqueId = uniqueId;
+exports$1.v8Spec = v8Spec;
+exports$1.validateCustomStyleLayer = validateCustomStyleLayer;
+exports$1.validateLight = validateLight;
+exports$1.validateSky = validateSky;
+exports$1.validateStyle = validateStyle;
+exports$1.warnOnce = warnOnce;
+exports$1.webpSupported = webpSupported;
+exports$1.wrap = wrap$1;
+exports$1.zoomScale = zoomScale;
 
 }));
 
@@ -51433,15 +51472,15 @@ return features.Worker;
 
 }));
 
-define('index', ['exports', './shared'], (function (exports, features) { 'use strict';
+define('index', ['exports', './shared'], (function (exports$1, features) { 'use strict';
 
 var name = "maplibre-gl";
 var description = "BSD licensed community fork of mapbox-gl, a WebGL interactive maps library";
 var version$2 = "5.7.2";
 var main = "dist/maplibre-gl.js";
-var module = "dist/maplibre-gl.mjs";
+var module$1 = "dist/maplibre-gl.mjs";
 var style = "dist/maplibre-gl.css";
-var exports$1 = {
+var exports$1$1 = {
 	".": {
 		types: "./dist/maplibre-gl.d.ts",
 		"default": "./dist/maplibre-gl.mjs"
@@ -51642,9 +51681,9 @@ var packageJSON = {
 	description: description,
 	version: version$2,
 	main: main,
-	module: module,
+	module: module$1,
 	style: style,
-	exports: exports$1,
+	exports: exports$1$1,
 	license: license,
 	homepage: homepage,
 	funding: funding,
@@ -52831,7 +52870,6 @@ function workerFactory() {
     // Check if we should use module workers (for ESM builds)
     // Either explicitly set via setWorkerUrl(url, true) or auto-detect .mjs extension
     const useModuleWorker = features.config.WORKER_IS_MODULE;
-    console.log('useModuleWorker', useModuleWorker);
     if (useModuleWorker) {
         try {
             return new Worker(features.config.WORKER_URL, { type: 'module' });
@@ -69158,127 +69196,127 @@ features.registerGlobeProjection();
 // ===== UTILITIES =====
 features.registerUtilityShaders();
 
-exports.AJAXError = features.AJAXError;
-exports.CanonicalTileID = features.CanonicalTileID;
-exports.CanvasSource = features.CanvasSource;
-exports.EdgeInsets = features.EdgeInsets;
-exports.ErrorEvent = features.ErrorEvent;
-exports.EvaluationParameters = features.EvaluationParameters;
-exports.Event = features.Event;
-exports.Evented = features.Evented;
-exports.GeoJSONSource = features.GeoJSONSource;
-Object.defineProperty(exports, "ImageRequest", {
+exports$1.AJAXError = features.AJAXError;
+exports$1.CanonicalTileID = features.CanonicalTileID;
+exports$1.CanvasSource = features.CanvasSource;
+exports$1.EdgeInsets = features.EdgeInsets;
+exports$1.ErrorEvent = features.ErrorEvent;
+exports$1.EvaluationParameters = features.EvaluationParameters;
+exports$1.Event = features.Event;
+exports$1.Evented = features.Evented;
+exports$1.GeoJSONSource = features.GeoJSONSource;
+Object.defineProperty(exports$1, "ImageRequest", {
 enumerable: true,
 get: function () { return features.ImageRequest; }
 });
-exports.ImageSource = features.ImageSource;
-exports.LngLat = features.LngLat;
-exports.LngLatBounds = features.LngLatBounds;
-exports.MercatorCameraHelper = features.MercatorCameraHelper;
-exports.MercatorCoordinate = features.MercatorCoordinate;
-exports.MercatorTransform = features.MercatorTransform;
-Object.defineProperty(exports, "PerformanceMarkers", {
+exports$1.ImageSource = features.ImageSource;
+exports$1.LngLat = features.LngLat;
+exports$1.LngLatBounds = features.LngLatBounds;
+exports$1.MercatorCameraHelper = features.MercatorCameraHelper;
+exports$1.MercatorCoordinate = features.MercatorCoordinate;
+exports$1.MercatorTransform = features.MercatorTransform;
+Object.defineProperty(exports$1, "PerformanceMarkers", {
 enumerable: true,
 get: function () { return features.PerformanceMarkers; }
 });
-exports.PerformanceUtils = features.PerformanceUtils;
-exports.Point = features.Point;
-exports.RGBAImage = features.RGBAImage;
-exports.RasterDEMTileSource = features.RasterDEMTileSource;
-exports.RasterTileSource = features.RasterTileSource;
-exports.VectorTileSource = features.VectorTileSource;
-exports.VideoSource = features.VideoSource;
-exports.Worker = features.Worker;
-exports.addProtocol = features.addProtocol;
-exports.browser = features.browser;
-exports.config = features.config;
-exports.coveringTiles = features.coveringTiles;
-exports.createCalculateTileZoomFunction = features.createCalculateTileZoomFunction;
-exports.createTileMesh = features.createTileMesh;
-exports.extend = features.extend;
-exports.getJSON = features.getJSON;
-exports.isAbortError = features.isAbortError;
-exports.isImageBitmap = features.isImageBitmap;
-exports.pick = features.pick;
-exports.registerBackground = features.registerBackground;
-exports.registerCanvasSource = features.registerCanvasSource;
-exports.registerCircle = features.registerCircle;
-exports.registerColorRelief = features.registerColorRelief;
-exports.registerFill = features.registerFill;
-exports.registerFillExtrusion = features.registerFillExtrusion;
-exports.registerGeoJSONSource = features.registerGeoJSONSource;
-exports.registerGlobeProjection = features.registerGlobeProjection;
-exports.registerHeatmap = features.registerHeatmap;
-exports.registerHillshade = features.registerHillshade;
-exports.registerImageSource = features.registerImageSource;
-exports.registerLine = features.registerLine;
-exports.registerMercatorProjection = features.registerMercatorProjection;
-exports.registerRaster = features.registerRaster;
-exports.registerRasterDEMSource = features.registerRasterDEMSource;
-exports.registerRasterSource = features.registerRasterSource;
-exports.registerSymbol = features.registerSymbol;
-exports.registerTerrain = features.registerTerrain;
-exports.registerUtilityShaders = features.registerUtilityShaders;
-exports.registerVectorSource = features.registerVectorSource;
-exports.registerVerticalPerspectiveProjection = features.registerVerticalPerspectiveProjection;
-exports.registerVideoSource = features.registerVideoSource;
-exports.removeProtocol = features.removeProtocol;
-exports.uniqueId = features.uniqueId;
-exports.warnOnce = features.warnOnce;
-exports.webpSupported = features.webpSupported;
-exports.AttributionControl = AttributionControl;
-exports.BoxZoomHandler = BoxZoomHandler;
-exports.Camera = Camera;
-exports.CooperativeGesturesHandler = CooperativeGesturesHandler;
-exports.DOM = DOM;
-exports.DoubleClickZoomHandler = DoubleClickZoomHandler;
-exports.DragPanHandler = DragPanHandler;
-exports.DragRotateHandler = DragRotateHandler;
-exports.FullscreenControl = FullscreenControl;
-exports.GeolocateControl = GeolocateControl;
-exports.GlobeControl = GlobeControl;
-exports.HandlerManager = HandlerManager;
-exports.Hash = Hash;
-exports.KeyboardHandler = KeyboardHandler;
-exports.LogoControl = LogoControl;
-exports.Map = Map;
-exports.MapMouseEvent = MapMouseEvent;
-exports.MapTouchEvent = MapTouchEvent;
-exports.MapWheelEvent = MapWheelEvent;
-exports.Marker = Marker;
-exports.NavigationControl = NavigationControl;
-exports.Painter = Painter;
-exports.Popup = Popup;
-exports.RenderToTexture = RenderToTexture;
-exports.RequestManager = RequestManager;
-exports.ScaleControl = ScaleControl;
-exports.ScrollZoomHandler = ScrollZoomHandler;
-exports.Style = Style;
-exports.TaskQueue = TaskQueue;
-exports.Terrain = Terrain;
-exports.TerrainControl = TerrainControl;
-exports.TwoFingersTouchPitchHandler = TwoFingersTouchPitchHandler;
-exports.TwoFingersTouchRotateHandler = TwoFingersTouchRotateHandler;
-exports.TwoFingersTouchZoomHandler = TwoFingersTouchZoomHandler;
-exports.TwoFingersTouchZoomRotateHandler = TwoFingersTouchZoomRotateHandler;
-exports.addSourceType = addSourceType;
-exports.clearPrewarmedResources = clearPrewarmedResources;
-exports.defaultAttributionControlOptions = defaultAttributionControlOptions;
-exports.defaultLocale = defaultLocale;
-exports.getMaxParallelImageRequests = getMaxParallelImageRequests;
-exports.getRTLTextPluginStatus = getRTLTextPluginStatus;
-exports.getVersion = getVersion;
-exports.getWorkerCount = getWorkerCount;
-exports.getWorkerUrl = getWorkerUrl;
-exports.importScriptInWorkers = importScriptInWorkers;
-exports.isFramebufferNotCompleteError = isFramebufferNotCompleteError;
-exports.packageJSON = packageJSON;
-exports.prewarm = prewarm;
-exports.setMaxParallelImageRequests = setMaxParallelImageRequests;
-exports.setRTLTextPlugin = setRTLTextPlugin;
-exports.setWorkerCount = setWorkerCount;
-exports.setWorkerUrl = setWorkerUrl;
-exports.throttle = throttle;
+exports$1.PerformanceUtils = features.PerformanceUtils;
+exports$1.Point = features.Point;
+exports$1.RGBAImage = features.RGBAImage;
+exports$1.RasterDEMTileSource = features.RasterDEMTileSource;
+exports$1.RasterTileSource = features.RasterTileSource;
+exports$1.VectorTileSource = features.VectorTileSource;
+exports$1.VideoSource = features.VideoSource;
+exports$1.Worker = features.Worker;
+exports$1.addProtocol = features.addProtocol;
+exports$1.browser = features.browser;
+exports$1.config = features.config;
+exports$1.coveringTiles = features.coveringTiles;
+exports$1.createCalculateTileZoomFunction = features.createCalculateTileZoomFunction;
+exports$1.createTileMesh = features.createTileMesh;
+exports$1.extend = features.extend;
+exports$1.getJSON = features.getJSON;
+exports$1.isAbortError = features.isAbortError;
+exports$1.isImageBitmap = features.isImageBitmap;
+exports$1.pick = features.pick;
+exports$1.registerBackground = features.registerBackground;
+exports$1.registerCanvasSource = features.registerCanvasSource;
+exports$1.registerCircle = features.registerCircle;
+exports$1.registerColorRelief = features.registerColorRelief;
+exports$1.registerFill = features.registerFill;
+exports$1.registerFillExtrusion = features.registerFillExtrusion;
+exports$1.registerGeoJSONSource = features.registerGeoJSONSource;
+exports$1.registerGlobeProjection = features.registerGlobeProjection;
+exports$1.registerHeatmap = features.registerHeatmap;
+exports$1.registerHillshade = features.registerHillshade;
+exports$1.registerImageSource = features.registerImageSource;
+exports$1.registerLine = features.registerLine;
+exports$1.registerMercatorProjection = features.registerMercatorProjection;
+exports$1.registerRaster = features.registerRaster;
+exports$1.registerRasterDEMSource = features.registerRasterDEMSource;
+exports$1.registerRasterSource = features.registerRasterSource;
+exports$1.registerSymbol = features.registerSymbol;
+exports$1.registerTerrain = features.registerTerrain;
+exports$1.registerUtilityShaders = features.registerUtilityShaders;
+exports$1.registerVectorSource = features.registerVectorSource;
+exports$1.registerVerticalPerspectiveProjection = features.registerVerticalPerspectiveProjection;
+exports$1.registerVideoSource = features.registerVideoSource;
+exports$1.removeProtocol = features.removeProtocol;
+exports$1.uniqueId = features.uniqueId;
+exports$1.warnOnce = features.warnOnce;
+exports$1.webpSupported = features.webpSupported;
+exports$1.AttributionControl = AttributionControl;
+exports$1.BoxZoomHandler = BoxZoomHandler;
+exports$1.Camera = Camera;
+exports$1.CooperativeGesturesHandler = CooperativeGesturesHandler;
+exports$1.DOM = DOM;
+exports$1.DoubleClickZoomHandler = DoubleClickZoomHandler;
+exports$1.DragPanHandler = DragPanHandler;
+exports$1.DragRotateHandler = DragRotateHandler;
+exports$1.FullscreenControl = FullscreenControl;
+exports$1.GeolocateControl = GeolocateControl;
+exports$1.GlobeControl = GlobeControl;
+exports$1.HandlerManager = HandlerManager;
+exports$1.Hash = Hash;
+exports$1.KeyboardHandler = KeyboardHandler;
+exports$1.LogoControl = LogoControl;
+exports$1.Map = Map;
+exports$1.MapMouseEvent = MapMouseEvent;
+exports$1.MapTouchEvent = MapTouchEvent;
+exports$1.MapWheelEvent = MapWheelEvent;
+exports$1.Marker = Marker;
+exports$1.NavigationControl = NavigationControl;
+exports$1.Painter = Painter;
+exports$1.Popup = Popup;
+exports$1.RenderToTexture = RenderToTexture;
+exports$1.RequestManager = RequestManager;
+exports$1.ScaleControl = ScaleControl;
+exports$1.ScrollZoomHandler = ScrollZoomHandler;
+exports$1.Style = Style;
+exports$1.TaskQueue = TaskQueue;
+exports$1.Terrain = Terrain;
+exports$1.TerrainControl = TerrainControl;
+exports$1.TwoFingersTouchPitchHandler = TwoFingersTouchPitchHandler;
+exports$1.TwoFingersTouchRotateHandler = TwoFingersTouchRotateHandler;
+exports$1.TwoFingersTouchZoomHandler = TwoFingersTouchZoomHandler;
+exports$1.TwoFingersTouchZoomRotateHandler = TwoFingersTouchZoomRotateHandler;
+exports$1.addSourceType = addSourceType;
+exports$1.clearPrewarmedResources = clearPrewarmedResources;
+exports$1.defaultAttributionControlOptions = defaultAttributionControlOptions;
+exports$1.defaultLocale = defaultLocale;
+exports$1.getMaxParallelImageRequests = getMaxParallelImageRequests;
+exports$1.getRTLTextPluginStatus = getRTLTextPluginStatus;
+exports$1.getVersion = getVersion;
+exports$1.getWorkerCount = getWorkerCount;
+exports$1.getWorkerUrl = getWorkerUrl;
+exports$1.importScriptInWorkers = importScriptInWorkers;
+exports$1.isFramebufferNotCompleteError = isFramebufferNotCompleteError;
+exports$1.packageJSON = packageJSON;
+exports$1.prewarm = prewarm;
+exports$1.setMaxParallelImageRequests = setMaxParallelImageRequests;
+exports$1.setRTLTextPlugin = setRTLTextPlugin;
+exports$1.setWorkerCount = setWorkerCount;
+exports$1.setWorkerUrl = setWorkerUrl;
+exports$1.throttle = throttle;
 
 }));
 
