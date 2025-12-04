@@ -92,7 +92,7 @@ export class GeoJSONWorkerSource extends VectorTileWorkerSource {
         }
 
         return {
-            vectorTile: geojsonWrapper,
+            vectorTile: geojsonWrapper as any,
             rawData: pbf.buffer
         };
     }

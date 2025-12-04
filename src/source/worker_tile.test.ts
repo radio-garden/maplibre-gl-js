@@ -50,7 +50,7 @@ describe('worker tile', () => {
         }]);
 
         const tile = createWorkerTile();
-        const result = await tile.parse(createWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        const result = await tile.parse(createWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         expect(result.buckets[0]).toBeTruthy();
     });
 
@@ -65,7 +65,7 @@ describe('worker tile', () => {
         }]);
 
         const tile = createWorkerTile();
-        const result = await tile.parse(createLineWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        const result = await tile.parse(createLineWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         expect(result.buckets[0]).toBeTruthy();
         expect(result.buckets[0].layers[0].layout._values['line-join'].value.value).toBe('bevel');
     });
@@ -83,7 +83,7 @@ describe('worker tile', () => {
         const tile = createWorkerTile({
             globalState: {test: 'bevel'}
         });
-        const result = await tile.parse(createLineWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        const result = await tile.parse(createLineWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         expect(result.buckets[0]).toBeTruthy();
         expect(result.buckets[0].layers[0].layout._values['line-join'].value.value).toBe('bevel');
     });
@@ -101,7 +101,7 @@ describe('worker tile', () => {
         const tile = createWorkerTile({
             globalState: {test: 1}
         });
-        const result = await tile.parse(createLineWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        const result = await tile.parse(createLineWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         expect(result.buckets[0]).toBeTruthy();
         expect(result.buckets[0].layers[0].paint._values['fill-extrusion-height'].value.value).toBe(1);
     });
@@ -115,7 +115,7 @@ describe('worker tile', () => {
         }]);
 
         const tile = createWorkerTile();
-        const result = await tile.parse(createWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        const result = await tile.parse(createWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         expect(result.buckets).toHaveLength(0);
     });
 
@@ -307,7 +307,7 @@ describe('worker tile', () => {
 
         const tile = createWorkerTile({globalState});
         globalState.size = 12;
-        await tile.parse(createLineWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        await tile.parse(createLineWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         const layer = layerIndex._layers['layer-id'];
         layer.recalculate({} as EvaluationParameters, []);
         const layout = layer.layout as PossiblyEvaluated<SymbolLayoutProps, SymbolLayoutPropsPossiblyEvaluated>;
@@ -328,7 +328,7 @@ describe('worker tile', () => {
         ], {radius: 15, color: '#FF0000'});
 
         const tile = createWorkerTile({});
-        await tile.parse(createLineWrapper(), layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
+        await tile.parse(createLineWrapper() as any, layerIndex, [], {} as any, SubdivisionGranularitySetting.noSubdivision);
         const layer = layerIndex._layers['circle'];
         layer.recalculate({zoom: 0} as EvaluationParameters, []);
         const paint = layer.paint as PossiblyEvaluated<CirclePaintProps, CirclePaintPropsPossiblyEvaluated>;
