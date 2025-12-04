@@ -16,8 +16,6 @@ export function workerFactory() {
     // Either explicitly set via setWorkerUrl(url, true) or auto-detect .mjs extension
     const useModuleWorker = config.WORKER_IS_MODULE;
 
-    console.log('useModuleWorker', useModuleWorker);
-
     if (useModuleWorker) {
         try {
             return new Worker(config.WORKER_URL, {type: 'module'});
