@@ -399,6 +399,7 @@ export class Style extends Evented {
             this._loadStyleRequest = null;
             this._load(response.data, options, previousStyle);
         }).catch((error) => {
+            console.error('Error while loading URL', error);
             this._loadStyleRequest = null;
             if (error && !abortController.signal.aborted) { // ignore abort
                 this.fire(new ErrorEvent(error));
@@ -414,7 +415,9 @@ export class Style extends Evented {
             this._frameRequest = null;
             options.validate = options.validate !== false;
             this._load(json, options, previousStyle);
-        }).catch(() => {}); // ignore abort
+        }).catch((error) => {
+            console.error('Error while loading JSON', error);
+        }); // ignore abort
     }
 
     loadEmpty() {

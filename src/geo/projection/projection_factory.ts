@@ -4,6 +4,7 @@ import type {ProjectionSpecification} from '@maplibre/maplibre-gl-style-spec';
 import type {Projection} from './projection';
 import type {ITransform} from '../transform_interface';
 import type {ICameraHelper} from './camera_helper';
+import {assertNotNullish} from '../../util/assert';
 
 export function createProjectionFromName(name: ProjectionSpecification['type']): {
     projection: Projection;
@@ -12,6 +13,8 @@ export function createProjectionFromName(name: ProjectionSpecification['type']):
 } {
     // Handle array type (for interpolated projections) - use globe factory
     if (Array.isArray(name)) {
+        assertNotNullish(registry.projection.globe, 'Could not find globe projection in the registry. Did you forget to registerGlobeProjection()?');
+
         const globeProjection = new registry.projection.globe.projection({type: name});
         return {
             projection: globeProjection,
@@ -22,6 +25,8 @@ export function createProjectionFromName(name: ProjectionSpecification['type']):
 
     // Special handling for 'globe' - use default interpolation
     if (name === 'globe') {
+        assertNotNullish(registry.projection.globe, 'Could not find globe projection in the registry. Did you forget to registerGlobeProjection()?');
+
         const globeProjection = new registry.projection.globe.projection({type: [
             'interpolate',
             ['linear'],
@@ -39,7 +44,9 @@ export function createProjectionFromName(name: ProjectionSpecification['type']):
     }
 
     // Check if projection is registered
-    if(typeof name === 'string' && name in registry.projection){
+    if(typeof name === 'string'){
+        assertNotNullish(registry.projection[name], `Could not find ${name} projection in the registry. Did you forget to register${[name.slice(0,1).toUpperCase(), name.slice(1)].join('')}()?`);
+
         return {
             projection: new registry.projection[name].projection(),
             transform: new registry.projection[name].transform(),
@@ -47,5 +54,5 @@ export function createProjectionFromName(name: ProjectionSpecification['type']):
         };
     }
 
-    throw `Unknown projection name: ${name}. Falling back to mercator projection.`;
+    throw new Error(`Unknown projection name: ${name}. Falling back to mercator projection.`);
 }
