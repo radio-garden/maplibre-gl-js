@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Core Build - Raster Tiles Only</title>
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body,
+        #map {
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script type="module">
+        import * as maplibregl from "../dist/maplibre-gl-core-dev.mjs"
+
+        maplibregl.registerImageSource();
+        maplibregl.registerRasterDEMSource();
+        maplibregl.registerRasterSource();
+        maplibregl.registerRaster();
+        maplibregl.registerMercatorProjection();
+        maplibregl.registerUtilityShaders();
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    'raster-tiles': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '&copy; OpenStreetMap contributors'
+                    }
+                },
+                layers: [
+                    {
+                        id: 'simple-tiles',
+                        type: 'raster',
+                        source: 'raster-tiles'
+                    }
+                ]
+            },
+            center: [0, 0],
+            zoom: 1
+        });
+    </script>
+</body>
+
+</html>

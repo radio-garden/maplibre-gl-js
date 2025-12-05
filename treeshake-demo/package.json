@@ -1,0 +1,17 @@
+{
+  "name": "treeshake-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "compare": "pnpm build && node test-builds.js"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "maplibre-gl": "link:.."
+  }
+}
