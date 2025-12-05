@@ -1,13 +1,14 @@
 import type Point from '@mapbox/point-geometry';
 import {StyleLayer, type QueryIntersectsFeatureParams} from '../style_layer';
 
-import {CircleBucket} from '../../data/bucket/circle_bucket';
+import type {CircleBucket} from '../../data/bucket/circle_bucket';
 import {circleIntersection, getMaximumPaintValue, projectQueryGeometry, translateDistance, translate} from '../query_utils';
 import properties, {type CircleLayoutPropsPossiblyEvaluated, type CirclePaintPropsPossiblyEvaluated} from './circle_style_layer_properties.g';
 import {type Transitionable, type Transitioning, type Layout, type PossiblyEvaluated} from '../properties';
 import type {LayerSpecification} from '@maplibre/maplibre-gl-style-spec';
 import type {Bucket, BucketParameters} from '../../data/bucket';
 import type {CircleLayoutProps, CirclePaintProps} from './circle_style_layer_properties.g';
+import {registry} from '../../registry';
 
 export const isCircleStyleLayer = (layer: StyleLayer): layer is CircleStyleLayer => layer.type === 'circle';
 
@@ -27,7 +28,7 @@ export class CircleStyleLayer extends StyleLayer {
     }
 
     createBucket(parameters: BucketParameters<any>) {
-        return new CircleBucket(parameters);
+        return new registry.bucket.circle(parameters);
     }
 
     queryRadius(bucket: Bucket): number {

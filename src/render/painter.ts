@@ -7,8 +7,7 @@ import {RasterBoundsArray, PosArray, TriangleIndexArray, LineStripIndexArray} fr
 import rasterBoundsAttributes from '../data/raster_bounds_attributes';
 import posAttributes from '../data/pos_attributes';
 import {type ProgramConfiguration} from '../data/program_configuration';
-import {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
-import {shaders} from '../shaders/shaders';
+import {registry} from '../registry';
 import {Program} from './program';
 import {programUniforms} from './program/program_uniforms';
 import {Context} from '../gl/context';
@@ -18,19 +17,8 @@ import {ColorMode} from '../gl/color_mode';
 import {CullFaceMode} from '../gl/cull_face_mode';
 import {Texture} from './texture';
 import {Color} from '@maplibre/maplibre-gl-style-spec';
-import {drawSymbols} from './draw_symbol';
-import {drawCircles} from './draw_circle';
-import {drawHeatmap} from './draw_heatmap';
-import {drawLine} from './draw_line';
-import {drawFill} from './draw_fill';
-import {drawFillExtrusion} from './draw_fill_extrusion';
-import {drawHillshade} from './draw_hillshade';
-import {drawColorRelief} from './draw_color_relief';
-import {drawRaster} from './draw_raster';
-import {drawBackground} from './draw_background';
 import {drawDebug, drawDebugPadding, selectDebugSource} from './draw_debug';
 import {drawCustom} from './draw_custom';
-import {drawDepth, drawCoords} from './draw_terrain';
 import {type OverscaledTileID} from '../source/tile_id';
 import {drawSky, drawAtmosphere} from './draw_sky';
 import {Mesh} from './mesh';
@@ -50,17 +38,8 @@ import type {ResolvedImage} from '@maplibre/maplibre-gl-style-spec';
 import type {RenderToTexture} from './render_to_texture';
 import type {ProjectionData} from '../geo/projection/projection_data';
 import {coveringTiles} from '../geo/projection/covering_tiles';
-import {isSymbolStyleLayer} from '../style/style_layer/symbol_style_layer';
-import {isCircleStyleLayer} from '../style/style_layer/circle_style_layer';
-import {isHeatmapStyleLayer} from '../style/style_layer/heatmap_style_layer';
-import {isLineStyleLayer} from '../style/style_layer/line_style_layer';
-import {isFillStyleLayer} from '../style/style_layer/fill_style_layer';
-import {isFillExtrusionStyleLayer} from '../style/style_layer/fill_extrusion_style_layer';
-import {isHillshadeStyleLayer} from '../style/style_layer/hillshade_style_layer';
-import {isColorReliefStyleLayer} from '../style/style_layer/color_relief_style_layer';
-import {isRasterStyleLayer} from '../style/style_layer/raster_style_layer';
-import {isBackgroundStyleLayer} from '../style/style_layer/background_style_layer';
 import {isCustomStyleLayer} from '../style/style_layer/custom_style_layer';
+import type {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
 
 export type RenderPass = 'offscreen' | 'opaque' | 'translucent';
 
@@ -126,7 +105,7 @@ export class Painter {
     id: string;
     _showOverdrawInspector: boolean;
     cache: {[_: string]: Program<any>};
-    crossTileSymbolIndex: CrossTileSymbolIndex;
+    crossTileSymbolIndex?: CrossTileSymbolIndex;
     symbolFadeChange: number;
     debugOverlayTexture: Texture;
     debugOverlayCanvas: HTMLCanvasElement;
@@ -148,7 +127,7 @@ export class Painter {
         this.numSublayers = SourceCache.maxUnderzooming + SourceCache.maxOverzooming + 1;
         this.depthEpsilon = 1 / Math.pow(2, 16);
 
-        this.crossTileSymbolIndex = new CrossTileSymbolIndex();
+        this.crossTileSymbolIndex = registry.symbol.CrossTileSymbolIndex ? new registry.symbol.CrossTileSymbolIndex() : undefined;
     }
 
     /*
@@ -484,7 +463,7 @@ export class Painter {
         this.imageManager = style.imageManager;
         this.glyphManager = style.glyphManager;
 
-        this.symbolFadeChange = style.placement.symbolFadeChange(browser.now());
+        this.symbolFadeChange = style.placement?.symbolFadeChange(browser.now()) ?? 1;
 
         this.imageManager.beginFrame();
 
@@ -650,8 +629,8 @@ export class Painter {
         mat4.copy(prevMatrix, currMatrix);
         this.terrainFacilitator.renderTime = Date.now();
         this.terrainFacilitator.dirty = false;
-        drawDepth(this, this.style.map.terrain);
-        drawCoords(this, this.style.map.terrain);
+        registry.terrain.drawDepth?.(this, this.style.map.terrain);
+        registry.terrain.drawCoords?.(this, this.style.map.terrain);
     }
 
     renderLayer(painter: Painter, sourceCache: SourceCache, layer: StyleLayer, coords: Array<OverscaledTileID>, renderOptions: RenderOptions) {
@@ -659,28 +638,16 @@ export class Painter {
         if (layer.type !== 'background' && layer.type !== 'custom' && !(coords || []).length) return;
         this.id = layer.id;
 
-        if (isSymbolStyleLayer(layer)) {
-            drawSymbols(painter, sourceCache, layer, coords, this.style.placement.variableOffsets, renderOptions);
-        } else if (isCircleStyleLayer(layer)) {
-            drawCircles(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isHeatmapStyleLayer(layer)) {
-            drawHeatmap(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isLineStyleLayer(layer)) {
-            drawLine(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isFillStyleLayer(layer)) {
-            drawFill(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isFillExtrusionStyleLayer(layer)) {
-            drawFillExtrusion(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isHillshadeStyleLayer(layer)) {
-            drawHillshade(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isColorReliefStyleLayer(layer)) {
-            drawColorRelief(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isRasterStyleLayer(layer)) {
-            drawRaster(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isBackgroundStyleLayer(layer)) {
-            drawBackground(painter, sourceCache, layer, coords, renderOptions);
-        } else if (isCustomStyleLayer(layer)) {
+        // Custom layers use a special draw function
+        if (isCustomStyleLayer(layer)) {
             drawCustom(painter, sourceCache, layer, renderOptions);
+            return;
+        }
+
+        // Use registry for all layer types
+        const drawFn = registry.draw[layer.type];
+        if (drawFn) {
+            drawFn(painter, sourceCache, layer, coords, renderOptions);
         }
     }
 
@@ -726,7 +693,7 @@ export class Painter {
 
         const projection = this.style.projection;
 
-        const projectionPrelude = forceSimpleProjection ? shaders.projectionMercator : projection.shaderPreludeCode;
+        const projectionPrelude = forceSimpleProjection ? registry.shader.projectionMercator : projection.shaderPreludeCode;
         const projectionDefine = forceSimpleProjection ? MercatorShaderDefine : projection.shaderDefine;
         const projectionKey = `/${forceSimpleProjection ? MercatorShaderVariantKey : projection.shaderVariantName}`;
 
@@ -738,9 +705,10 @@ export class Painter {
         const key = name + configurationKey + projectionKey + overdrawKey + terrainKey + definesKey;
 
         if (!this.cache[key]) {
+            const shader = registry.shader[name];
             this.cache[key] = new Program(
                 this.context,
-                shaders[name],
+                shader,
                 programConfiguration,
                 programUniforms[name],
                 this._showOverdrawInspector,

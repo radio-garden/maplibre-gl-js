@@ -1,4 +1,5 @@
-import {type PreparedShader, shaders, transpileVertexShaderToWebGL1, transpileFragmentShaderToWebGL1} from '../shaders/shaders';
+import {type PreparedShader, transpileVertexShaderToWebGL1, transpileFragmentShaderToWebGL1} from '../shaders/shaders';
+import {registry} from '../registry';
 import {type ProgramConfiguration} from '../data/program_configuration';
 import {VertexArrayObject} from './vertex_array_object';
 import {type Context} from '../gl/context';
@@ -62,7 +63,8 @@ export class Program<Us extends UniformBindings> {
         const dynamicAttrInfo = configuration ? configuration.getBinderAttributes() : [];
         const allAttrInfo = staticAttrInfo.concat(dynamicAttrInfo);
 
-        const preludeUniformsInfo = shaders.prelude.staticUniforms ? getTokenizedAttributesAndUniforms(shaders.prelude.staticUniforms) : [];
+        const prelude = registry.shader.prelude;
+        const preludeUniformsInfo = prelude.staticUniforms ? getTokenizedAttributesAndUniforms(prelude.staticUniforms) : [];
         const projectionPreludeUniformsInfo = projectionPrelude.staticUniforms ? getTokenizedAttributesAndUniforms(projectionPrelude.staticUniforms) : [];
         const staticUniformsInfo = source.staticUniforms ? getTokenizedAttributesAndUniforms(source.staticUniforms) : [];
         const dynamicUniformsInfo = configuration ? configuration.getBinderUniforms() : [];
@@ -90,8 +92,19 @@ export class Program<Us extends UniformBindings> {
             defines.push(...extraDefines);
         }
 
-        let fragmentSource = defines.concat(shaders.prelude.fragmentSource, projectionPrelude.fragmentSource, source.fragmentSource).join('\n');
-        let vertexSource = defines.concat(shaders.prelude.vertexSource, projectionPrelude.vertexSource, source.vertexSource).join('\n');
+        const fragmentParts = [prelude.fragmentSource, projectionPrelude.fragmentSource, source.fragmentSource].filter(s => s);
+        const vertexParts = [prelude.vertexSource, projectionPrelude.vertexSource, source.vertexSource].filter(s => s);
+
+        // If either vertex or fragment shader is missing, create noop program
+        if (!source.fragmentSource || !source.vertexSource) {
+            this.failedToCreate = true;
+            this.attributes = {};
+            this.numAttributes = 0;
+            return;
+        }
+
+        let fragmentSource = defines.concat(fragmentParts).join('\n');
+        let vertexSource = defines.concat(vertexParts).join('\n');
 
         if (!isWebGL2(gl)) {
             fragmentSource = transpileFragmentShaderToWebGL1(fragmentSource);

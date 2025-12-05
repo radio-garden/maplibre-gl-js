@@ -1,5 +1,4 @@
 import {Event, ErrorEvent, Evented} from '../util/evented';
-import {type StyleLayer} from './style_layer';
 import {createStyleLayer} from './create_style_layer';
 import {loadSprite} from './load_sprite';
 import {ImageManager} from '../render/image_manager';
@@ -14,30 +13,21 @@ import {ResourceType} from '../util/request_manager';
 import {browser} from '../util/browser';
 import {Dispatcher} from '../util/dispatcher';
 import {validateStyle, emitValidationErrors as _emitValidationErrors} from './validate_style';
-import {type Source} from '../source/source';
-import {type QueryRenderedFeaturesOptions, type QueryRenderedFeaturesOptionsStrict, type QueryRenderedFeaturesResults, type QueryRenderedFeaturesResultsItem, type QuerySourceFeatureOptions, queryRenderedFeatures, queryRenderedSymbols, querySourceFeatures} from '../source/query_features';
 import {SourceCache} from '../source/source_cache';
-import {type GeoJSONSource} from '../source/geojson_source';
 import {latest as styleSpec, derefLayers, emptyStyle, diff as diffStyles, type DiffCommand} from '@maplibre/maplibre-gl-style-spec';
 import {getGlobalWorkerPool} from '../util/global_worker_pool';
 import {rtlMainThreadPluginFactory} from '../source/rtl_text_plugin_main_thread';
 import {RTLPluginLoadedEventName} from '../source/rtl_text_plugin_status';
-import {PauseablePlacement} from './pauseable_placement';
 import {ZoomHistory} from './zoom_history';
-import {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
 import {validateCustomStyleLayer} from './style_layer/custom_style_layer';
+import {registry} from '../registry';
+import {type QueryRenderedFeaturesOptions, type QueryRenderedFeaturesOptionsStrict, type QueryRenderedFeaturesResults, type QueryRenderedFeaturesResultsItem, type QuerySourceFeatureOptions, queryRenderedFeatures, queryRenderedSymbols, querySourceFeatures} from '../source/query_features';
+
+import type {StyleLayer} from './style_layer';
 import type {MapGeoJSONFeature} from '../util/vectortile_to_geojson';
 import type Point from '@mapbox/point-geometry';
-
-// We're skipping validation errors with the `source.canvas` identifier in order
-// to continue to allow canvas sources to be added at runtime/updated in
-// smart setStyle (see https://github.com/mapbox/mapbox-gl-js/pull/6424):
-const emitValidationErrors = (evented: Evented, errors?: ReadonlyArray<{
-    message: string;
-    identifier?: string;
-}> | null) =>
-    _emitValidationErrors(evented, errors && errors.filter(error => error.identifier !== 'source.canvas'));
-
+import type {Source} from '../source/source';
+import type {GeoJSONSource} from '../source/geojson_source';
 import type {Map} from '../ui/map';
 import type {IReadonlyTransform, ITransform} from '../geo/transform_interface';
 import type {StyleImage} from './style_image';
@@ -68,6 +58,17 @@ import {
 import {type Projection} from '../geo/projection/projection';
 import {createProjectionFromName} from '../geo/projection/projection_factory';
 import type {OverscaledTileID} from '../source/tile_id';
+import type {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
+import type {PauseablePlacement} from './pauseable_placement';
+
+// We're skipping validation errors with the `source.canvas` identifier in order
+// to continue to allow canvas sources to be added at runtime/updated in
+// smart setStyle (see https://github.com/mapbox/mapbox-gl-js/pull/6424):
+const emitValidationErrors = (evented: Evented, errors?: ReadonlyArray<{
+    message: string;
+    identifier?: string;
+}> | null) =>
+    _emitValidationErrors(evented, errors && errors.filter(error => error.identifier !== 'source.canvas'));
 
 const empty = emptyStyle() as StyleSpecification;
 /**
@@ -231,9 +232,9 @@ export class Style extends Evented {
     // image ids of all images loaded (sprite + user)
     _availableImages: Array<string>;
     _globalState: Record<string, any>;
-    crossTileSymbolIndex: CrossTileSymbolIndex;
-    pauseablePlacement: PauseablePlacement;
-    placement: Placement;
+    crossTileSymbolIndex?: CrossTileSymbolIndex;
+    pauseablePlacement?: PauseablePlacement;
+    placement?: Placement;
     z: number;
 
     constructor(map: Map, options: StyleOptions = {}) {
@@ -252,7 +253,6 @@ export class Style extends Evented {
         const glyphLang = map._container?.lang || (typeof document !== 'undefined' && document.documentElement?.lang) || undefined;
         this.glyphManager = new GlyphManager(map._requestManager, options.localIdeographFontFamily, glyphLang);
         this.lineAtlas = new LineAtlas(256, 512);
-        this.crossTileSymbolIndex = new CrossTileSymbolIndex();
 
         this._spritesImagesIds = {};
         this._layers = {};
@@ -473,6 +473,7 @@ export class Style extends Evented {
         this._serializedLayers = null;
         for (const layer of dereferencedLayers) {
             const styledLayer = createStyleLayer(layer, this._globalState);
+            if (!styledLayer) continue; // Skip if layer type not registered
             styledLayer.setEventedParent(this, {layer: {id: layer.id}});
             this._layers[layer.id] = styledLayer;
         }
@@ -1017,7 +1018,7 @@ export class Style extends Evented {
         this._checkLoaded();
 
         if (this.sourceCaches[id] === undefined) throw new Error(`There is no source with this ID=${id}`);
-        const geojsonSource: GeoJSONSource = (this.sourceCaches[id].getSource() as any);
+        const geojsonSource: GeoJSONSource = this.sourceCaches[id].getSource() as any;
         if (geojsonSource.type !== 'geojson') throw new Error(`geojsonSource.type is ${geojsonSource.type}, which is !== 'geojson`);
 
         geojsonSource.setData(data);
@@ -1069,6 +1070,7 @@ export class Style extends Evented {
                 `layers.${id}`, layerObject, {arrayIndex: -1}, options)) return;
 
             layer = createStyleLayer(layerObject as LayerSpecification | CustomLayerInterface, this._globalState);
+            if (!layer) return; // Skip if layer type not registered
             this._validateLayer(layer);
 
             layer.setEventedParent(this, {layer: {id}});
@@ -1759,6 +1761,16 @@ export class Style extends Evented {
     }
 
     _updatePlacement(transform: ITransform, showCollisionBoxes: boolean, fadeDuration: number, crossSourceCollisions: boolean, forceFullPlacement: boolean = false) {
+        // Early return if symbol system not registered or no symbol layers
+        if (!registry.symbol.CrossTileSymbolIndex || !registry.symbol.PauseablePlacement || !this._order.some(id => this._layers[id].type === 'symbol')) {
+            return false;
+        }
+
+        // Lazy-initialize CrossTileSymbolIndex if needed
+        if (!this.crossTileSymbolIndex) {
+            this.crossTileSymbolIndex = new registry.symbol.CrossTileSymbolIndex();
+        }
+
         let symbolBucketsChanged = false;
         let placementCommitted = false;
 
@@ -1789,7 +1801,7 @@ export class Style extends Evented {
         forceFullPlacement = forceFullPlacement || this._layerOrderChanged || fadeDuration === 0;
 
         if (forceFullPlacement || !this.pauseablePlacement || (this.pauseablePlacement.isDone() && !this.placement.stillRecent(browser.now(), transform.zoom))) {
-            this.pauseablePlacement = new PauseablePlacement(transform, this.map.terrain, this._order, forceFullPlacement, showCollisionBoxes, fadeDuration, crossSourceCollisions, this.placement);
+            this.pauseablePlacement = new registry.symbol.PauseablePlacement(transform, this.map.terrain, this._order, forceFullPlacement, showCollisionBoxes, fadeDuration, crossSourceCollisions, this.placement);
             this._layerOrderChanged = false;
         }
 

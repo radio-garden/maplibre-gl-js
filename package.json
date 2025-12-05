@@ -5,6 +5,20 @@
   "main": "dist/maplibre-gl.js",
   "module": "dist/maplibre-gl.mjs",
   "style": "dist/maplibre-gl.css",
+  "exports": {
+    ".": {
+      "types": "./dist/maplibre-gl.d.ts",
+      "default": "./dist/maplibre-gl.mjs"
+    },
+    "./core": {
+      "types": "./dist/maplibre-gl-core.d.ts",
+      "default": "./dist/maplibre-gl-core.mjs"
+    },
+    "./worker": {
+      "types": "./dist/maplibre-gl-worker.d.ts",
+      "default": "./dist/maplibre-gl-worker.mjs"
+    }
+  },
   "license": "BSD-3-Clause",
   "homepage": "https://maplibre.org/",
   "funding": "https://github.com/maplibre/maplibre-gl-js?sponsor=1",
@@ -136,7 +150,7 @@
     "generate-shaders": "node --no-warnings --loader ts-node/esm build/generate-shaders.ts",
     "generate-struct-arrays": "node --no-warnings --loader ts-node/esm build/generate-struct-arrays.ts",
     "generate-style-code": "node --no-warnings --loader ts-node/esm build/generate-style-code.ts",
-    "generate-typings": "dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl.d.ts ./src/index.ts",
+    "generate-typings": "dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl.d.ts ./src/index.ts && dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl-core.d.ts ./src/core.ts && dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl-worker.d.ts ./src/worker.ts",
     "generate-docs": "typedoc && node --no-warnings --loader ts-node/esm build/generate-docs.ts",
     "generate-images": "node --no-warnings --loader ts-node/esm build/generate-doc-images.ts",
     "build-dist": "npm run build-css && npm run generate-typings && npm run generate-shaders && npm run build-dev && npm run build-csp-dev && npm run build-prod && npm run build-csp",

@@ -595,5 +595,3 @@ export class LineBucket implements Bucket {
         this.updateScaledDistance();
     }
 }
-
-register('LineBucket', LineBucket, {omit: ['layers', 'patternFeatures']});

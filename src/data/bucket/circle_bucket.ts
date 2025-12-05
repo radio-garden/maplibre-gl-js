@@ -235,5 +235,3 @@ export class CircleBucket<Layer extends CircleStyleLayer | HeatmapStyleLayer> im
         this.programConfigurations.populatePaintArrays(this.layoutVertexArray.length, feature, index, {imagePositions: {}, canonical});
     }
 }
-
-register('CircleBucket', CircleBucket, {omit: ['layers']});

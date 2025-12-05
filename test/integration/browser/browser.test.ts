@@ -6,7 +6,8 @@ import type {AddressInfo} from 'net';
 
 import {sleep} from '../../../src/util/test/util';
 import {launchPuppeteer} from '../lib/puppeteer_config';
-import type {default as MapLibreGL, Map} from '../../../dist/maplibre-gl';
+import type {Map} from '../../../src';
+import type * as MapLibreGL from '../../../src';
 
 const testWidth = 800;
 const testHeight = 600;

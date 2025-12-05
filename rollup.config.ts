@@ -18,7 +18,7 @@ const config: RollupOptions[] = [{
     // - staging/maplibregl/shared.js: the set of modules that are dependencies of both the main module and the worker module
     //
     // This is also where we do all of our source transformations using the plugins.
-    input: ['src/index.ts', 'src/source/worker.ts'],
+    input: ['src/index.ts', 'src/worker.ts'],
     output: {
         dir: 'staging/maplibregl',
         format: 'amd',
@@ -28,14 +28,14 @@ const config: RollupOptions[] = [{
         amd: {
             autoId: true,
         },
-        minifyInternalExports: production
+        minifyInternalExports: production,
     },
     onwarn: (message) => {
         console.error(message);
         throw message;
     },
     treeshake: production,
-    plugins: plugins(production)
+    plugins: plugins(production),
 }, {
     // Next, bundle together the three "chunks" produced in the previous pass
     // into a single, final bundle. See rollup/bundle_prelude.js and
@@ -68,7 +68,8 @@ const config: RollupOptions[] = [{
 
 // ESM builds
 cspConfig('src/index.ts', `dist/maplibre-gl${outputPostfix}.mjs`, 'es'),
-cspConfig('src/source/worker.ts', `dist/maplibre-gl-worker${outputPostfix}.mjs`, 'es'),
+cspConfig('src/core.ts', `dist/maplibre-gl-core${outputPostfix}.mjs`, 'es'),
+cspConfig('src/worker.ts', `dist/maplibre-gl-worker${outputPostfix}.mjs`, 'es'),
 
 ];
 

@@ -29,6 +29,13 @@ import type {UnwrappedTileID} from '../source/tile_id';
 
 const TRANSITION_SUFFIX = '-transition';
 
+/**
+ * StyleLayer class type for registry
+ */
+export type StyleLayerClass = {
+    new (layer: LayerSpecification, globalState: Record<string, any>): StyleLayer;
+};
+
 export type QueryIntersectsFeatureParams = {
     /**
      * The geometry to check intersection with.
