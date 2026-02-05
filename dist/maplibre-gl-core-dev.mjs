@@ -10963,7 +10963,8 @@ var $root = {
 	},
 	center: {
 		type: "array",
-		value: "number"
+		value: "number",
+		length: 2
 	},
 	centerAltitude: {
 		type: "number"
@@ -11015,8 +11016,7 @@ var $root = {
 		type: "string"
 	},
 	"font-faces": {
-		type: "array",
-		value: "fontFaces"
+		type: "fontFaces"
 	},
 	transition: {
 		type: "transition"
@@ -11276,7 +11276,7 @@ var source_geojson = {
 		minimum: 0
 	},
 	filter: {
-		type: "*"
+		type: "filter"
 	},
 	tolerance: {
 		type: "number",
@@ -11443,7 +11443,13 @@ var layout_background = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_fill = {
@@ -11467,7 +11473,13 @@ var layout_fill = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_circle = {
@@ -11491,7 +11503,13 @@ var layout_circle = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_heatmap = {
@@ -11504,7 +11522,13 @@ var layout_heatmap = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_line = {
@@ -11599,7 +11623,13 @@ var layout_line = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_symbol = {
@@ -12494,7 +12524,13 @@ var layout_symbol = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_raster = {
@@ -12507,7 +12543,13 @@ var layout_raster = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var layout_hillshade = {
@@ -12520,12 +12562,25 @@ var layout_hillshade = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 };
 var filter = {
-	type: "array",
-	value: "*"
+	type: "boolean",
+	expression: {
+		interpolated: false,
+		parameters: [
+			"zoom",
+			"feature"
+		]
+	},
+	"property-type": "data-driven"
 };
 var filter_operator = {
 	type: "enum",
@@ -12581,7 +12636,7 @@ var function_stop = {
 };
 var expression$1 = {
 	type: "array",
-	value: "*",
+	value: "expression_name",
 	minimum: 1
 };
 var light = {
@@ -13934,6 +13989,80 @@ var promoteId = {
 		type: "string"
 	}
 };
+var interpolation = {
+	type: "array",
+	value: "interpolation_name",
+	minimum: 1
+};
+var interpolation_name = {
+	type: "enum",
+	values: {
+		linear: {
+			syntax: {
+				overloads: [
+					{
+						parameters: [
+						],
+						"output-type": "interpolation"
+					}
+				],
+				parameters: [
+				]
+			}
+		},
+		exponential: {
+			syntax: {
+				overloads: [
+					{
+						parameters: [
+							"base"
+						],
+						"output-type": "interpolation"
+					}
+				],
+				parameters: [
+					{
+						name: "base",
+						type: "number literal"
+					}
+				]
+			}
+		},
+		"cubic-bezier": {
+			syntax: {
+				overloads: [
+					{
+						parameters: [
+							"x1",
+							"y1",
+							"x2",
+							"y2"
+						],
+						"output-type": "interpolation"
+					}
+				],
+				parameters: [
+					{
+						name: "x1",
+						type: "number literal"
+					},
+					{
+						name: "y1",
+						type: "number literal"
+					},
+					{
+						name: "x2",
+						type: "number literal"
+					},
+					{
+						name: "y2",
+						type: "number literal"
+					}
+				]
+			}
+		}
+	}
+};
 var v8Spec = {
 	$version: $version,
 	$root: $root,
@@ -13961,7 +14090,13 @@ var v8Spec = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 },
 	layout_line: layout_line,
@@ -13978,7 +14113,13 @@ var v8Spec = {
 			}
 		},
 		"default": "visible",
-		"property-type": "constant"
+		expression: {
+			interpolated: false,
+			parameters: [
+				"global-state"
+			]
+		},
+		"property-type": "data-constant"
 	}
 },
 	filter: filter,
@@ -14227,10 +14368,20 @@ var v8Spec = {
 		type: "property-type"
 	}
 },
-	promoteId: promoteId
+	promoteId: promoteId,
+	interpolation: interpolation,
+	interpolation_name: interpolation_name
 };
 
-const refProperties = ['type', 'source', 'source-layer', 'minzoom', 'maxzoom', 'filter', 'layout'];
+const refProperties = [
+    'type',
+    'source',
+    'source-layer',
+    'minzoom',
+    'maxzoom',
+    'filter',
+    'layout'
+];
 
 function deref(layer, parent) {
     const result = {};
@@ -14357,8 +14508,13 @@ function diffSources(before, after, commands, sourcesRemoved) {
             addSource(sourceId, after, commands);
         }
         else if (!deepEqual(before[sourceId], after[sourceId])) {
-            if (before[sourceId].type === 'geojson' && after[sourceId].type === 'geojson' && canUpdateGeoJSON(before, after, sourceId)) {
-                addCommand(commands, { command: 'setGeoJSONSourceData', args: [sourceId, after[sourceId].data] });
+            if (before[sourceId].type === 'geojson' &&
+                after[sourceId].type === 'geojson' &&
+                canUpdateGeoJSON(before, after, sourceId)) {
+                addCommand(commands, {
+                    command: 'setGeoJSONSourceData',
+                    args: [sourceId, after[sourceId].data]
+                });
             }
             else {
                 // no update command, must remove then add
@@ -14378,7 +14534,8 @@ function diffLayerPropertyChanges(before, after, commands, layerId, klass, comma
         }
     }
     for (const prop in after) {
-        if (!Object.prototype.hasOwnProperty.call(after, prop) || Object.prototype.hasOwnProperty.call(before, prop))
+        if (!Object.prototype.hasOwnProperty.call(after, prop) ||
+            Object.prototype.hasOwnProperty.call(before, prop))
             continue;
         if (!deepEqual(before[prop], after[prop])) {
             commands.push({ command, args: [layerId, prop, after[prop], klass] });
@@ -14439,7 +14596,10 @@ function diffLayers(before, after, commands) {
         }
         // add layer at correct position
         insertBeforeLayerId = tracker[tracker.length - i];
-        addCommand(commands, { command: 'addLayer', args: [afterIndex[layerId], insertBeforeLayerId] });
+        addCommand(commands, {
+            command: 'addLayer',
+            args: [afterIndex[layerId], insertBeforeLayerId]
+        });
         tracker.splice(tracker.length - i, 0, layerId);
         clean[layerId] = true;
     }
@@ -14453,7 +14613,9 @@ function diffLayers(before, after, commands) {
             continue;
         // If source, source-layer, or type have changes, then remove the layer
         // and add it back 'from scratch'.
-        if (!deepEqual(beforeLayer.source, afterLayer.source) || !deepEqual(beforeLayer['source-layer'], afterLayer['source-layer']) || !deepEqual(beforeLayer.type, afterLayer.type)) {
+        if (!deepEqual(beforeLayer.source, afterLayer.source) ||
+            !deepEqual(beforeLayer['source-layer'], afterLayer['source-layer']) ||
+            !deepEqual(beforeLayer.type, afterLayer.type)) {
             addCommand(commands, { command: 'removeLayer', args: [layerId] });
             // we add the layer back at the same position it was already in, so
             // there's no need to update the `tracker`
@@ -14467,34 +14629,53 @@ function diffLayers(before, after, commands) {
         if (!deepEqual(beforeLayer.filter, afterLayer.filter)) {
             addCommand(commands, { command: 'setFilter', args: [layerId, afterLayer.filter] });
         }
-        if (!deepEqual(beforeLayer.minzoom, afterLayer.minzoom) || !deepEqual(beforeLayer.maxzoom, afterLayer.maxzoom)) {
-            addCommand(commands, { command: 'setLayerZoomRange', args: [layerId, afterLayer.minzoom, afterLayer.maxzoom] });
+        if (!deepEqual(beforeLayer.minzoom, afterLayer.minzoom) ||
+            !deepEqual(beforeLayer.maxzoom, afterLayer.maxzoom)) {
+            addCommand(commands, {
+                command: 'setLayerZoomRange',
+                args: [layerId, afterLayer.minzoom, afterLayer.maxzoom]
+            });
         }
         // handle all other layer props, including paint.*
         for (prop in beforeLayer) {
             if (!Object.prototype.hasOwnProperty.call(beforeLayer, prop))
                 continue;
-            if (prop === 'layout' || prop === 'paint' || prop === 'filter' ||
-                prop === 'metadata' || prop === 'minzoom' || prop === 'maxzoom')
+            if (prop === 'layout' ||
+                prop === 'paint' ||
+                prop === 'filter' ||
+                prop === 'metadata' ||
+                prop === 'minzoom' ||
+                prop === 'maxzoom')
                 continue;
             if (prop.indexOf('paint.') === 0) {
                 diffLayerPropertyChanges(beforeLayer[prop], afterLayer[prop], commands, layerId, prop.slice(6), 'setPaintProperty');
             }
             else if (!deepEqual(beforeLayer[prop], afterLayer[prop])) {
-                addCommand(commands, { command: 'setLayerProperty', args: [layerId, prop, afterLayer[prop]] });
+                addCommand(commands, {
+                    command: 'setLayerProperty',
+                    args: [layerId, prop, afterLayer[prop]]
+                });
             }
         }
         for (prop in afterLayer) {
-            if (!Object.prototype.hasOwnProperty.call(afterLayer, prop) || Object.prototype.hasOwnProperty.call(beforeLayer, prop))
+            if (!Object.prototype.hasOwnProperty.call(afterLayer, prop) ||
+                Object.prototype.hasOwnProperty.call(beforeLayer, prop))
                 continue;
-            if (prop === 'layout' || prop === 'paint' || prop === 'filter' ||
-                prop === 'metadata' || prop === 'minzoom' || prop === 'maxzoom')
+            if (prop === 'layout' ||
+                prop === 'paint' ||
+                prop === 'filter' ||
+                prop === 'metadata' ||
+                prop === 'minzoom' ||
+                prop === 'maxzoom')
                 continue;
             if (prop.indexOf('paint.') === 0) {
                 diffLayerPropertyChanges(beforeLayer[prop], afterLayer[prop], commands, layerId, prop.slice(6), 'setPaintProperty');
             }
             else if (!deepEqual(beforeLayer[prop], afterLayer[prop])) {
-                addCommand(commands, { command: 'setLayerProperty', args: [layerId, prop, afterLayer[prop]] });
+                addCommand(commands, {
+                    command: 'setLayerProperty',
+                    args: [layerId, prop, afterLayer[prop]]
+                });
             }
         }
     }
@@ -14678,7 +14859,9 @@ const NumberType = { kind: 'number' };
 const StringType = { kind: 'string' };
 const BooleanType = { kind: 'boolean' };
 const ColorType = { kind: 'color' };
-const ProjectionDefinitionType = { kind: 'projectionDefinition' };
+const ProjectionDefinitionType = {
+    kind: 'projectionDefinition'
+};
 const ObjectType = { kind: 'object' };
 const ValueType = { kind: 'value' };
 const ErrorType = { kind: 'error' };
@@ -14688,7 +14871,9 @@ const PaddingType = { kind: 'padding' };
 const ColorArrayType = { kind: 'colorArray' };
 const NumberArrayType = { kind: 'numberArray' };
 const ResolvedImageType = { kind: 'resolvedImage' };
-const VariableAnchorOffsetCollectionType = { kind: 'variableAnchorOffsetCollection' };
+const VariableAnchorOffsetCollectionType = {
+    kind: 'variableAnchorOffsetCollection'
+};
 function array(itemType, N) {
     return {
         kind: 'array',
@@ -14699,9 +14884,11 @@ function array(itemType, N) {
 function typeToString(type) {
     if (type.kind === 'array') {
         const itemType = typeToString(type.itemType);
-        return typeof type.N === 'number' ?
-            `array<${itemType}, ${type.N}>` :
-            type.itemType.kind === 'value' ? 'array' : `array<${itemType}>`;
+        return typeof type.N === 'number'
+            ? `array<${itemType}, ${type.N}>`
+            : type.itemType.kind === 'value'
+                ? 'array'
+                : `array<${itemType}>`;
     }
     else {
         return type.kind;
@@ -14735,7 +14922,8 @@ function checkSubtype(expected, t) {
     }
     else if (expected.kind === 'array') {
         if (t.kind === 'array' &&
-            ((t.N === 0 && t.itemType.kind === 'value') || !checkSubtype(expected.itemType, t.itemType)) &&
+            ((t.N === 0 && t.itemType.kind === 'value') ||
+                !checkSubtype(expected.itemType, t.itemType)) &&
             (typeof expected.N !== 'number' || expected.N === t.N)) {
             return null;
         }
@@ -14753,10 +14941,10 @@ function checkSubtype(expected, t) {
     return `Expected ${typeToString(expected)} but found ${typeToString(t)} instead.`;
 }
 function isValidType(provided, allowedTypes) {
-    return allowedTypes.some(t => t.kind === provided.kind);
+    return allowedTypes.some((t) => t.kind === provided.kind);
 }
 function isValidNativeType(provided, allowedTypes) {
-    return allowedTypes.some(t => {
+    return allowedTypes.some((t) => {
         if (t === 'null') {
             return provided === null;
         }
@@ -14820,13 +15008,13 @@ function rgbToLab([r, g, b, alpha]) {
         z = xyz2lab((0.0139322 * r + 0.0971045 * g + 0.7141733 * b) / Zn);
     }
     const l = 116 * y - 16;
-    return [(l < 0) ? 0 : l, 500 * (x - y), 200 * (y - z), alpha];
+    return [l < 0 ? 0 : l, 500 * (x - y), 200 * (y - z), alpha];
 }
 function rgb2xyz(x) {
-    return (x <= 0.04045) ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
 }
 function xyz2lab(t) {
-    return (t > t3) ? Math.pow(t, 1 / 3) : t / t2 + t0;
+    return t > t3 ? Math.pow(t, 1 / 3) : t / t2 + t0;
 }
 function labToRgb([l, a, b, alpha]) {
     let y = (l + 16) / 116, x = isNaN(a) ? y : y + a / 500, z = isNaN(b) ? y : y - b / 200;
@@ -14835,17 +15023,17 @@ function labToRgb([l, a, b, alpha]) {
     z = Zn * lab2xyz(z);
     return [
         xyz2rgb(3.1338561 * x - 1.6168667 * y - 0.4906146 * z), // D50 -> sRGB
-        xyz2rgb(-0.9787684 * x + 1.9161415 * y + 0.0334540 * z),
+        xyz2rgb(-0.9787684 * x + 1.9161415 * y + 0.033454 * z),
         xyz2rgb(0.0719453 * x - 0.2289914 * y + 1.4052427 * z),
-        alpha,
+        alpha
     ];
 }
 function xyz2rgb(x) {
-    x = (x <= 0.00304) ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
-    return (x < 0) ? 0 : (x > 1) ? 1 : x; // clip to 0..1 range
+    x = x <= 0.00304 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+    return x < 0 ? 0 : x > 1 ? 1 : x; // clip to 0..1 range
 }
 function lab2xyz(t) {
-    return (t > t1) ? t * t * t : t2 * (t - t0);
+    return t > t1 ? t * t * t : t2 * (t - t0);
 }
 function rgbToHcl(rgbColor) {
     const [l, a, b, alpha] = rgbToLab(rgbColor);
@@ -14926,10 +15114,10 @@ function parseCssColor(input) {
             const step = input.length < 6 ? 1 : 2;
             let i = 1;
             return [
-                parseHex(input.slice(i, i += step)),
-                parseHex(input.slice(i, i += step)),
-                parseHex(input.slice(i, i += step)),
-                parseHex(input.slice(i, i + step) || 'ff'),
+                parseHex(input.slice(i, (i += step))),
+                parseHex(input.slice(i, (i += step))),
+                parseHex(input.slice(i, (i += step))),
+                parseHex(input.slice(i, i + step) || 'ff')
             ];
         }
     }
@@ -14949,7 +15137,7 @@ function parseCssColor(input) {
             bp, // %         (optional)
             f3, // ,|/       (optional)
             a, // <numeric> (optional)
-            ap, // %         (optional)
+            ap // %         (optional)
             ] = rgbMatch;
             const argFormat = [f1 || ' ', f2 || ' ', f3].join('');
             if (argFormat === '  ' ||
@@ -14957,14 +15145,13 @@ function parseCssColor(input) {
                 argFormat === ',,' ||
                 argFormat === ',,,') {
                 const valFormat = [rp, gp, bp].join('');
-                const maxValue = (valFormat === '%%%') ? 100 :
-                    (valFormat === '') ? 255 : 0;
+                const maxValue = valFormat === '%%%' ? 100 : valFormat === '' ? 255 : 0;
                 if (maxValue) {
                     const rgba = [
                         clamp(+r / maxValue, 0, 1),
                         clamp(+g / maxValue, 0, 1),
                         clamp(+b / maxValue, 0, 1),
-                        a ? parseAlpha(+a, ap) : 1,
+                        a ? parseAlpha(+a, ap) : 1
                     ];
                     if (validateNumbers(rgba)) {
                         return rgba;
@@ -14988,7 +15175,7 @@ function parseCssColor(input) {
         l, // <numeric>
         f3, // ,|/       (optional)
         a, // <numeric> (optional)
-        ap, // %         (optional)
+        ap // %         (optional)
         ] = hslMatch;
         const argFormat = [f1 || ' ', f2 || ' ', f3].join('');
         if (argFormat === '  ' ||
@@ -14999,7 +15186,7 @@ function parseCssColor(input) {
                 +h,
                 clamp(+s, 0, 100),
                 clamp(+l, 0, 100),
-                a ? parseAlpha(+a, ap) : 1,
+                a ? parseAlpha(+a, ap) : 1
             ];
             if (validateNumbers(hsla)) {
                 return hslToRgb(hsla);
@@ -15013,7 +15200,7 @@ function parseHex(hex) {
     return parseInt(hex.padEnd(2, hex), 16) / 255;
 }
 function parseAlpha(a, asPercentage) {
-    return clamp(asPercentage ? (a / 100) : a, 0, 1);
+    return clamp(asPercentage ? a / 100 : a, 0, 1);
 }
 function clamp(n, min, max) {
     return Math.min(Math.max(min, n), max);
@@ -15184,7 +15371,7 @@ const namedColors = {
     white: [255, 255, 255],
     whitesmoke: [245, 245, 245],
     yellow: [255, 255, 0],
-    yellowgreen: [154, 205, 50],
+    yellowgreen: [154, 205, 50]
 };
 
 function interpolateNumber(from, to, t) {
@@ -15325,7 +15512,7 @@ class Color {
      */
     toString() {
         const [r, g, b, a] = this.rgb;
-        return `rgba(${[r, g, b].map(n => Math.round(n * 255)).join(',')},${a})`;
+        return `rgba(${[r, g, b].map((n) => Math.round(n * 255)).join(',')},${a})`;
     }
     static interpolate(from, to, t, spaceKey = 'rgb') {
         switch (spaceKey) {
@@ -15365,7 +15552,7 @@ class Color {
                     hue,
                     chroma !== null && chroma !== void 0 ? chroma : interpolateNumber(chroma0, chroma1, t),
                     interpolateNumber(light0, light1, t),
-                    interpolateNumber(alphaF, alphaT, t),
+                    interpolateNumber(alphaF, alphaT, t)
                 ]);
                 return new Color(r, g, b, alpha, false);
             }
@@ -15388,7 +15575,10 @@ class Collator {
         else
             this.sensitivity = diacriticSensitive ? 'accent' : 'base';
         this.locale = locale;
-        this.collator = new Intl.Collator(this.locale ? this.locale : [], { sensitivity: this.sensitivity, usage: 'search' });
+        this.collator = new Intl.Collator(this.locale ? this.locale : [], {
+            sensitivity: this.sensitivity,
+            usage: 'search'
+        });
     }
     compare(lhs, rhs) {
         return this.collator.compare(lhs, rhs);
@@ -15396,8 +15586,7 @@ class Collator {
     resolvedLocale() {
         // We create a Collator without "usage: search" because we don't want
         // the search options encoded in our result (e.g. "en-u-co-search")
-        return new Intl.Collator(this.locale ? this.locale : [])
-            .resolvedOptions().locale;
+        return new Intl.Collator(this.locale ? this.locale : []).resolvedOptions().locale;
     }
 }
 
@@ -15422,8 +15611,7 @@ class Formatted {
     isEmpty() {
         if (this.sections.length === 0)
             return true;
-        return !this.sections.some(section => section.text.length !== 0 ||
-            (section.image && section.image.name.length !== 0));
+        return !this.sections.some((section) => section.text.length !== 0 || (section.image && section.image.name.length !== 0));
     }
     static factory(text) {
         if (text instanceof Formatted) {
@@ -15436,7 +15624,7 @@ class Formatted {
     toString() {
         if (this.sections.length === 0)
             return '';
-        return this.sections.map(section => section.text).join('');
+        return this.sections.map((section) => section.text).join('');
     }
 }
 
@@ -15604,7 +15792,17 @@ class RuntimeError extends Error {
 }
 
 /** Set of valid anchor positions, as a set for validation */
-const anchors = new Set(['center', 'left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right']);
+const anchors = new Set([
+    'center',
+    'left',
+    'right',
+    'top',
+    'bottom',
+    'top-left',
+    'top-right',
+    'bottom-left',
+    'bottom-right'
+]);
 /**
  * Utility class to assist managing values for text-variable-anchor-offset property. Create instances from
  * bare arrays using the static method `VariableAnchorOffsetCollection.parse`.
@@ -15618,9 +15816,7 @@ class VariableAnchorOffsetCollection {
         if (input instanceof VariableAnchorOffsetCollection) {
             return input;
         }
-        if (!Array.isArray(input) ||
-            input.length < 1 ||
-            input.length % 2 !== 0) {
+        if (!Array.isArray(input) || input.length < 1 || input.length % 2 !== 0) {
             return undefined;
         }
         for (let i = 0; i < input.length; i += 2) {
@@ -15630,7 +15826,10 @@ class VariableAnchorOffsetCollection {
             if (typeof anchorValue !== 'string' || !anchors.has(anchorValue)) {
                 return undefined;
             }
-            if (!Array.isArray(offsetValue) || offsetValue.length !== 2 || typeof offsetValue[0] !== 'number' || typeof offsetValue[1] !== 'number') {
+            if (!Array.isArray(offsetValue) ||
+                offsetValue.length !== 2 ||
+                typeof offsetValue[0] !== 'number' ||
+                typeof offsetValue[1] !== 'number') {
                 return undefined;
             }
         }
@@ -15689,10 +15888,17 @@ class ProjectionDefinition {
         if (input instanceof ProjectionDefinition) {
             return input;
         }
-        if (Array.isArray(input) && input.length === 3 && typeof input[0] === 'string' && typeof input[1] === 'string' && typeof input[2] === 'number') {
+        if (Array.isArray(input) &&
+            input.length === 3 &&
+            typeof input[0] === 'string' &&
+            typeof input[1] === 'string' &&
+            typeof input[2] === 'number') {
             return new ProjectionDefinition(input[0], input[1], input[2]);
         }
-        if (typeof input === 'object' && typeof input.from === 'string' && typeof input.to === 'string' && typeof input.transition === 'number') {
+        if (typeof input === 'object' &&
+            typeof input.from === 'string' &&
+            typeof input.to === 'string' &&
+            typeof input.transition === 'number') {
             return new ProjectionDefinition(input.from, input.to, input.transition);
         }
         if (typeof input === 'string') {
@@ -15703,9 +15909,15 @@ class ProjectionDefinition {
 }
 
 function validateRGBA(r, g, b, a) {
-    if (!(typeof r === 'number' && r >= 0 && r <= 255 &&
-        typeof g === 'number' && g >= 0 && g <= 255 &&
-        typeof b === 'number' && b >= 0 && b <= 255)) {
+    if (!(typeof r === 'number' &&
+        r >= 0 &&
+        r <= 255 &&
+        typeof g === 'number' &&
+        g >= 0 &&
+        g <= 255 &&
+        typeof b === 'number' &&
+        b >= 0 &&
+        b <= 255)) {
         const value = typeof a === 'number' ? [r, g, b, a] : [r, g, b];
         return `Invalid rgba value [${value.join(', ')}]: 'r', 'g', and 'b' must be between 0 and 255.`;
     }
@@ -15820,7 +16032,14 @@ function valueToString(value) {
     else if (type === 'string' || type === 'number' || type === 'boolean') {
         return String(value);
     }
-    else if (value instanceof Color || value instanceof ProjectionDefinition || value instanceof Formatted || value instanceof Padding || value instanceof NumberArray || value instanceof ColorArray || value instanceof VariableAnchorOffsetCollection || value instanceof ResolvedImage) {
+    else if (value instanceof Color ||
+        value instanceof ProjectionDefinition ||
+        value instanceof Formatted ||
+        value instanceof Padding ||
+        value instanceof NumberArray ||
+        value instanceof ColorArray ||
+        value instanceof VariableAnchorOffsetCollection ||
+        value instanceof ResolvedImage) {
         return value.toString();
     }
     else {
@@ -15892,9 +16111,7 @@ class Assertion {
             let N;
             if (args.length > 3) {
                 if (args[2] !== null &&
-                    (typeof args[2] !== 'number' ||
-                        args[2] < 0 ||
-                        args[2] !== Math.floor(args[2]))) {
+                    (typeof args[2] !== 'number' || args[2] < 0 || args[2] !== Math.floor(args[2]))) {
                     return context.error('The length argument to "array" must be a positive integer literal', 2);
                 }
                 N = args[2];
@@ -15933,7 +16150,7 @@ class Assertion {
         this.args.forEach(fn);
     }
     outputDefined() {
-        return this.args.every(arg => arg.outputDefined());
+        return this.args.every((arg) => arg.outputDefined());
     }
 }
 
@@ -16003,7 +16220,8 @@ class Coercion {
                         }
                     }
                 }
-                throw new RuntimeError(error || `Could not parse color from value '${typeof input === 'string' ? input : JSON.stringify(input)}'`);
+                throw new RuntimeError(error ||
+                    `Could not parse color from value '${typeof input === 'string' ? input : JSON.stringify(input)}'`);
             }
             case 'padding': {
                 let input;
@@ -16078,7 +16296,7 @@ class Coercion {
         this.args.forEach(fn);
     }
     outputDefined() {
-        return this.args.every(arg => arg.outputDefined());
+        return this.args.every((arg) => arg.outputDefined());
     }
 }
 
@@ -16097,7 +16315,11 @@ class EvaluationContext {
         return this.feature && 'id' in this.feature ? this.feature.id : null;
     }
     geometryType() {
-        return this.feature ? typeof this.feature.type === 'number' ? geometryTypes[this.feature.type] : this.feature.type : null;
+        return this.feature
+            ? typeof this.feature.type === 'number'
+                ? geometryTypes[this.feature.type]
+                : this.feature.type
+            : null;
     }
     geometry() {
         return this.feature && 'geometry' in this.feature ? this.feature.geometry : null;
@@ -16106,7 +16328,7 @@ class EvaluationContext {
         return this.canonical;
     }
     properties() {
-        return this.feature && this.feature.properties || {};
+        return (this.feature && this.feature.properties) || {};
     }
     parseColor(input) {
         let cached = this._parseColorCache.get(input);
@@ -16126,7 +16348,7 @@ class ParsingContext {
     constructor(registry, isConstantFunc, path = [], expectedType, scope = new Scope(), errors = []) {
         this.registry = registry;
         this.path = path;
-        this.key = path.map(part => `[${part}]`).join('');
+        this.key = path.map((part) => `[${part}]`).join('');
         this.scope = scope;
         this.errors = errors;
         this.expectedType = expectedType;
@@ -16146,7 +16368,10 @@ class ParsingContext {
         return this._parse(expr, options);
     }
     _parse(expr, options) {
-        if (expr === null || typeof expr === 'string' || typeof expr === 'boolean' || typeof expr === 'number') {
+        if (expr === null ||
+            typeof expr === 'string' ||
+            typeof expr === 'boolean' ||
+            typeof expr === 'number') {
             expr = ['literal', expr];
         }
         function annotate(parsed, type, typeAnnotation) {
@@ -16185,14 +16410,24 @@ class ParsingContext {
                     //   * The "coalesce" operator, which needs to omit type annotations.
                     //   * String-valued properties (e.g. `text-field`), where coercion is more convenient than assertion.
                     //
-                    if ((expected.kind === 'string' || expected.kind === 'number' || expected.kind === 'boolean' || expected.kind === 'object' || expected.kind === 'array') && actual.kind === 'value') {
+                    if ((expected.kind === 'string' ||
+                        expected.kind === 'number' ||
+                        expected.kind === 'boolean' ||
+                        expected.kind === 'object' ||
+                        expected.kind === 'array') &&
+                        actual.kind === 'value') {
                         parsed = annotate(parsed, expected, options.typeAnnotation || 'assert');
                     }
-                    else if (('projectionDefinition' === expected.kind && ['string', 'array'].includes(actual.kind)) ||
-                        ((['color', 'formatted', 'resolvedImage'].includes(expected.kind)) && ['value', 'string'].includes(actual.kind)) ||
-                        ((['padding', 'numberArray'].includes(expected.kind)) && ['value', 'number', 'array'].includes(actual.kind)) ||
-                        ('colorArray' === expected.kind && ['value', 'string', 'array'].includes(actual.kind)) ||
-                        ('variableAnchorOffsetCollection' === expected.kind && ['value', 'array'].includes(actual.kind))) {
+                    else if (('projectionDefinition' === expected.kind &&
+                        ['string', 'array'].includes(actual.kind)) ||
+                        (['color', 'formatted', 'resolvedImage'].includes(expected.kind) &&
+                            ['value', 'string'].includes(actual.kind)) ||
+                        (['padding', 'numberArray'].includes(expected.kind) &&
+                            ['value', 'number', 'array'].includes(actual.kind)) ||
+                        ('colorArray' === expected.kind &&
+                            ['value', 'string', 'array'].includes(actual.kind)) ||
+                        ('variableAnchorOffsetCollection' === expected.kind &&
+                            ['value', 'array'].includes(actual.kind))) {
                         parsed = annotate(parsed, expected, options.typeAnnotation || 'coerce');
                     }
                     else if (this.checkSubtype(expected, actual)) {
@@ -16203,7 +16438,9 @@ class ParsingContext {
                 // it immediately and replace it with a literal value in the
                 // parsed/compiled result. Expressions that expect an image should
                 // not be resolved here so we can later get the available images.
-                if (!(parsed instanceof Literal) && (parsed.type.kind !== 'resolvedImage') && this._isConstant(parsed)) {
+                if (!(parsed instanceof Literal) &&
+                    parsed.type.kind !== 'resolvedImage' &&
+                    this._isConstant(parsed)) {
                     const ec = new EvaluationContext();
                     try {
                         parsed = new Literal(parsed.type, parsed.evaluate(ec));
@@ -16218,7 +16455,7 @@ class ParsingContext {
             return this.error(`Unknown expression "${op}". If you wanted a literal array, use ["literal", [...]].`, 0);
         }
         else if (typeof expr === 'undefined') {
-            return this.error('\'undefined\' value invalid. Use null instead.');
+            return this.error("'undefined' value invalid. Use null instead.");
         }
         else if (typeof expr === 'object') {
             return this.error('Bare objects invalid. Use ["literal", {...}] instead.');
@@ -16248,7 +16485,7 @@ class ParsingContext {
      * @private
      */
     error(error, ...keys) {
-        const key = `${this.key}${keys.map(k => `[${k}]`).join('')}`;
+        const key = `${this.key}${keys.map((k) => `[${k}]`).join('')}`;
         this.errors.push(new ExpressionParsingError(key, error));
     }
     /**
@@ -16291,7 +16528,7 @@ class Let {
                 return context.error(`Expected string, but found ${typeof name} instead.`, i);
             }
             if (/[^a-zA-Z0-9_]/.test(name)) {
-                return context.error('Variable names must contain only alphanumeric characters or \'_\'.', i);
+                return context.error("Variable names must contain only alphanumeric characters or '_'.", i);
             }
             const value = context.parse(args[i + 1], i + 1);
             if (!value)
@@ -16316,7 +16553,7 @@ class Var {
     }
     static parse(args, context) {
         if (args.length !== 2 || typeof args[1] !== 'string')
-            return context.error('\'var\' expression requires exactly one string literal argument.');
+            return context.error("'var' expression requires exactly one string literal argument.");
         const name = args[1];
         if (!context.scope.has(name)) {
             return context.error(`Unknown variable "${name}". Make sure "${name}" has been bound in an enclosing "let" expression before using it.`, 1);
@@ -16543,7 +16780,8 @@ class Match {
         const otherwise = context.parse(args[args.length - 1], args.length - 1, outputType);
         if (!otherwise)
             return null;
-        if (input.type.kind !== 'value' && context.concat(1).checkSubtype(inputType, input.type)) {
+        if (input.type.kind !== 'value' &&
+            context.concat(1).checkSubtype(inputType, input.type)) {
             return null;
         }
         return new Match(inputType, outputType, input, cases, outputs, otherwise);
@@ -16559,7 +16797,7 @@ class Match {
         fn(this.otherwise);
     }
     outputDefined() {
-        return this.outputs.every(out => out.outputDefined()) && this.otherwise.outputDefined();
+        return this.outputs.every((out) => out.outputDefined()) && this.otherwise.outputDefined();
     }
 }
 
@@ -16593,7 +16831,7 @@ class Case {
         if (!otherwise)
             return null;
         if (!outputType)
-            throw new Error('Can\'t infer output type');
+            throw new Error("Can't infer output type");
         return new Case(outputType, branches, otherwise);
     }
     evaluate(ctx) {
@@ -16612,7 +16850,7 @@ class Case {
         fn(this.otherwise);
     }
     outputDefined() {
-        return this.branches.every(([_, out]) => out.outputDefined()) && this.otherwise.outputDefined();
+        return (this.branches.every(([_, out]) => out.outputDefined()) && this.otherwise.outputDefined());
     }
 }
 
@@ -16689,7 +16927,8 @@ function findStopLessThanOrEqualTo(stops, input) {
         currentValue = stops[currentIndex];
         nextValue = stops[currentIndex + 1];
         if (currentValue <= input) {
-            if (currentIndex === lastIndex || input < nextValue) { // Search complete
+            if (currentIndex === lastIndex || input < nextValue) {
+                // Search complete
                 return currentIndex;
             }
             lowerIndex = currentIndex + 1;
@@ -16773,7 +17012,7 @@ class Step {
         }
     }
     outputDefined() {
-        return this.outputs.every(out => out.outputDefined());
+        return this.outputs.every((out) => out.outputDefined());
     }
 }
 
@@ -16918,7 +17157,7 @@ class Interpolate {
         else if (interpolation[0] === 'cubic-bezier') {
             const controlPoints = interpolation.slice(1);
             if (controlPoints.length !== 4 ||
-                controlPoints.some(t => typeof t !== 'number' || t < 0 || t > 1)) {
+                controlPoints.some((t) => typeof t !== 'number' || t < 0 || t > 1)) {
                 return context.error('Cubic bezier interpolation requires four numeric arguments with values between 0 and 1.', 1);
             }
             interpolation = {
@@ -16940,7 +17179,8 @@ class Interpolate {
             return null;
         const stops = [];
         let outputType = null;
-        if ((operator === 'interpolate-hcl' || operator === 'interpolate-lab') && context.expectedType != ColorArrayType) {
+        if ((operator === 'interpolate-hcl' || operator === 'interpolate-lab') &&
+            context.expectedType != ColorArrayType) {
             outputType = ColorType;
         }
         else if (context.expectedType && context.expectedType.kind !== 'value') {
@@ -17038,7 +17278,7 @@ class Interpolate {
         }
     }
     outputDefined() {
-        return this.outputs.every(out => out.outputDefined());
+        return this.outputs.every((out) => out.outputDefined());
     }
 }
 /**
@@ -17075,7 +17315,7 @@ class Interpolate {
  * expensive `Math.pow()` operations.)
  *
  * @private
-*/
+ */
 function exponentialInterpolation(input, base, lowerValue, upperValue) {
     const difference = upperValue - lowerValue;
     const progress = input - lowerValue;
@@ -17115,7 +17355,9 @@ class Coalesce {
         }
         const parsedArgs = [];
         for (const arg of args.slice(1)) {
-            const parsed = context.parse(arg, 1 + parsedArgs.length, outputType, undefined, { typeAnnotation: 'omit' });
+            const parsed = context.parse(arg, 1 + parsedArgs.length, outputType, undefined, {
+                typeAnnotation: 'omit'
+            });
             if (!parsed)
                 return null;
             outputType = outputType || parsed.type;
@@ -17128,11 +17370,10 @@ class Coalesce {
         // preempt the desired null-coalescing behavior.
         // Thus, if any of our arguments would have needed an annotation, we
         // need to wrap the enclosing coalesce expression with it instead.
-        const needsAnnotation = expectedType &&
-            parsedArgs.some(arg => checkSubtype(expectedType, arg.type));
-        return needsAnnotation ?
-            new Coalesce(ValueType, parsedArgs) :
-            new Coalesce(outputType, parsedArgs);
+        const needsAnnotation = expectedType && parsedArgs.some((arg) => checkSubtype(expectedType, arg.type));
+        return needsAnnotation
+            ? new Coalesce(ValueType, parsedArgs)
+            : new Coalesce(outputType, parsedArgs);
     }
     evaluate(ctx) {
         let result = null;
@@ -17161,38 +17402,60 @@ class Coalesce {
         this.args.forEach(fn);
     }
     outputDefined() {
-        return this.args.every(arg => arg.outputDefined());
+        return this.args.every((arg) => arg.outputDefined());
     }
 }
 
 function isComparableType(op, type) {
     if (op === '==' || op === '!=') {
         // equality operator
-        return type.kind === 'boolean' ||
+        return (type.kind === 'boolean' ||
             type.kind === 'string' ||
             type.kind === 'number' ||
             type.kind === 'null' ||
-            type.kind === 'value';
+            type.kind === 'value');
     }
     else {
         // ordering operator
-        return type.kind === 'string' ||
-            type.kind === 'number' ||
-            type.kind === 'value';
+        return type.kind === 'string' || type.kind === 'number' || type.kind === 'value';
     }
 }
-function eq(ctx, a, b) { return a === b; }
-function neq(ctx, a, b) { return a !== b; }
-function lt(ctx, a, b) { return a < b; }
-function gt(ctx, a, b) { return a > b; }
-function lteq(ctx, a, b) { return a <= b; }
-function gteq(ctx, a, b) { return a >= b; }
-function eqCollate(ctx, a, b, c) { return c.compare(a, b) === 0; }
-function neqCollate(ctx, a, b, c) { return !eqCollate(ctx, a, b, c); }
-function ltCollate(ctx, a, b, c) { return c.compare(a, b) < 0; }
-function gtCollate(ctx, a, b, c) { return c.compare(a, b) > 0; }
-function lteqCollate(ctx, a, b, c) { return c.compare(a, b) <= 0; }
-function gteqCollate(ctx, a, b, c) { return c.compare(a, b) >= 0; }
+function eq(ctx, a, b) {
+    return a === b;
+}
+function neq(ctx, a, b) {
+    return a !== b;
+}
+function lt(ctx, a, b) {
+    return a < b;
+}
+function gt(ctx, a, b) {
+    return a > b;
+}
+function lteq(ctx, a, b) {
+    return a <= b;
+}
+function gteq(ctx, a, b) {
+    return a >= b;
+}
+function eqCollate(ctx, a, b, c) {
+    return c.compare(a, b) === 0;
+}
+function neqCollate(ctx, a, b, c) {
+    return !eqCollate(ctx, a, b, c);
+}
+function ltCollate(ctx, a, b, c) {
+    return c.compare(a, b) < 0;
+}
+function gtCollate(ctx, a, b, c) {
+    return c.compare(a, b) > 0;
+}
+function lteqCollate(ctx, a, b, c) {
+    return c.compare(a, b) <= 0;
+}
+function gteqCollate(ctx, a, b, c) {
+    return c.compare(a, b) >= 0;
+}
 /**
  * Special form for comparison operators, implementing the signatures:
  * - (T, T, ?Collator) => boolean
@@ -17228,13 +17491,17 @@ function makeComparison(op, compareBasic, compareWithCollator) {
             if (!lhs)
                 return null;
             if (!isComparableType(op, lhs.type)) {
-                return context.concat(1).error(`"${op}" comparisons are not supported for type '${typeToString(lhs.type)}'.`);
+                return context
+                    .concat(1)
+                    .error(`"${op}" comparisons are not supported for type '${typeToString(lhs.type)}'.`);
             }
             let rhs = context.parse(args[2], 2, ValueType);
             if (!rhs)
                 return null;
             if (!isComparableType(op, rhs.type)) {
-                return context.concat(2).error(`"${op}" comparisons are not supported for type '${typeToString(rhs.type)}'.`);
+                return context
+                    .concat(2)
+                    .error(`"${op}" comparisons are not supported for type '${typeToString(rhs.type)}'.`);
             }
             if (lhs.type.kind !== rhs.type.kind &&
                 lhs.type.kind !== 'value' &&
@@ -17284,9 +17551,9 @@ function makeComparison(op, compareBasic, compareWithCollator) {
                     return compareBasic(ctx, lhs, rhs);
                 }
             }
-            return this.collator ?
-                compareWithCollator(ctx, lhs, rhs, this.collator.evaluate(ctx)) :
-                compareBasic(ctx, lhs, rhs);
+            return this.collator
+                ? compareWithCollator(ctx, lhs, rhs, this.collator.evaluate(ctx))
+                : compareBasic(ctx, lhs, rhs);
         }
         eachChild(fn) {
             fn(this.lhs);
@@ -17401,8 +17668,12 @@ class NumberFormat {
         return new Intl.NumberFormat(this.locale ? this.locale.evaluate(ctx) : [], {
             style: this.currency ? 'currency' : 'decimal',
             currency: this.currency ? this.currency.evaluate(ctx) : undefined,
-            minimumFractionDigits: this.minFractionDigits ? this.minFractionDigits.evaluate(ctx) : undefined,
-            maximumFractionDigits: this.maxFractionDigits ? this.maxFractionDigits.evaluate(ctx) : undefined,
+            minimumFractionDigits: this.minFractionDigits
+                ? this.minFractionDigits.evaluate(ctx)
+                : undefined,
+            maximumFractionDigits: this.maxFractionDigits
+                ? this.maxFractionDigits.evaluate(ctx)
+                : undefined
         }).format(this.number.evaluate(ctx));
     }
     eachChild(fn) {
@@ -17464,7 +17735,8 @@ class FormatExpression {
                 }
                 let verticalAlign = null;
                 if (arg['vertical-align']) {
-                    if (typeof arg['vertical-align'] === 'string' && !VERTICAL_ALIGN_OPTIONS.includes(arg['vertical-align'])) {
+                    if (typeof arg['vertical-align'] === 'string' &&
+                        !VERTICAL_ALIGN_OPTIONS.includes(arg['vertical-align'])) {
                         return context.error(`'vertical-align' must be one of: 'bottom', 'center', 'top' but found '${arg['vertical-align']}' instead.`);
                     }
                     verticalAlign = context.parse(arg['vertical-align'], 1, StringType);
@@ -17482,16 +17754,25 @@ class FormatExpression {
                 if (!content)
                     return null;
                 const kind = content.type.kind;
-                if (kind !== 'string' && kind !== 'value' && kind !== 'null' && kind !== 'resolvedImage')
-                    return context.error('Formatted text type must be \'string\', \'value\', \'image\' or \'null\'.');
+                if (kind !== 'string' &&
+                    kind !== 'value' &&
+                    kind !== 'null' &&
+                    kind !== 'resolvedImage')
+                    return context.error("Formatted text type must be 'string', 'value', 'image' or 'null'.");
                 nextTokenMayBeObject = true;
-                sections.push({ content, scale: null, font: null, textColor: null, verticalAlign: null });
+                sections.push({
+                    content,
+                    scale: null,
+                    font: null,
+                    textColor: null,
+                    verticalAlign: null
+                });
             }
         }
         return new FormatExpression(sections);
     }
     evaluate(ctx) {
-        const evaluateSection = section => {
+        const evaluateSection = (section) => {
             const evaluatedContent = section.content.evaluate(ctx);
             if (typeOf(evaluatedContent) === ResolvedImageType) {
                 return new FormattedSection('', evaluatedContent, null, null, null, section.verticalAlign ? section.verticalAlign.evaluate(ctx) : null);
@@ -17565,7 +17846,9 @@ class Length {
         const input = context.parse(args[1], 1);
         if (!input)
             return null;
-        if (input.type.kind !== 'array' && input.type.kind !== 'string' && input.type.kind !== 'value')
+        if (input.type.kind !== 'array' &&
+            input.type.kind !== 'string' &&
+            input.type.kind !== 'value')
             return context.error(`Expected argument of type string or array, but found ${typeToString(input.type)} instead.`);
         return new Length(input);
     }
@@ -17610,10 +17893,10 @@ function lngFromMercatorXfromLng(mercatorX) {
     return mercatorX * 360 - 180;
 }
 function mercatorYfromLat$1(lat) {
-    return (180 - (180 / Math.PI * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)))) / 360;
+    return (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))) / 360;
 }
 function latFromMercatorY$1(mercatorY) {
-    return 360 / Math.PI * Math.atan(Math.exp((180 - mercatorY * 360) * Math.PI / 180)) - 90;
+    return (360 / Math.PI) * Math.atan(Math.exp(((180 - mercatorY * 360) * Math.PI) / 180)) - 90;
 }
 function updateBBox(bbox, coord) {
     bbox[0] = Math.min(bbox[0], coord[0]);
@@ -17633,14 +17916,15 @@ function boxWithinBox(bbox1, bbox2) {
     return true;
 }
 function rayIntersect(p, p1, p2) {
-    return ((p1[1] > p[1]) !== (p2[1] > p[1])) && (p[0] < (p2[0] - p1[0]) * (p[1] - p1[1]) / (p2[1] - p1[1]) + p1[0]);
+    return (p1[1] > p[1] !== p2[1] > p[1] &&
+        p[0] < ((p2[0] - p1[0]) * (p[1] - p1[1])) / (p2[1] - p1[1]) + p1[0]);
 }
 function pointOnBoundary(p, p1, p2) {
     const x1 = p[0] - p1[0];
     const y1 = p[1] - p1[1];
     const x2 = p[0] - p2[0];
     const y2 = p[1] - p2[1];
-    return (x1 * y2 - x2 * y1 === 0) && (x1 * x2 <= 0) && (y1 * y2 <= 0);
+    return x1 * y2 - x2 * y1 === 0 && x1 * x2 <= 0 && y1 * y2 <= 0;
 }
 // a, b are end points for line segment1, c and d are end points for line segment2
 function segmentIntersectSegment(a, b, c, d) {
@@ -17712,7 +17996,7 @@ function lineStringWithinPolygons(line, polygons) {
     return false;
 }
 function perp(v1, v2) {
-    return (v1[0] * v2[1] - v1[1] * v2[0]);
+    return v1[0] * v2[1] - v1[1] * v2[0];
 }
 // check if p1 and p2 are in different sides of line segment q1->q2
 function twoSided(p1, p2, q1, q2) {
@@ -17723,8 +18007,8 @@ function twoSided(p1, p2, q1, q2) {
     const y2 = p2[1] - q1[1];
     const x3 = q2[0] - q1[0];
     const y3 = q2[1] - q1[1];
-    const det1 = (x1 * y3 - x3 * y1);
-    const det2 = (x2 * y3 - x3 * y2);
+    const det1 = x1 * y3 - x3 * y1;
+    const det2 = x2 * y3 - x3 * y2;
     if ((det1 > 0 && det2 < 0) || (det1 < 0 && det2 > 0))
         return true;
     return false;
@@ -17754,9 +18038,18 @@ function getTilePolygons(coordinates, bbox, canonical) {
 function updatePoint(p, bbox, polyBBox, worldSize) {
     if (p[0] < polyBBox[0] || p[0] > polyBBox[2]) {
         const halfWorldSize = worldSize * 0.5;
-        let shift = (p[0] - polyBBox[0] > halfWorldSize) ? -worldSize : (polyBBox[0] - p[0] > halfWorldSize) ? worldSize : 0;
+        let shift = p[0] - polyBBox[0] > halfWorldSize
+            ? -worldSize
+            : polyBBox[0] - p[0] > halfWorldSize
+                ? worldSize
+                : 0;
         if (shift === 0) {
-            shift = (p[0] - polyBBox[2] > halfWorldSize) ? -worldSize : (polyBBox[2] - p[0] > halfWorldSize) ? worldSize : 0;
+            shift =
+                p[0] - polyBBox[2] > halfWorldSize
+                    ? -worldSize
+                    : polyBBox[2] - p[0] > halfWorldSize
+                        ? worldSize
+                        : 0;
         }
         p[0] += shift;
     }
@@ -17894,7 +18187,7 @@ class Within {
                 return new Within(geojson, geojson);
             }
         }
-        return context.error('\'within\' expression requires valid geojson object that contains polygon geometry type.');
+        return context.error("'within' expression requires valid geojson object that contains polygon geometry type.");
     }
     evaluate(ctx) {
         if (ctx.geometry() != null && ctx.canonicalID() != null) {
@@ -18176,7 +18469,9 @@ class CheapRuler {
             let dy = (line[i + 1][1] - y) * this.ky;
             let t = 0;
             if (dx !== 0 || dy !== 0) {
-                t = (this.wrap(p[0] - x) * this.kx * dx + (p[1] - y) * this.ky * dy) / (dx * dx + dy * dy);
+                t =
+                    (this.wrap(p[0] - x) * this.kx * dx + (p[1] - y) * this.ky * dy) /
+                        (dx * dx + dy * dy);
                 if (t > 1) {
                     x = line[i + 1][0];
                     y = line[i + 1][1];
@@ -18233,15 +18528,19 @@ function splitRange(range, isLine) {
             return [range, null];
         }
         const size1 = Math.floor(size / 2);
-        return [[range[0], range[0] + size1],
-            [range[0] + size1, range[1]]];
+        return [
+            [range[0], range[0] + size1],
+            [range[0] + size1, range[1]]
+        ];
     }
     if (size === 1) {
         return [range, null];
     }
     const size1 = Math.floor(size / 2) - 1;
-    return [[range[0], range[0] + size1],
-        [range[0] + size1 + 1, range[1]]];
+    return [
+        [range[0], range[0] + size1],
+        [range[0] + size1 + 1, range[1]]
+    ];
 }
 function getBBox(coords, range) {
     if (!isRangeSafe(range, coords.length)) {
@@ -18263,7 +18562,10 @@ function getPolygonBBox(polygon) {
     return bbox;
 }
 function isValidBBox(bbox) {
-    return bbox[0] !== -Infinity && bbox[1] !== -Infinity && bbox[2] !== Infinity && bbox[3] !== Infinity;
+    return (bbox[0] !== -Infinity &&
+        bbox[1] !== -Infinity &&
+        bbox[2] !== Infinity &&
+        bbox[3] !== Infinity);
 }
 // Calculate the distance between two bounding boxes.
 // Calculate the delta in x and y direction, and use two fake points {0.0, 0.0}
@@ -18398,7 +18700,8 @@ function polygonIntersect(poly1, poly2) {
 function polygonToPolygonDistance(polygon1, polygon2, ruler, currentMiniDist = Infinity) {
     const bbox1 = getPolygonBBox(polygon1);
     const bbox2 = getPolygonBBox(polygon2);
-    if (currentMiniDist !== Infinity && bboxToBBoxDistance(bbox1, bbox2, ruler) >= currentMiniDist) {
+    if (currentMiniDist !== Infinity &&
+        bboxToBBoxDistance(bbox1, bbox2, ruler) >= currentMiniDist) {
         return currentMiniDist;
     }
     if (boxWithinBox(bbox1, bbox2)) {
@@ -18559,7 +18862,9 @@ function pointSetToPointSetDistance(pointSet1, isLine1, pointSet2, isLine2, rule
 }
 function pointToGeometryDistance(ctx, geometries) {
     const tilePoints = ctx.geometry();
-    const pointPosition = tilePoints.flat().map(p => getLngLatFromTileCoord([p.x, p.y], ctx.canonical));
+    const pointPosition = tilePoints
+        .flat()
+        .map((p) => getLngLatFromTileCoord([p.x, p.y], ctx.canonical));
     if (tilePoints.length === 0) {
         return NaN;
     }
@@ -18585,7 +18890,9 @@ function pointToGeometryDistance(ctx, geometries) {
 }
 function lineStringToGeometryDistance(ctx, geometries) {
     const tileLine = ctx.geometry();
-    const linePositions = tileLine.flat().map(p => getLngLatFromTileCoord([p.x, p.y], ctx.canonical));
+    const linePositions = tileLine
+        .flat()
+        .map((p) => getLngLatFromTileCoord([p.x, p.y], ctx.canonical));
     if (tileLine.length === 0) {
         return NaN;
     }
@@ -18614,9 +18921,9 @@ function polygonToGeometryDistance(ctx, geometries) {
     if (tilePolygon.length === 0 || tilePolygon[0].length === 0) {
         return NaN;
     }
-    const polygons = classifyRings$1(tilePolygon, 0).map(polygon => {
-        return polygon.map(ring => {
-            return ring.map(p => getLngLatFromTileCoord([p.x, p.y], ctx.canonical));
+    const polygons = classifyRings$1(tilePolygon, 0).map((polygon) => {
+        return polygon.map((ring) => {
+            return ring.map((p) => getLngLatFromTileCoord([p.x, p.y], ctx.canonical));
         });
     });
     const ruler = new CheapRuler(polygons[0][0][0][1]);
@@ -18643,7 +18950,7 @@ function polygonToGeometryDistance(ctx, geometries) {
 }
 function toSimpleGeometry(geometry) {
     if (geometry.type === 'MultiPolygon') {
-        return geometry.coordinates.map(polygon => {
+        return geometry.coordinates.map((polygon) => {
             return {
                 type: 'Polygon',
                 coordinates: polygon
@@ -18651,7 +18958,7 @@ function toSimpleGeometry(geometry) {
         });
     }
     if (geometry.type === 'MultiLineString') {
-        return geometry.coordinates.map(lineString => {
+        return geometry.coordinates.map((lineString) => {
             return {
                 type: 'LineString',
                 coordinates: lineString
@@ -18659,7 +18966,7 @@ function toSimpleGeometry(geometry) {
         });
     }
     if (geometry.type === 'MultiPoint') {
-        return geometry.coordinates.map(point => {
+        return geometry.coordinates.map((point) => {
             return {
                 type: 'Point',
                 coordinates: point
@@ -18680,7 +18987,7 @@ class Distance {
         if (isValue(args[1])) {
             const geojson = args[1];
             if (geojson.type === 'FeatureCollection') {
-                return new Distance(geojson, geojson.features.map(feature => toSimpleGeometry(feature.geometry)).flat());
+                return new Distance(geojson, geojson.features.map((feature) => toSimpleGeometry(feature.geometry)).flat());
             }
             else if (geojson.type === 'Feature') {
                 return new Distance(geojson, toSimpleGeometry(geojson.geometry));
@@ -18689,7 +18996,7 @@ class Distance {
                 return new Distance(geojson, toSimpleGeometry(geojson));
             }
         }
-        return context.error('\'distance\' expression requires valid geojson object that contains polygon geometry type.');
+        return context.error("'distance' expression requires valid geojson object that contains polygon geometry type.");
     }
     evaluate(ctx) {
         if (ctx.geometry() != null && ctx.canonicalID() != null) {
@@ -18750,36 +19057,36 @@ const expressions$1 = {
     '<': LessThan,
     '>=': GreaterThanOrEqual,
     '<=': LessThanOrEqual,
-    'array': Assertion,
-    'at': At,
-    'boolean': Assertion,
-    'case': Case,
-    'coalesce': Coalesce,
-    'collator': CollatorExpression,
-    'format': FormatExpression,
-    'image': ImageExpression,
-    'in': In,
+    array: Assertion,
+    at: At,
+    boolean: Assertion,
+    case: Case,
+    coalesce: Coalesce,
+    collator: CollatorExpression,
+    format: FormatExpression,
+    image: ImageExpression,
+    in: In,
     'index-of': IndexOf,
-    'interpolate': Interpolate,
+    interpolate: Interpolate,
     'interpolate-hcl': Interpolate,
     'interpolate-lab': Interpolate,
-    'length': Length,
-    'let': Let,
-    'literal': Literal,
-    'match': Match,
-    'number': Assertion,
+    length: Length,
+    let: Let,
+    literal: Literal,
+    match: Match,
+    number: Assertion,
     'number-format': NumberFormat,
-    'object': Assertion,
-    'slice': Slice,
-    'step': Step,
-    'string': Assertion,
+    object: Assertion,
+    slice: Slice,
+    step: Step,
+    string: Assertion,
     'to-boolean': Coercion,
     'to-color': Coercion,
     'to-number': Coercion,
     'to-string': Coercion,
-    'var': Var,
-    'within': Within,
-    'distance': Distance,
+    var: Var,
+    within: Within,
+    distance: Distance,
     'global-state': GlobalState
 };
 
@@ -18806,14 +19113,13 @@ class CompoundExpression {
             return context.error(`Unknown expression "${op}". If you wanted a literal array, use ["literal", [...]].`, 0);
         }
         // Now check argument types against each signature
-        const type = Array.isArray(definition) ?
-            definition[0] : definition.type;
-        const availableOverloads = Array.isArray(definition) ?
-            [[definition[1], definition[2]]] :
-            definition.overloads;
-        const overloads = availableOverloads.filter(([signature]) => (!Array.isArray(signature) || // varags
+        const type = Array.isArray(definition) ? definition[0] : definition.type;
+        const availableOverloads = Array.isArray(definition)
+            ? [[definition[1], definition[2]]]
+            : definition.overloads;
+        const overloads = availableOverloads.filter(([signature]) => !Array.isArray(signature) || // varags
             signature.length === args.length - 1 // correct param count
-        ));
+        );
         let signatureContext = null;
         for (const [params, evaluate] of overloads) {
             // Use a fresh context for each attempted signature so that, if
@@ -18825,9 +19131,9 @@ class CompoundExpression {
             let argParseFailed = false;
             for (let i = 1; i < args.length; i++) {
                 const arg = args[i];
-                const expectedType = Array.isArray(params) ?
-                    params[i - 1] :
-                    params.type;
+                const expectedType = Array.isArray(params)
+                    ? params[i - 1]
+                    : params.type;
                 const parsed = signatureContext.parse(arg, 1 + parsedArgs.length, expectedType);
                 if (!parsed) {
                     argParseFailed = true;
@@ -18916,53 +19222,39 @@ function varargs(type) {
     return { type };
 }
 CompoundExpression.register(expressions$1, {
-    'error': [
+    error: [
         ErrorType,
         [StringType],
-        (ctx, [v]) => { throw new RuntimeError(v.evaluate(ctx)); }
+        (ctx, [v]) => {
+            throw new RuntimeError(v.evaluate(ctx));
+        }
     ],
-    'typeof': [
-        StringType,
-        [ValueType],
-        (ctx, [v]) => typeToString(typeOf(v.evaluate(ctx)))
-    ],
+    typeof: [StringType, [ValueType], (ctx, [v]) => typeToString(typeOf(v.evaluate(ctx)))],
     'to-rgba': [
         array(NumberType, 4),
         [ColorType],
         (ctx, [v]) => {
             const [r, g, b, a] = v.evaluate(ctx).rgb;
             return [r * 255, g * 255, b * 255, a];
-        },
+        }
     ],
-    'rgb': [
-        ColorType,
-        [NumberType, NumberType, NumberType],
-        rgba
-    ],
-    'rgba': [
-        ColorType,
-        [NumberType, NumberType, NumberType, NumberType],
-        rgba
-    ],
-    'has': {
+    rgb: [ColorType, [NumberType, NumberType, NumberType], rgba],
+    rgba: [ColorType, [NumberType, NumberType, NumberType, NumberType], rgba],
+    has: {
         type: BooleanType,
         overloads: [
+            [[StringType], (ctx, [key]) => has(key.evaluate(ctx), ctx.properties())],
             [
-                [StringType],
-                (ctx, [key]) => has(key.evaluate(ctx), ctx.properties())
-            ], [
                 [StringType, ObjectType],
                 (ctx, [key, obj]) => has(key.evaluate(ctx), obj.evaluate(ctx))
             ]
         ]
     },
-    'get': {
+    get: {
         type: ValueType,
         overloads: [
+            [[StringType], (ctx, [key]) => get(key.evaluate(ctx), ctx.properties())],
             [
-                [StringType],
-                (ctx, [key]) => get(key.evaluate(ctx), ctx.properties())
-            ], [
                 [StringType, ObjectType],
                 (ctx, [key, obj]) => get(key.evaluate(ctx), obj.evaluate(ctx))
             ]
@@ -18973,45 +19265,17 @@ CompoundExpression.register(expressions$1, {
         [StringType],
         (ctx, [key]) => get(key.evaluate(ctx), ctx.featureState || {})
     ],
-    'properties': [
-        ObjectType,
-        [],
-        (ctx) => ctx.properties()
-    ],
-    'geometry-type': [
-        StringType,
-        [],
-        (ctx) => ctx.geometryType()
-    ],
-    'id': [
+    properties: [ObjectType, [], (ctx) => ctx.properties()],
+    'geometry-type': [StringType, [], (ctx) => ctx.geometryType()],
+    id: [ValueType, [], (ctx) => ctx.id()],
+    zoom: [NumberType, [], (ctx) => ctx.globals.zoom],
+    'heatmap-density': [NumberType, [], (ctx) => ctx.globals.heatmapDensity || 0],
+    elevation: [NumberType, [], (ctx) => ctx.globals.elevation || 0],
+    'line-progress': [NumberType, [], (ctx) => ctx.globals.lineProgress || 0],
+    accumulated: [
         ValueType,
         [],
-        (ctx) => ctx.id()
-    ],
-    'zoom': [
-        NumberType,
-        [],
-        (ctx) => ctx.globals.zoom
-    ],
-    'heatmap-density': [
-        NumberType,
-        [],
-        (ctx) => ctx.globals.heatmapDensity || 0
-    ],
-    'elevation': [
-        NumberType,
-        [],
-        (ctx) => ctx.globals.elevation || 0
-    ],
-    'line-progress': [
-        NumberType,
-        [],
-        (ctx) => ctx.globals.lineProgress || 0
-    ],
-    'accumulated': [
-        ValueType,
-        [],
-        (ctx) => ctx.globals.accumulated === undefined ? null : ctx.globals.accumulated
+        (ctx) => (ctx.globals.accumulated === undefined ? null : ctx.globals.accumulated)
     ],
     '+': [
         NumberType,
@@ -19038,111 +19302,42 @@ CompoundExpression.register(expressions$1, {
     '-': {
         type: NumberType,
         overloads: [
-            [
-                [NumberType, NumberType],
-                (ctx, [a, b]) => a.evaluate(ctx) - b.evaluate(ctx)
-            ], [
-                [NumberType],
-                (ctx, [a]) => -a.evaluate(ctx)
-            ]
+            [[NumberType, NumberType], (ctx, [a, b]) => a.evaluate(ctx) - b.evaluate(ctx)],
+            [[NumberType], (ctx, [a]) => -a.evaluate(ctx)]
         ]
     },
-    '/': [
-        NumberType,
-        [NumberType, NumberType],
-        (ctx, [a, b]) => a.evaluate(ctx) / b.evaluate(ctx)
-    ],
-    '%': [
-        NumberType,
-        [NumberType, NumberType],
-        (ctx, [a, b]) => a.evaluate(ctx) % b.evaluate(ctx)
-    ],
-    'ln2': [
-        NumberType,
-        [],
-        () => Math.LN2
-    ],
-    'pi': [
-        NumberType,
-        [],
-        () => Math.PI
-    ],
-    'e': [
-        NumberType,
-        [],
-        () => Math.E
-    ],
+    '/': [NumberType, [NumberType, NumberType], (ctx, [a, b]) => a.evaluate(ctx) / b.evaluate(ctx)],
+    '%': [NumberType, [NumberType, NumberType], (ctx, [a, b]) => a.evaluate(ctx) % b.evaluate(ctx)],
+    ln2: [NumberType, [], () => Math.LN2],
+    pi: [NumberType, [], () => Math.PI],
+    e: [NumberType, [], () => Math.E],
     '^': [
         NumberType,
         [NumberType, NumberType],
         (ctx, [b, e]) => Math.pow(b.evaluate(ctx), e.evaluate(ctx))
     ],
-    'sqrt': [
-        NumberType,
-        [NumberType],
-        (ctx, [x]) => Math.sqrt(x.evaluate(ctx))
-    ],
-    'log10': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.log(n.evaluate(ctx)) / Math.LN10
-    ],
-    'ln': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.log(n.evaluate(ctx))
-    ],
-    'log2': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.log(n.evaluate(ctx)) / Math.LN2
-    ],
-    'sin': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.sin(n.evaluate(ctx))
-    ],
-    'cos': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.cos(n.evaluate(ctx))
-    ],
-    'tan': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.tan(n.evaluate(ctx))
-    ],
-    'asin': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.asin(n.evaluate(ctx))
-    ],
-    'acos': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.acos(n.evaluate(ctx))
-    ],
-    'atan': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.atan(n.evaluate(ctx))
-    ],
-    'min': [
+    sqrt: [NumberType, [NumberType], (ctx, [x]) => Math.sqrt(x.evaluate(ctx))],
+    log10: [NumberType, [NumberType], (ctx, [n]) => Math.log(n.evaluate(ctx)) / Math.LN10],
+    ln: [NumberType, [NumberType], (ctx, [n]) => Math.log(n.evaluate(ctx))],
+    log2: [NumberType, [NumberType], (ctx, [n]) => Math.log(n.evaluate(ctx)) / Math.LN2],
+    sin: [NumberType, [NumberType], (ctx, [n]) => Math.sin(n.evaluate(ctx))],
+    cos: [NumberType, [NumberType], (ctx, [n]) => Math.cos(n.evaluate(ctx))],
+    tan: [NumberType, [NumberType], (ctx, [n]) => Math.tan(n.evaluate(ctx))],
+    asin: [NumberType, [NumberType], (ctx, [n]) => Math.asin(n.evaluate(ctx))],
+    acos: [NumberType, [NumberType], (ctx, [n]) => Math.acos(n.evaluate(ctx))],
+    atan: [NumberType, [NumberType], (ctx, [n]) => Math.atan(n.evaluate(ctx))],
+    min: [
         NumberType,
         varargs(NumberType),
-        (ctx, args) => Math.min(...args.map(arg => arg.evaluate(ctx)))
+        (ctx, args) => Math.min(...args.map((arg) => arg.evaluate(ctx)))
     ],
-    'max': [
+    max: [
         NumberType,
         varargs(NumberType),
-        (ctx, args) => Math.max(...args.map(arg => arg.evaluate(ctx)))
+        (ctx, args) => Math.max(...args.map((arg) => arg.evaluate(ctx)))
     ],
-    'abs': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.abs(n.evaluate(ctx))
-    ],
-    'round': [
+    abs: [NumberType, [NumberType], (ctx, [n]) => Math.abs(n.evaluate(ctx))],
+    round: [
         NumberType,
         [NumberType],
         (ctx, [n]) => {
@@ -19153,26 +19348,14 @@ CompoundExpression.register(expressions$1, {
             return v < 0 ? -Math.round(-v) : Math.round(v);
         }
     ],
-    'floor': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.floor(n.evaluate(ctx))
-    ],
-    'ceil': [
-        NumberType,
-        [NumberType],
-        (ctx, [n]) => Math.ceil(n.evaluate(ctx))
-    ],
+    floor: [NumberType, [NumberType], (ctx, [n]) => Math.floor(n.evaluate(ctx))],
+    ceil: [NumberType, [NumberType], (ctx, [n]) => Math.ceil(n.evaluate(ctx))],
     'filter-==': [
         BooleanType,
         [StringType, ValueType],
         (ctx, [k, v]) => ctx.properties()[k.value] === v.value
     ],
-    'filter-id-==': [
-        BooleanType,
-        [ValueType],
-        (ctx, [v]) => ctx.id() === v.value
-    ],
+    'filter-id-==': [BooleanType, [ValueType], (ctx, [v]) => ctx.id() === v.value],
     'filter-type-==': [
         BooleanType,
         [StringType],
@@ -19250,16 +19433,8 @@ CompoundExpression.register(expressions$1, {
             return typeof a === typeof b && a >= b;
         }
     ],
-    'filter-has': [
-        BooleanType,
-        [ValueType],
-        (ctx, [k]) => k.value in ctx.properties()
-    ],
-    'filter-has-id': [
-        BooleanType,
-        [],
-        (ctx) => (ctx.id() !== null && ctx.id() !== undefined)
-    ],
+    'filter-has': [BooleanType, [ValueType], (ctx, [k]) => k.value in ctx.properties()],
+    'filter-has-id': [BooleanType, [], (ctx) => ctx.id() !== null && ctx.id() !== undefined],
     'filter-type-in': [
         BooleanType,
         [array(StringType)],
@@ -19282,13 +19457,10 @@ CompoundExpression.register(expressions$1, {
         // assumes v is a array literal with values sorted in ascending order and of a single type
         (ctx, [k, v]) => binarySearch(ctx.properties()[k.value], v.value, 0, v.value.length - 1)
     ],
-    'all': {
+    all: {
         type: BooleanType,
         overloads: [
-            [
-                [BooleanType, BooleanType],
-                (ctx, [a, b]) => a.evaluate(ctx) && b.evaluate(ctx)
-            ],
+            [[BooleanType, BooleanType], (ctx, [a, b]) => a.evaluate(ctx) && b.evaluate(ctx)],
             [
                 varargs(BooleanType),
                 (ctx, args) => {
@@ -19301,13 +19473,10 @@ CompoundExpression.register(expressions$1, {
             ]
         ]
     },
-    'any': {
+    any: {
         type: BooleanType,
         overloads: [
-            [
-                [BooleanType, BooleanType],
-                (ctx, [a, b]) => a.evaluate(ctx) || b.evaluate(ctx)
-            ],
+            [[BooleanType, BooleanType], (ctx, [a, b]) => a.evaluate(ctx) || b.evaluate(ctx)],
             [
                 varargs(BooleanType),
                 (ctx, args) => {
@@ -19320,11 +19489,7 @@ CompoundExpression.register(expressions$1, {
             ]
         ]
     },
-    '!': [
-        BooleanType,
-        [BooleanType],
-        (ctx, [b]) => !b.evaluate(ctx)
-    ],
+    '!': [BooleanType, [BooleanType], (ctx, [b]) => !b.evaluate(ctx)],
     'is-supported-script': [
         BooleanType,
         [StringType],
@@ -19337,20 +19502,12 @@ CompoundExpression.register(expressions$1, {
             return true;
         }
     ],
-    'upcase': [
-        StringType,
-        [StringType],
-        (ctx, [s]) => s.evaluate(ctx).toUpperCase()
-    ],
-    'downcase': [
-        StringType,
-        [StringType],
-        (ctx, [s]) => s.evaluate(ctx).toLowerCase()
-    ],
-    'concat': [
+    upcase: [StringType, [StringType], (ctx, [s]) => s.evaluate(ctx).toUpperCase()],
+    downcase: [StringType, [StringType], (ctx, [s]) => s.evaluate(ctx).toLowerCase()],
+    concat: [
         StringType,
         varargs(ValueType),
-        (ctx, args) => args.map(arg => valueToString(arg.evaluate(ctx))).join('')
+        (ctx, args) => args.map((arg) => valueToString(arg.evaluate(ctx))).join('')
     ],
     'resolved-locale': [
         StringType,
@@ -19388,10 +19545,9 @@ function isExpressionConstant(expression) {
     else if (expression instanceof GlobalState) {
         return false;
     }
-    const isTypeAnnotation = expression instanceof Coercion ||
-        expression instanceof Assertion;
+    const isTypeAnnotation = expression instanceof Coercion || expression instanceof Assertion;
     let childrenConstant = true;
-    expression.eachChild(child => {
+    expression.eachChild((child) => {
         // We can _almost_ assume that if `expressions` children are constant,
         // they would already have been evaluated to Literal values when they
         // were parsed.  Type annotations are the exception, because they might
@@ -19408,8 +19564,15 @@ function isExpressionConstant(expression) {
     if (!childrenConstant) {
         return false;
     }
-    return isFeatureConstant(expression) &&
-        isGlobalPropertyConstant(expression, ['zoom', 'heatmap-density', 'elevation', 'line-progress', 'accumulated', 'is-supported-script']);
+    return (isFeatureConstant(expression) &&
+        isGlobalPropertyConstant(expression, [
+            'zoom',
+            'heatmap-density',
+            'elevation',
+            'line-progress',
+            'accumulated',
+            'is-supported-script'
+        ]));
 }
 function isFeatureConstant(e) {
     if (e instanceof CompoundExpression) {
@@ -19422,9 +19585,7 @@ function isFeatureConstant(e) {
         else if (e.name === 'has' && e.args.length === 1) {
             return false;
         }
-        else if (e.name === 'properties' ||
-            e.name === 'geometry-type' ||
-            e.name === 'id') {
+        else if (e.name === 'properties' || e.name === 'geometry-type' || e.name === 'id') {
             return false;
         }
         else if (/^filter-/.test(e.name)) {
@@ -19438,7 +19599,7 @@ function isFeatureConstant(e) {
         return false;
     }
     let result = true;
-    e.eachChild(arg => {
+    e.eachChild((arg) => {
         if (result && !isFeatureConstant(arg)) {
             result = false;
         }
@@ -19452,7 +19613,7 @@ function isStateConstant(e) {
         }
     }
     let result = true;
-    e.eachChild(arg => {
+    e.eachChild((arg) => {
         if (result && !isStateConstant(arg)) {
             result = false;
         }
@@ -19480,7 +19641,8 @@ function error(value) {
 }
 
 function supportsPropertyExpression(spec) {
-    return spec['property-type'] === 'data-driven' || spec['property-type'] === 'cross-faded-data-driven';
+    return (spec['property-type'] === 'data-driven' ||
+        spec['property-type'] === 'cross-faded-data-driven');
 }
 function supportsZoomExpression(spec) {
     return !!spec.expression && spec.expression.parameters.indexOf('zoom') > -1;
@@ -19511,7 +19673,10 @@ function getType(val) {
 }
 
 function isFunction$1(value) {
-    return typeof value === 'object' && value !== null && !Array.isArray(value) && typeOf(value) === ObjectType;
+    return (typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value) &&
+        typeOf(value) === ObjectType);
 }
 function identityFunction(x) {
     return x;
@@ -19599,14 +19764,17 @@ function createFunction(parameters, propertySpec) {
         }
         const featureFunctionStops = [];
         for (const z of zoomStops) {
-            featureFunctionStops.push([featureFunctions[z].zoom, createFunction(featureFunctions[z], propertySpec)]);
+            featureFunctionStops.push([
+                featureFunctions[z].zoom,
+                createFunction(featureFunctions[z], propertySpec)
+            ]);
         }
         const interpolationType = { name: 'linear' };
         return {
             kind: 'composite',
             interpolationType,
             interpolationFactor: Interpolate.interpolationFactor.bind(undefined, interpolationType),
-            zoomStops: featureFunctionStops.map(s => s[0]),
+            zoomStops: featureFunctionStops.map((s) => s[0]),
             evaluate({ zoom }, properties) {
                 return evaluateExponentialFunction({
                     stops: featureFunctionStops,
@@ -19616,13 +19784,14 @@ function createFunction(parameters, propertySpec) {
         };
     }
     else if (zoomDependent) {
-        const interpolationType = type === 'exponential' ?
-            { name: 'exponential', base: parameters.base !== undefined ? parameters.base : 1 } : null;
+        const interpolationType = type === 'exponential'
+            ? { name: 'exponential', base: parameters.base !== undefined ? parameters.base : 1 }
+            : null;
         return {
             kind: 'camera',
             interpolationType,
             interpolationFactor: Interpolate.interpolationFactor.bind(undefined, interpolationType),
-            zoomStops: parameters.stops.map(s => s[0]),
+            zoomStops: parameters.stops.map((s) => s[0]),
             evaluate: ({ zoom }) => innerFun(parameters, propertySpec, zoom, hashedStops, categoricalKeyType)
         };
     }
@@ -19630,7 +19799,9 @@ function createFunction(parameters, propertySpec) {
         return {
             kind: 'source',
             evaluate(_, feature) {
-                const value = feature && feature.properties ? feature.properties[parameters.property] : undefined;
+                const value = feature && feature.properties
+                    ? feature.properties[parameters.property]
+                    : undefined;
                 if (value === undefined) {
                     return coalesce$1(parameters.default, propertySpec.default);
                 }
@@ -19718,7 +19889,8 @@ function evaluateIdentityFunction(parameters, propertySpec, input) {
             input = NumberArray.parse(input);
             break;
         default:
-            if (getType(input) !== propertySpec.type && (propertySpec.type !== 'enum' || !propertySpec.values[input])) {
+            if (getType(input) !== propertySpec.type &&
+                (propertySpec.type !== 'enum' || !propertySpec.values[input])) {
                 input = undefined;
             }
     }
@@ -19782,7 +19954,8 @@ class StyleExpression {
         this._warningHistory = {};
         this._evaluator = new EvaluationContext();
         this._defaultValue = propertySpec ? getDefaultValue(propertySpec) : null;
-        this._enumValues = propertySpec && propertySpec.type === 'enum' ? propertySpec.values : null;
+        this._enumValues =
+            propertySpec && propertySpec.type === 'enum' ? propertySpec.values : null;
         this._globalState = globalState;
     }
     evaluateWithoutErrorHandling(globals, feature, featureState, canonical, availableImages, formattedSection) {
@@ -19813,7 +19986,9 @@ class StyleExpression {
                 return this._defaultValue;
             }
             if (this._enumValues && !(val in this._enumValues)) {
-                throw new RuntimeError(`Expected value to be one of ${Object.keys(this._enumValues).map(v => JSON.stringify(v)).join(', ')}, but found ${JSON.stringify(val)} instead.`);
+                throw new RuntimeError(`Expected value to be one of ${Object.keys(this._enumValues)
+                    .map((v) => JSON.stringify(v))
+                    .join(', ')}, but found ${JSON.stringify(val)} instead.`);
             }
             return val;
         }
@@ -19829,8 +20004,10 @@ class StyleExpression {
     }
 }
 function isExpression(expression) {
-    return Array.isArray(expression) && expression.length > 0 &&
-        typeof expression[0] === 'string' && expression[0] in expressions$1;
+    return (Array.isArray(expression) &&
+        expression.length > 0 &&
+        typeof expression[0] === 'string' &&
+        expression[0] in expressions$1);
 }
 /**
  * Parse and typecheck the given style spec JSON expression.  If
@@ -19854,7 +20031,8 @@ class ZoomConstantExpression {
     constructor(kind, expression, globalState) {
         this.kind = kind;
         this._styleExpression = expression;
-        this.isStateDependent = kind !== 'constant' && !isStateConstant(expression.expression);
+        this.isStateDependent =
+            kind !== 'constant' && !isStateConstant(expression.expression);
         this.globalStateRefs = findGlobalStateRefs(expression.expression);
         this._globalState = globalState;
     }
@@ -19876,7 +20054,8 @@ class ZoomDependentExpression {
         this.kind = kind;
         this.zoomStops = zoomStops;
         this._styleExpression = expression;
-        this.isStateDependent = kind !== 'camera' && !isStateConstant(expression.expression);
+        this.isStateDependent =
+            kind !== 'camera' && !isStateConstant(expression.expression);
         this.globalStateRefs = findGlobalStateRefs(expression.expression);
         this.interpolationType = interpolationType;
         this._globalState = globalState;
@@ -19921,23 +20100,27 @@ function createPropertyExpression(expressionInput, propertySpec, globalState) {
     }
     const zoomCurve = findZoomCurve(parsed);
     if (!zoomCurve && !isZoomConstant) {
-        return error([new ExpressionParsingError('', '"zoom" expression may only be used as input to a top-level "step" or "interpolate" expression.')]);
+        return error([
+            new ExpressionParsingError('', '"zoom" expression may only be used as input to a top-level "step" or "interpolate" expression.')
+        ]);
     }
     else if (zoomCurve instanceof ExpressionParsingError) {
         return error([zoomCurve]);
     }
     else if (zoomCurve instanceof Interpolate && !supportsInterpolation(propertySpec)) {
-        return error([new ExpressionParsingError('', '"interpolate" expressions cannot be used with this property')]);
+        return error([
+            new ExpressionParsingError('', '"interpolate" expressions cannot be used with this property')
+        ]);
     }
     if (!zoomCurve) {
-        return success(isFeatureConstantResult ?
-            new ZoomConstantExpression('constant', expression.value, globalState) :
-            new ZoomConstantExpression('source', expression.value, globalState));
+        return success(isFeatureConstantResult
+            ? new ZoomConstantExpression('constant', expression.value, globalState)
+            : new ZoomConstantExpression('source', expression.value, globalState));
     }
     const interpolationType = zoomCurve instanceof Interpolate ? zoomCurve.interpolation : undefined;
-    return success(isFeatureConstantResult ?
-        new ZoomDependentExpression('camera', expression.value, zoomCurve.labels, interpolationType, globalState) :
-        new ZoomDependentExpression('composite', expression.value, zoomCurve.labels, interpolationType, globalState));
+    return success(isFeatureConstantResult
+        ? new ZoomDependentExpression('camera', expression.value, zoomCurve.labels, interpolationType, globalState)
+        : new ZoomDependentExpression('composite', expression.value, zoomCurve.labels, interpolationType, globalState));
 }
 // serialization wrapper for old-style stop functions normalized to the
 // expression interface
@@ -19965,7 +20148,7 @@ function normalizePropertyExpression(value, specification, globalState) {
         const expression = createPropertyExpression(value, specification, globalState);
         if (expression.result === 'error') {
             // this should have been caught in validation
-            throw new Error(expression.value.map(err => `${err.key}: ${err.message}`).join(', '));
+            throw new Error(expression.value.map((err) => `${err.key}: ${err.message}`).join(', '));
         }
         return expression.value;
     }
@@ -19974,16 +20157,20 @@ function normalizePropertyExpression(value, specification, globalState) {
         if (specification.type === 'color' && typeof value === 'string') {
             constant = Color.parse(value);
         }
-        else if (specification.type === 'padding' && (typeof value === 'number' || Array.isArray(value))) {
+        else if (specification.type === 'padding' &&
+            (typeof value === 'number' || Array.isArray(value))) {
             constant = Padding.parse(value);
         }
-        else if (specification.type === 'numberArray' && (typeof value === 'number' || Array.isArray(value))) {
+        else if (specification.type === 'numberArray' &&
+            (typeof value === 'number' || Array.isArray(value))) {
             constant = NumberArray.parse(value);
         }
-        else if (specification.type === 'colorArray' && (typeof value === 'string' || Array.isArray(value))) {
+        else if (specification.type === 'colorArray' &&
+            (typeof value === 'string' || Array.isArray(value))) {
             constant = ColorArray.parse(value);
         }
-        else if (specification.type === 'variableAnchorOffsetCollection' && Array.isArray(value)) {
+        else if (specification.type === 'variableAnchorOffsetCollection' &&
+            Array.isArray(value)) {
             constant = VariableAnchorOffsetCollection.parse(value);
         }
         else if (specification.type === 'projectionDefinition' && typeof value === 'string') {
@@ -20039,7 +20226,7 @@ function findGlobalStateRefs(expression, results = new Set()) {
     if (expression instanceof GlobalState) {
         results.add(expression.key);
     }
-    expression.eachChild(childExpression => {
+    expression.eachChild((childExpression) => {
         findGlobalStateRefs(childExpression, results);
     });
     return results;
@@ -20085,7 +20272,7 @@ function getDefaultValue(spec) {
         case 'projectionDefinition':
             return ProjectionDefinition.parse(spec.default) || null;
         default:
-            return (spec.default === undefined ? null : spec.default);
+            return spec.default === undefined ? null : spec.default;
     }
 }
 function addGlobalState(globals, globalState) {
@@ -20112,7 +20299,7 @@ function isExpressionFilter(filter) {
         case 'has':
             return filter.length >= 2 && filter[1] !== '$id' && filter[1] !== '$type';
         case 'in':
-            return filter.length >= 3 && (typeof filter[1] !== 'string' || Array.isArray(filter[2]));
+            return (filter.length >= 3 && (typeof filter[1] !== 'string' || Array.isArray(filter[2])));
         case '!in':
         case '!has':
         case 'none':
@@ -20123,7 +20310,7 @@ function isExpressionFilter(filter) {
         case '>=':
         case '<':
         case '<=':
-            return filter.length !== 3 || (Array.isArray(filter[1]) || Array.isArray(filter[2]));
+            return filter.length !== 3 || Array.isArray(filter[1]) || Array.isArray(filter[2]);
         case 'any':
         case 'all':
             for (const f of filter.slice(1)) {
@@ -20137,13 +20324,13 @@ function isExpressionFilter(filter) {
     }
 }
 const filterSpec = {
-    'type': 'boolean',
-    'default': false,
-    'transition': false,
+    type: 'boolean',
+    default: false,
+    transition: false,
     'property-type': 'data-driven',
-    'expression': {
-        'interpolated': false,
-        'parameters': ['zoom', 'feature']
+    expression: {
+        interpolated: false,
+        parameters: ['zoom', 'feature']
     }
 };
 /**
@@ -20165,7 +20352,7 @@ function featureFilter(filter, globalState) {
     }
     const compiled = createExpression(filter, filterSpec, globalState);
     if (compiled.result === 'error') {
-        throw new Error(compiled.value.map(err => `${err.key}: ${err.message}`).join(', '));
+        throw new Error(compiled.value.map((err) => `${err.key}: ${err.message}`).join(', '));
     }
     else {
         const needGeometry = geometryNeeded(filter);
@@ -20196,21 +20383,28 @@ function convertFilter$1(filter) {
         return true;
     const op = filter[0];
     if (filter.length <= 1)
-        return (op !== 'any');
-    const converted = op === '==' ? convertComparisonOp$1(filter[1], filter[2], '==') :
-        op === '!=' ? convertNegation(convertComparisonOp$1(filter[1], filter[2], '==')) :
-            op === '<' ||
-                op === '>' ||
-                op === '<=' ||
-                op === '>=' ? convertComparisonOp$1(filter[1], filter[2], op) :
-                op === 'any' ? convertDisjunctionOp(filter.slice(1)) :
-                    op === 'all' ? ['all'].concat(filter.slice(1).map(convertFilter$1)) :
-                        op === 'none' ? ['all'].concat(filter.slice(1).map(convertFilter$1).map(convertNegation)) :
-                            op === 'in' ? convertInOp$1(filter[1], filter.slice(2)) :
-                                op === '!in' ? convertNegation(convertInOp$1(filter[1], filter.slice(2))) :
-                                    op === 'has' ? convertHasOp$1(filter[1]) :
-                                        op === '!has' ? convertNegation(convertHasOp$1(filter[1])) :
-                                            true;
+        return op !== 'any';
+    const converted = op === '=='
+        ? convertComparisonOp$1(filter[1], filter[2], '==')
+        : op === '!='
+            ? convertNegation(convertComparisonOp$1(filter[1], filter[2], '=='))
+            : op === '<' || op === '>' || op === '<=' || op === '>='
+                ? convertComparisonOp$1(filter[1], filter[2], op)
+                : op === 'any'
+                    ? convertDisjunctionOp(filter.slice(1))
+                    : op === 'all'
+                        ? ['all'].concat(filter.slice(1).map(convertFilter$1))
+                        : op === 'none'
+                            ? ['all'].concat(filter.slice(1).map(convertFilter$1).map(convertNegation))
+                            : op === 'in'
+                                ? convertInOp$1(filter[1], filter.slice(2))
+                                : op === '!in'
+                                    ? convertNegation(convertInOp$1(filter[1], filter.slice(2)))
+                                    : op === 'has'
+                                        ? convertHasOp$1(filter[1])
+                                        : op === '!has'
+                                            ? convertNegation(convertHasOp$1(filter[1]))
+                                            : true;
     return converted;
 }
 function convertComparisonOp$1(property, value, op) {
@@ -20236,7 +20430,7 @@ function convertInOp$1(property, values) {
         case '$id':
             return ['filter-id-in', ['literal', values]];
         default:
-            if (values.length > 200 && !values.some(v => typeof v !== typeof values[0])) {
+            if (values.length > 200 && !values.some((v) => typeof v !== typeof values[0])) {
                 return ['filter-in-large', property, ['literal', values.sort(compare)]];
             }
             else {
@@ -20314,7 +20508,7 @@ function convertFilter(filter, expectedTypes = {}) {
     const legacyFilter = filter;
     const legacyOp = legacyFilter[0];
     if (filter.length <= 1)
-        return (legacyOp !== 'any');
+        return legacyOp !== 'any';
     switch (legacyOp) {
         case '==':
         case '!=':
@@ -20331,13 +20525,15 @@ function convertFilter(filter, expectedTypes = {}) {
                 const types = {};
                 const child = convertFilter(f, types);
                 const typechecks = runtimeTypeChecks(types);
-                return typechecks === true ? child : ['case', typechecks, child, false];
+                return typechecks === true
+                    ? child
+                    : ['case', typechecks, child, false];
             });
             return ['any', ...children];
         }
         case 'all': {
             const [, ...conditions] = legacyFilter;
-            const children = conditions.map(f => convertFilter(f, expectedTypes));
+            const children = conditions.map((f) => convertFilter(f, expectedTypes));
             return children.length > 1 ? ['all', ...children] : children[0];
         }
         case 'none': {
@@ -20442,10 +20638,10 @@ function convertInOp(property, values, negate = false) {
         return ['match', get, uniqueValues, !negate, negate];
     }
     if (negate) {
-        return ['all', ...values.map(v => ['!=', get, v])];
+        return ['all', ...values.map((v) => ['!=', get, v])];
     }
     else {
-        return ['any', ...values.map(v => ['==', get, v])];
+        return ['any', ...values.map((v) => ['==', get, v])];
     }
 }
 function convertHasOp(property) {
@@ -20496,16 +20692,14 @@ function convertIdentityFunction(parameters, propertySpec) {
         return propertySpec.type === 'string' ? ['string', get] : get;
     }
     else if (propertySpec.type === 'enum') {
-        return [
-            'match',
-            get,
-            Object.keys(propertySpec.values),
-            get,
-            parameters.default
-        ];
+        return ['match', get, Object.keys(propertySpec.values), get, parameters.default];
     }
     else {
-        const expression = [propertySpec.type === 'color' ? 'to-color' : propertySpec.type, get, convertLiteral(parameters.default)];
+        const expression = [
+            propertySpec.type === 'color' ? 'to-color' : propertySpec.type,
+            get,
+            convertLiteral(parameters.default)
+        ];
         if (propertySpec.type === 'array') {
             expression.splice(1, 0, propertySpec.value, propertySpec.length || null);
         }
@@ -20514,9 +20708,12 @@ function convertIdentityFunction(parameters, propertySpec) {
 }
 function getInterpolateOperator(parameters) {
     switch (parameters.colorSpace) {
-        case 'hcl': return 'interpolate-hcl';
-        case 'lab': return 'interpolate-lab';
-        default: return 'interpolate';
+        case 'hcl':
+            return 'interpolate-hcl';
+        case 'lab':
+            return 'interpolate-lab';
+        default:
+            return 'interpolate';
     }
 }
 function convertZoomAndPropertyFunction(parameters, propertySpec, stops) {
@@ -20531,7 +20728,7 @@ function convertZoomAndPropertyFunction(parameters, propertySpec, stops) {
                 zoom,
                 type: parameters.type,
                 property: parameters.property,
-                default: parameters.default,
+                default: parameters.default
             };
             featureFunctionStops[zoom] = [];
             zoomStops.push(zoom);
@@ -20605,12 +20802,14 @@ function convertPropertyFunction(parameters, propertySpec, stops) {
             appendStopPair(expression, stop[0], stop[1], true);
         }
         fixupDegenerateStepCurve(expression);
-        return parameters.default === undefined ? expression : [
-            'case',
-            ['==', ['typeof', get], 'number'],
-            expression,
-            convertLiteral(parameters.default)
-        ];
+        return parameters.default === undefined
+            ? expression
+            : [
+                'case',
+                ['==', ['typeof', get], 'number'],
+                expression,
+                convertLiteral(parameters.default)
+            ];
     }
     else if (type === 'exponential') {
         const base = parameters.base !== undefined ? parameters.base : 1;
@@ -20622,12 +20821,14 @@ function convertPropertyFunction(parameters, propertySpec, stops) {
         for (const stop of stops) {
             appendStopPair(expression, stop[0], stop[1], false);
         }
-        return parameters.default === undefined ? expression : [
-            'case',
-            ['==', ['typeof', get], 'number'],
-            expression,
-            convertLiteral(parameters.default)
-        ];
+        return parameters.default === undefined
+            ? expression
+            : [
+                'case',
+                ['==', ['typeof', get], 'number'],
+                expression,
+                convertLiteral(parameters.default)
+            ];
     }
     else {
         throw new Error(`Unknown property function type ${type}`);
@@ -20643,7 +20844,11 @@ function convertZoomFunction(parameters, propertySpec, stops, input = ['zoom']) 
     }
     else if (type === 'exponential') {
         const base = parameters.base !== undefined ? parameters.base : 1;
-        expression = [getInterpolateOperator(parameters), base === 1 ? ['linear'] : ['exponential', base], input];
+        expression = [
+            getInterpolateOperator(parameters),
+            base === 1 ? ['linear'] : ['exponential', base],
+            input
+        ];
     }
     else {
         throw new Error(`Unknown zoom function type "${type}"`);
@@ -20759,7 +20964,11 @@ function eachProperty(style, options, callback) {
 
 function stringify$1(obj) {
     const type = typeof obj;
-    if (type === 'number' || type === 'boolean' || type === 'string' || obj === undefined || obj === null)
+    if (type === 'number' ||
+        type === 'boolean' ||
+        type === 'string' ||
+        obj === undefined ||
+        obj === null)
         return JSON.stringify(obj);
     if (Array.isArray(obj)) {
         let str = '[';
@@ -20866,7 +21075,8 @@ function deepUnbundle(value) {
     if (Array.isArray(value)) {
         return value.map(deepUnbundle);
     }
-    else if (value instanceof Object && !(value instanceof Number || value instanceof String || value instanceof Boolean)) {
+    else if (value instanceof Object &&
+        !(value instanceof Number || value instanceof String || value instanceof Boolean)) {
         const unbundledValue = {};
         for (const key in value) {
             unbundledValue[key] = deepUnbundle(value[key]);
@@ -20898,6 +21108,12 @@ function validateObject(options) {
             validateElement = elementValidators[elementSpecKey];
         }
         else if (getOwn(elementSpecs, elementSpecKey)) {
+            if (object[objectKey] === undefined) {
+                // property is possible, set but set to undefined
+                // we only check it if it is required and not defaulted in the next loop
+                // without skipping here, we would alert to properties being set to undefined
+                continue;
+            }
             validateElement = validateSpec;
         }
         else if (elementValidators['*']) {
@@ -20918,7 +21134,7 @@ function validateObject(options) {
             styleSpec,
             object,
             objectKey,
-            validateSpec,
+            validateSpec
         }, object));
     }
     for (const elementSpecKey in elementSpecs) {
@@ -20926,7 +21142,9 @@ function validateObject(options) {
         if (elementValidators[elementSpecKey]) {
             continue;
         }
-        if (elementSpecs[elementSpecKey].required && elementSpecs[elementSpecKey]['default'] === undefined && object[elementSpecKey] === undefined) {
+        if (elementSpecs[elementSpecKey].required &&
+            elementSpecs[elementSpecKey]['default'] === undefined &&
+            object[elementSpecKey] === undefined) {
             errors.push(new ValidationError(key, object, `missing required property "${elementSpecKey}"`));
         }
     }
@@ -20945,14 +21163,13 @@ function validateArray(options) {
         return [new ValidationError(key, array, `array expected, ${getType(array)} found`)];
     }
     if (arraySpec.length && array.length !== arraySpec.length) {
-        return [new ValidationError(key, array, `array length ${arraySpec.length} expected, length ${array.length} found`)];
-    }
-    if (arraySpec['min-length'] && array.length < arraySpec['min-length']) {
-        return [new ValidationError(key, array, `array length at least ${arraySpec['min-length']} expected, length ${array.length} found`)];
+        return [
+            new ValidationError(key, array, `array length ${arraySpec.length} expected, length ${array.length} found`)
+        ];
     }
     let arrayElementSpec = {
-        'type': arraySpec.value,
-        'values': arraySpec.values
+        type: arraySpec.value,
+        values: arraySpec.values
     };
     if (styleSpec.$version < 7) {
         arrayElementSpec['function'] = arraySpec.function;
@@ -20988,10 +21205,14 @@ function validateNumber(options) {
         return [new ValidationError(key, value, `number expected, ${type} found`)];
     }
     if ('minimum' in valueSpec && value < valueSpec.minimum) {
-        return [new ValidationError(key, value, `${value} is less than the minimum value ${valueSpec.minimum}`)];
+        return [
+            new ValidationError(key, value, `${value} is less than the minimum value ${valueSpec.minimum}`)
+        ];
     }
     if ('maximum' in valueSpec && value > valueSpec.maximum) {
-        return [new ValidationError(key, value, `${value} is greater than the maximum value ${valueSpec.maximum}`)];
+        return [
+            new ValidationError(key, value, `${value} is greater than the maximum value ${valueSpec.maximum}`)
+        ];
     }
     return [];
 }
@@ -21026,7 +21247,9 @@ function validateFunction(options) {
     if (functionType !== 'identity' && !options.value.stops) {
         errors.push(new ValidationError(options.key, options.value, 'missing required property "stops"'));
     }
-    if (functionType === 'exponential' && options.valueSpec.expression && !supportsInterpolation(options.valueSpec)) {
+    if (functionType === 'exponential' &&
+        options.valueSpec.expression &&
+        !supportsInterpolation(options.valueSpec)) {
         errors.push(new ValidationError(options.key, options.value, 'exponential functions not supported'));
     }
     if (options.styleSpec.$version >= 8) {
@@ -21037,13 +21260,16 @@ function validateFunction(options) {
             errors.push(new ValidationError(options.key, options.value, 'zoom functions not supported'));
         }
     }
-    if ((functionType === 'categorical' || isZoomAndPropertyFunction) && options.value.property === undefined) {
+    if ((functionType === 'categorical' || isZoomAndPropertyFunction) &&
+        options.value.property === undefined) {
         errors.push(new ValidationError(options.key, options.value, '"property" property is required'));
     }
     return errors;
     function validateFunctionStops(options) {
         if (functionType === 'identity') {
-            return [new ValidationError(options.key, options.value, 'identity function may not have a "stops" property')];
+            return [
+                new ValidationError(options.key, options.value, 'identity function may not have a "stops" property')
+            ];
         }
         let errors = [];
         const value = options.value;
@@ -21069,11 +21295,15 @@ function validateFunction(options) {
             return [new ValidationError(key, value, `array expected, ${getType(value)} found`)];
         }
         if (value.length !== 2) {
-            return [new ValidationError(key, value, `array length 2 expected, length ${value.length} found`)];
+            return [
+                new ValidationError(key, value, `array length 2 expected, length ${value.length} found`)
+            ];
         }
         if (isZoomAndPropertyFunction) {
             if (getType(value[0]) !== 'object') {
-                return [new ValidationError(key, value, `object expected, ${getType(value[0])} found`)];
+                return [
+                    new ValidationError(key, value, `object expected, ${getType(value[0])} found`)
+                ];
             }
             if (value[0].zoom === undefined) {
                 return [new ValidationError(key, value, 'object stop key must have zoom')];
@@ -21082,7 +21312,9 @@ function validateFunction(options) {
                 return [new ValidationError(key, value, 'object stop key must have value')];
             }
             if (previousStopDomainZoom && previousStopDomainZoom > unbundle(value[0].zoom)) {
-                return [new ValidationError(key, value[0].zoom, 'stop zoom values must appear in ascending order')];
+                return [
+                    new ValidationError(key, value[0].zoom, 'stop zoom values must appear in ascending order')
+                ];
             }
             if (unbundle(value[0].zoom) !== previousStopDomainZoom) {
                 previousStopDomainZoom = unbundle(value[0].zoom);
@@ -21096,7 +21328,10 @@ function validateFunction(options) {
                 validateSpec: options.validateSpec,
                 style: options.style,
                 styleSpec: options.styleSpec,
-                objectElementValidators: { zoom: validateNumber, value: validateStopDomainValue }
+                objectElementValidators: {
+                    zoom: validateNumber,
+                    value: validateStopDomainValue
+                }
             }));
         }
         else {
@@ -21109,7 +21344,9 @@ function validateFunction(options) {
             }, value));
         }
         if (isExpression(deepUnbundle(value[1]))) {
-            return errors.concat([new ValidationError(`${key}[1]`, value[1], 'expressions are not allowed in function stops.')]);
+            return errors.concat([
+                new ValidationError(`${key}[1]`, value[1], 'expressions are not allowed in function stops.')
+            ]);
         }
         return errors.concat(options.validateSpec({
             key: `${key}[1]`,
@@ -21128,29 +21365,45 @@ function validateFunction(options) {
             stopKeyType = type;
         }
         else if (type !== stopKeyType) {
-            return [new ValidationError(options.key, reportValue, `${type} stop domain type must match previous stop domain type ${stopKeyType}`)];
+            return [
+                new ValidationError(options.key, reportValue, `${type} stop domain type must match previous stop domain type ${stopKeyType}`)
+            ];
         }
         if (type !== 'number' && type !== 'string' && type !== 'boolean') {
-            return [new ValidationError(options.key, reportValue, 'stop domain value must be a number, string, or boolean')];
+            return [
+                new ValidationError(options.key, reportValue, 'stop domain value must be a number, string, or boolean')
+            ];
         }
         if (type !== 'number' && functionType !== 'categorical') {
             let message = `number expected, ${type} found`;
             if (supportsPropertyExpression(functionValueSpec) && functionType === undefined) {
-                message += '\nIf you intended to use a categorical function, specify `"type": "categorical"`.';
+                message +=
+                    '\nIf you intended to use a categorical function, specify `"type": "categorical"`.';
             }
             return [new ValidationError(options.key, reportValue, message)];
         }
-        if (functionType === 'categorical' && type === 'number' && (!isFinite(value) || Math.floor(value) !== value)) {
-            return [new ValidationError(options.key, reportValue, `integer expected, found ${value}`)];
+        if (functionType === 'categorical' &&
+            type === 'number' &&
+            (!isFinite(value) || Math.floor(value) !== value)) {
+            return [
+                new ValidationError(options.key, reportValue, `integer expected, found ${value}`)
+            ];
         }
-        if (functionType !== 'categorical' && type === 'number' && previousStopDomainValue !== undefined && value < previousStopDomainValue) {
-            return [new ValidationError(options.key, reportValue, 'stop domain values must appear in ascending order')];
+        if (functionType !== 'categorical' &&
+            type === 'number' &&
+            previousStopDomainValue !== undefined &&
+            value < previousStopDomainValue) {
+            return [
+                new ValidationError(options.key, reportValue, 'stop domain values must appear in ascending order')
+            ];
         }
         else {
             previousStopDomainValue = value;
         }
         if (functionType === 'categorical' && value in stopDomainValues) {
-            return [new ValidationError(options.key, reportValue, 'stop domain values must be unique')];
+            return [
+                new ValidationError(options.key, reportValue, 'stop domain values must be unique')
+            ];
         }
         else {
             stopDomainValues[value] = true;
@@ -21176,24 +21429,37 @@ function validateExpression(options) {
             return new ValidationError(`${options.key}${error.key}`, options.value, error.message);
         });
     }
-    const expressionObj = expression.value.expression || expression.value._styleExpression.expression;
-    if (options.expressionContext === 'property' && (options.propertyKey === 'text-font') &&
+    const expressionObj = expression.value.expression ||
+        expression.value._styleExpression.expression;
+    if (options.expressionContext === 'property' &&
+        options.propertyKey === 'text-font' &&
         !expressionObj.outputDefined()) {
-        return [new ValidationError(options.key, options.value, `Invalid data expression for "${options.propertyKey}". Output values must be contained as literals within the expression.`)];
+        return [
+            new ValidationError(options.key, options.value, `Invalid data expression for "${options.propertyKey}". Output values must be contained as literals within the expression.`)
+        ];
     }
-    if (options.expressionContext === 'property' && options.propertyType === 'layout' &&
-        (!isStateConstant(expressionObj))) {
-        return [new ValidationError(options.key, options.value, '"feature-state" data expressions are not supported with layout properties.')];
+    if (options.expressionContext === 'property' &&
+        options.propertyType === 'layout' &&
+        !isStateConstant(expressionObj)) {
+        return [
+            new ValidationError(options.key, options.value, '"feature-state" data expressions are not supported with layout properties.')
+        ];
     }
     if (options.expressionContext === 'filter' && !isStateConstant(expressionObj)) {
-        return [new ValidationError(options.key, options.value, '"feature-state" data expressions are not supported with filters.')];
+        return [
+            new ValidationError(options.key, options.value, '"feature-state" data expressions are not supported with filters.')
+        ];
     }
     if (options.expressionContext && options.expressionContext.indexOf('cluster') === 0) {
         if (!isGlobalPropertyConstant(expressionObj, ['zoom', 'feature-state'])) {
-            return [new ValidationError(options.key, options.value, '"zoom" and "feature-state" expressions are not supported with cluster properties.')];
+            return [
+                new ValidationError(options.key, options.value, '"zoom" and "feature-state" expressions are not supported with cluster properties.')
+            ];
         }
         if (options.expressionContext === 'cluster-initial' && !isFeatureConstant(expressionObj)) {
-            return [new ValidationError(options.key, options.value, 'Feature data expressions are not supported with initial expression part of cluster properties.')];
+            return [
+                new ValidationError(options.key, options.value, 'Feature data expressions are not supported with initial expression part of cluster properties.')
+            ];
         }
     }
     return [];
@@ -21216,7 +21482,8 @@ function validateColor(options) {
     if (type !== 'string') {
         return [new ValidationError(key, value, `color expected, ${type} found`)];
     }
-    if (!Color.parse(String(value))) { // cast String object to string primitive
+    if (!Color.parse(String(value))) {
+        // cast String object to string primitive
         return [new ValidationError(key, value, `color expected, "${value}" found`)];
     }
     return [];
@@ -21227,12 +21494,14 @@ function validateEnum(options) {
     const value = options.value;
     const valueSpec = options.valueSpec;
     const errors = [];
-    if (Array.isArray(valueSpec.values)) { // <=v7
+    if (Array.isArray(valueSpec.values)) {
+        // <=v7
         if (valueSpec.values.indexOf(unbundle(value)) === -1) {
             errors.push(new ValidationError(key, value, `expected one of [${valueSpec.values.join(', ')}], ${JSON.stringify(value)} found`));
         }
     }
-    else { // >=v8
+    else {
+        // >=v8
         if (Object.keys(valueSpec.values).indexOf(unbundle(value)) === -1) {
             errors.push(new ValidationError(key, value, `expected one of [${Object.keys(valueSpec.values).join(', ')}], ${JSON.stringify(value)} found`));
         }
@@ -21346,7 +21615,10 @@ function validateProperty(options, propertyType) {
     if (!layerSpec)
         return [];
     const transitionMatch = propertyKey.match(/^(.*)-transition$/);
-    if (propertyType === 'paint' && transitionMatch && layerSpec[transitionMatch[1]] && layerSpec[transitionMatch[1]].transition) {
+    if (propertyType === 'paint' &&
+        transitionMatch &&
+        layerSpec[transitionMatch[1]] &&
+        layerSpec[transitionMatch[1]].transition) {
         return validateSpec({
             key,
             value,
@@ -21360,13 +21632,20 @@ function validateProperty(options, propertyType) {
         return [new ValidationError(key, value, `unknown property "${propertyKey}"`)];
     }
     let tokenMatch;
-    if (getType(value) === 'string' && supportsPropertyExpression(valueSpec) && !valueSpec.tokens && (tokenMatch = /^{([^}]+)}$/.exec(value))) {
-        return [new ValidationError(key, value, `"${propertyKey}" does not support interpolation syntax\n` +
-                `Use an identity property function instead: \`{ "type": "identity", "property": ${JSON.stringify(tokenMatch[1])} }\`.`)];
+    if (getType(value) === 'string' &&
+        supportsPropertyExpression(valueSpec) &&
+        !valueSpec.tokens &&
+        (tokenMatch = /^{([^}]+)}$/.exec(value))) {
+        return [
+            new ValidationError(key, value, `"${propertyKey}" does not support interpolation syntax\n` +
+                `Use an identity property function instead: \`{ "type": "identity", "property": ${JSON.stringify(tokenMatch[1])} }\`.`)
+        ];
     }
     const errors = [];
     if (options.layerType === 'symbol') {
-        if (propertyKey === 'text-font' && isFunction$1(deepUnbundle(value)) && unbundle(value.type) === 'identity') {
+        if (propertyKey === 'text-font' &&
+            isFunction$1(deepUnbundle(value)) &&
+            unbundle(value.type) === 'identity') {
             errors.push(new ValidationError(key, value, '"text-font" does not support identity functions'));
         }
     }
@@ -21459,10 +21738,14 @@ function validateLayer(options) {
             else if (sourceType === 'vector' && !layer['source-layer']) {
                 errors.push(new ValidationError(key, layer, `layer "${layer.id}" must specify a "source-layer"`));
             }
-            else if (sourceType === 'raster-dem' && (type !== 'hillshade' && type !== 'color-relief')) {
-                errors.push(new ValidationError(key, layer.source, 'raster-dem source can only be used with layer type \'hillshade\' or \'color-relief\'.'));
+            else if (sourceType === 'raster-dem' &&
+                type !== 'hillshade' &&
+                type !== 'color-relief') {
+                errors.push(new ValidationError(key, layer.source, "raster-dem source can only be used with layer type 'hillshade' or 'color-relief'."));
             }
-            else if (type === 'line' && layer.paint && layer.paint['line-gradient'] &&
+            else if (type === 'line' &&
+                layer.paint &&
+                layer.paint['line-gradient'] &&
                 (sourceType !== 'geojson' || !source.lineMetrics)) {
                 errors.push(new ValidationError(key, layer, `layer "${layer.id}" specifies a line-gradient, which requires a GeoJSON source with \`lineMetrics\` enabled.`));
             }
@@ -21604,7 +21887,7 @@ function validateSource$1(options) {
                 style: options.style,
                 styleSpec,
                 objectElementValidators,
-                validateSpec,
+                validateSpec
             });
             return errors;
         case 'raster-dem':
@@ -21613,7 +21896,7 @@ function validateSource$1(options) {
                 value,
                 style: options.style,
                 styleSpec,
-                validateSpec,
+                validateSpec
             });
             return errors;
         case 'geojson':
@@ -21629,7 +21912,9 @@ function validateSource$1(options) {
             if (value.cluster) {
                 for (const prop in value.clusterProperties) {
                     const [operator, mapExpr] = value.clusterProperties[prop];
-                    const reduceExpr = typeof operator === 'string' ? [operator, ['accumulated'], ['get', prop]] : operator;
+                    const reduceExpr = typeof operator === 'string'
+                        ? [operator, ['accumulated'], ['get', prop]]
+                        : operator;
                     errors.push(...validateExpression({
                         key: `${key}.${prop}.map`,
                         value: mapExpr,
@@ -21662,12 +21947,16 @@ function validateSource$1(options) {
                 styleSpec
             });
         case 'canvas':
-            return [new ValidationError(key, null, 'Please use runtime APIs to add canvas sources, rather than including them in stylesheets.', 'source.canvas')];
+            return [
+                new ValidationError(key, null, 'Please use runtime APIs to add canvas sources, rather than including them in stylesheets.', 'source.canvas')
+            ];
         default:
             return validateEnum({
                 key: `${key}.type`,
                 value: value.type,
-                valueSpec: { values: ['vector', 'raster', 'raster-dem', 'geojson', 'video', 'image'] }});
+                valueSpec: {
+                    values: ['vector', 'raster', 'raster-dem', 'geojson', 'video', 'image']
+                }});
     }
 }
 function validatePromoteId({ key, value }) {
@@ -21694,12 +21983,16 @@ function validateLight$1(options) {
         return errors;
     }
     else if (rootType !== 'object') {
-        errors = errors.concat([new ValidationError('light', light, `object expected, ${rootType} found`)]);
+        errors = errors.concat([
+            new ValidationError('light', light, `object expected, ${rootType} found`)
+        ]);
         return errors;
     }
     for (const key in light) {
         const transitionMatch = key.match(/^(.*)-transition$/);
-        if (transitionMatch && lightSpec[transitionMatch[1]] && lightSpec[transitionMatch[1]].transition) {
+        if (transitionMatch &&
+            lightSpec[transitionMatch[1]] &&
+            lightSpec[transitionMatch[1]].transition) {
             errors = errors.concat(options.validateSpec({
                 key,
                 value: light[key],
@@ -21720,7 +22013,9 @@ function validateLight$1(options) {
             }));
         }
         else {
-            errors = errors.concat([new ValidationError(key, light[key], `unknown property "${key}"`)]);
+            errors = errors.concat([
+                new ValidationError(key, light[key], `unknown property "${key}"`)
+            ]);
         }
     }
     return errors;
@@ -21750,7 +22045,9 @@ function validateSky$1(options) {
             }));
         }
         else {
-            errors = errors.concat([new ValidationError(key, sky[key], `unknown property "${key}"`)]);
+            errors = errors.concat([
+                new ValidationError(key, sky[key], `unknown property "${key}"`)
+            ]);
         }
     }
     return errors;
@@ -21767,7 +22064,9 @@ function validateTerrain$1(options) {
         return errors;
     }
     else if (rootType !== 'object') {
-        errors = errors.concat([new ValidationError('terrain', terrain, `object expected, ${rootType} found`)]);
+        errors = errors.concat([
+            new ValidationError('terrain', terrain, `object expected, ${rootType} found`)
+        ]);
         return errors;
     }
     for (const key in terrain) {
@@ -21782,7 +22081,9 @@ function validateTerrain$1(options) {
             }));
         }
         else {
-            errors = errors.concat([new ValidationError(key, terrain[key], `unknown property "${key}"`)]);
+            errors = errors.concat([
+                new ValidationError(key, terrain[key], `unknown property "${key}"`)
+            ]);
         }
     }
     return errors;
@@ -21808,7 +22109,9 @@ function validatePadding(options) {
     const type = getType(value);
     if (type === 'array') {
         if (value.length < 1 || value.length > 4) {
-            return [new ValidationError(key, value, `padding requires 1 to 4 values; ${value.length} values found`)];
+            return [
+                new ValidationError(key, value, `padding requires 1 to 4 values; ${value.length} values found`)
+            ];
         }
         const arrayElementSpec = {
             type: 'number'
@@ -21842,7 +22145,9 @@ function validateNumberArray(options) {
             type: 'number'
         };
         if (value.length < 1) {
-            return [new ValidationError(key, value, 'array length at least 1 expected, length 0 found')];
+            return [
+                new ValidationError(key, value, 'array length at least 1 expected, length 0 found')
+            ];
         }
         let errors = [];
         for (let i = 0; i < value.length; i++) {
@@ -21870,7 +22175,9 @@ function validateColorArray(options) {
     const type = getType(value);
     if (type === 'array') {
         if (value.length < 1) {
-            return [new ValidationError(key, value, 'array length at least 1 expected, length 0 found')];
+            return [
+                new ValidationError(key, value, 'array length at least 1 expected, length 0 found')
+            ];
         }
         let errors = [];
         for (let i = 0; i < value.length; i++) {
@@ -21893,7 +22200,9 @@ function validateVariableAnchorOffsetCollection(options) {
     const type = getType(value);
     const styleSpec = options.styleSpec;
     if (type !== 'array' || value.length < 1 || value.length % 2 !== 0) {
-        return [new ValidationError(key, value, 'variableAnchorOffsetCollection requires a non-empty array of even length')];
+        return [
+            new ValidationError(key, value, 'variableAnchorOffsetCollection requires a non-empty array of even length')
+        ];
     }
     let errors = [];
     for (let i = 0; i < value.length; i += 2) {
@@ -21942,18 +22251,18 @@ function validateSprite(options) {
             const pairSpec = {
                 id: {
                     type: 'string',
-                    required: true,
+                    required: true
                 },
                 url: {
                     type: 'string',
-                    required: true,
+                    required: true
                 }
             };
             errors = errors.concat(validateObject({
                 key: `${key}[${i}]`,
                 value: sprite[i],
                 valueSpec: pairSpec,
-                validateSpec: options.validateSpec,
+                validateSpec: options.validateSpec
             }));
         }
         return errors;
@@ -21970,7 +22279,9 @@ function validateProjection(options) {
         return [];
     }
     else if (rootType !== 'object') {
-        return [new ValidationError('projection', projection, `object expected, ${rootType} found`)];
+        return [
+            new ValidationError('projection', projection, `object expected, ${rootType} found`)
+        ];
     }
     let errors = [];
     for (const key in projection) {
@@ -21984,7 +22295,9 @@ function validateProjection(options) {
             }));
         }
         else {
-            errors = errors.concat([new ValidationError(key, projection[key], `unknown property "${key}"`)]);
+            errors = errors.concat([
+                new ValidationError(key, projection[key], `unknown property "${key}"`)
+            ]);
         }
     }
     return errors;
@@ -21995,11 +22308,17 @@ function validateProjectionDefinition(options) {
     let value = options.value;
     value = value instanceof String ? value.valueOf() : value;
     const type = getType(value);
-    if (type === 'array' && !isProjectionDefinitionValue(value) && !isPropertyValueSpecification(value)) {
-        return [new ValidationError(key, value, `projection expected, invalid array ${JSON.stringify(value)} found`)];
+    if (type === 'array' &&
+        !isProjectionDefinitionValue(value) &&
+        !isPropertyValueSpecification(value)) {
+        return [
+            new ValidationError(key, value, `projection expected, invalid array ${JSON.stringify(value)} found`)
+        ];
     }
     else if (!['array', 'string'].includes(type)) {
-        return [new ValidationError(key, value, `projection expected, invalid type "${type}" found`)];
+        return [
+            new ValidationError(key, value, `projection expected, invalid type "${type}" found`)
+        ];
     }
     return [];
 }
@@ -22010,11 +22329,11 @@ function isPropertyValueSpecification(value) {
     return false;
 }
 function isProjectionDefinitionValue(value) {
-    return Array.isArray(value) &&
+    return (Array.isArray(value) &&
         value.length === 3 &&
         typeof value[0] === 'string' &&
         typeof value[1] === 'string' &&
-        typeof value[2] === 'number';
+        typeof value[2] === 'number');
 }
 
 function isObjectLiteral(anything) {
@@ -22024,41 +22343,92 @@ function isObjectLiteral(anything) {
 function validateState(options) {
     if (!isObjectLiteral(options.value)) {
         return [
-            new ValidationError(options.key, options.value, `object expected, ${getType(options.value)} found`),
+            new ValidationError(options.key, options.value, `object expected, ${getType(options.value)} found`)
         ];
     }
     return [];
+}
+
+function validateFontFaces(options) {
+    const key = options.key;
+    const value = options.value;
+    const validateSpec = options.validateSpec;
+    const styleSpec = options.styleSpec;
+    const style = options.style;
+    if (!isObjectLiteral(value)) {
+        return [new ValidationError(key, value, `object expected, ${getType(value)} found`)];
+    }
+    const errors = [];
+    for (const fontName in value) {
+        const fontValue = value[fontName];
+        const fontValueType = getType(fontValue);
+        if (fontValueType === 'string') {
+            // Validate as a string URL
+            errors.push(...validateString({
+                key: `${key}.${fontName}`,
+                value: fontValue
+            }));
+        }
+        else if (fontValueType === 'array') {
+            // Validate as an array of font face objects
+            const fontFaceSpec = {
+                url: {
+                    type: 'string',
+                    required: true
+                },
+                'unicode-range': {
+                    type: 'array',
+                    value: 'string'
+                }
+            };
+            for (const [i, fontFace] of fontValue.entries()) {
+                errors.push(...validateObject({
+                    key: `${key}.${fontName}[${i}]`,
+                    value: fontFace,
+                    valueSpec: fontFaceSpec,
+                    styleSpec,
+                    style,
+                    validateSpec
+                }));
+            }
+        }
+        else {
+            errors.push(new ValidationError(`${key}.${fontName}`, fontValue, `string or array expected, ${fontValueType} found`));
+        }
+    }
+    return errors;
 }
 
 const VALIDATORS = {
     '*'() {
         return [];
     },
-    'array': validateArray,
-    'boolean': validateBoolean,
-    'number': validateNumber,
-    'color': validateColor,
-    'constants': validateConstants,
-    'enum': validateEnum,
-    'filter': validateFilter$1,
-    'function': validateFunction,
-    'layer': validateLayer,
-    'object': validateObject,
-    'source': validateSource$1,
-    'light': validateLight$1,
-    'sky': validateSky$1,
-    'terrain': validateTerrain$1,
-    'projection': validateProjection,
-    'projectionDefinition': validateProjectionDefinition,
-    'string': validateString,
-    'formatted': validateFormatted,
-    'resolvedImage': validateImage,
-    'padding': validatePadding,
-    'numberArray': validateNumberArray,
-    'colorArray': validateColorArray,
-    'variableAnchorOffsetCollection': validateVariableAnchorOffsetCollection,
-    'sprite': validateSprite,
-    'state': validateState
+    array: validateArray,
+    boolean: validateBoolean,
+    number: validateNumber,
+    color: validateColor,
+    constants: validateConstants,
+    enum: validateEnum,
+    filter: validateFilter$1,
+    function: validateFunction,
+    layer: validateLayer,
+    object: validateObject,
+    source: validateSource$1,
+    light: validateLight$1,
+    sky: validateSky$1,
+    terrain: validateTerrain$1,
+    projection: validateProjection,
+    projectionDefinition: validateProjectionDefinition,
+    string: validateString,
+    formatted: validateFormatted,
+    resolvedImage: validateImage,
+    padding: validatePadding,
+    numberArray: validateNumberArray,
+    colorArray: validateColorArray,
+    variableAnchorOffsetCollection: validateVariableAnchorOffsetCollection,
+    sprite: validateSprite,
+    state: validateState,
+    fontFaces: validateFontFaces
 };
 /**
  * Main recursive validation function used internally.
@@ -22523,7 +22893,7 @@ function migrateHslColors(colorToMigrate) {
         const argsMatch = hslArgs.match(/^(.+?)\s*,\s*(.+?)\s*,\s*(.+?)(?:\s*,\s*(.+))?$/i);
         if (argsMatch) {
             let [h, s, l, a] = argsMatch.slice(1);
-            [s, l] = [s, l].map(v => v.endsWith('%') ? v : `${parseFloat(v) * 100}%`);
+            [s, l] = [s, l].map((v) => (v.endsWith('%') ? v : `${parseFloat(v) * 100}%`));
             return `"hsl${typeof a === 'string' ? 'a' : ''}(${[h, s, l, a].filter(Boolean).join(',')})"`;
         }
         return match;
@@ -22562,6 +22932,60 @@ function migrate(style) {
     return style;
 }
 
+const visibilitySpec = {
+    type: 'enum',
+    'property-type': 'data-constant',
+    expression: {
+        interpolated: false,
+        parameters: ['global-state']
+    },
+    values: { visible: {}, none: {} },
+    transition: false,
+    default: 'visible'
+};
+class VisibilityExpressionClass {
+    constructor(visibility, globalState) {
+        this._globalState = globalState;
+        this.setValue(visibility);
+    }
+    evaluate() {
+        var _a;
+        return (_a = this._literalValue) !== null && _a !== void 0 ? _a : this._compiledValue.evaluate({});
+    }
+    setValue(visibility) {
+        if (visibility === null ||
+            visibility === undefined ||
+            visibility === 'visible' ||
+            visibility === 'none') {
+            this._literalValue = visibility === 'none' ? 'none' : 'visible';
+            this._compiledValue = undefined;
+            this._globalStateRefs = new Set();
+            return;
+        }
+        const compiled = createExpression(visibility, visibilitySpec, this._globalState);
+        if (compiled.result === 'error') {
+            this._literalValue = 'visible';
+            this._compiledValue = undefined;
+            throw new Error(compiled.value.map((err) => `${err.key}: ${err.message}`).join(', '));
+        }
+        this._literalValue = undefined;
+        this._compiledValue = compiled.value;
+        this._globalStateRefs = findGlobalStateRefs(compiled.value.expression);
+    }
+    getGlobalStateRefs() {
+        return this._globalStateRefs;
+    }
+}
+/**
+ * Creates a visibility expression from a visibility specification.
+ * @param visibility - the visibility specification, literal or expression
+ * @param globalState - the global state object
+ * @returns visibility expression object
+ */
+function createVisibility(visibility, globalState) {
+    return new VisibilityExpressionClass(visibility, globalState);
+}
+
 const v8 = v8Spec;
 const expression = {
     StyleExpression,
@@ -22573,7 +22997,7 @@ const expression = {
     isExpression,
     isExpressionFilter,
     isZoomExpression,
-    normalizePropertyExpression,
+    normalizePropertyExpression
 };
 const styleFunction = {
     convertFunction,
@@ -57040,7 +57464,204 @@ function requireGeojsonRewind () {
 var geojsonRewindExports = requireGeojsonRewind();
 var rewind$1 = /*@__PURE__*/getDefaultExportFromCjs$1(geojsonRewindExports);
 
-class i{constructor(e,t){this.feature=e,this.type=e.type,this.properties=e.tags?e.tags:{},this.extent=t,"id"in e&&("string"==typeof e.id?this.id=parseInt(e.id,10):"number"!=typeof e.id||isNaN(e.id)||(this.id=e.id));}loadGeometry(){const e=[],i=1===this.feature.type?[this.feature.geometry]:this.feature.geometry;for(const n of i){const i=[];for(const e of n)i.push(new Point(e[0],e[1]));e.push(i);}return e}}const n="_geojsonTileLayer";class r{constructor(e,t){this.layers={[n]:this},this.name=n,this.version=t?t.version:1,this.extent=t?t.extent:4096,this.length=e.length,this.features=e;}feature(e){return new i(this.features[e],this.extent)}}function o(t){const i=new Pbf;return function(e,t){for(const i in e.layers)t.writeMessage(3,a,e.layers[i]);}(t,i),i.finish()}function s(e,t){const i={};for(const n in e)i[n]=new r(e[n].features,t),i[n].name=n,i[n].version=t?t.version:1,i[n].extent=t?t.extent:4096;return o({layers:i})}function a(e,t){t.writeVarintField(15,e.version||1),t.writeStringField(1,e.name||""),t.writeVarintField(5,e.extent||4096);const i={keys:[],values:[],keycache:{},valuecache:{}};for(let n=0;n<e.length;n++)i.feature=e.feature(n),t.writeMessage(2,f,i);const n=i.keys;for(const e of n)t.writeStringField(3,e);const r=i.values;for(const e of r)t.writeMessage(4,y,e);}function f(e,t){if(!e.feature)return;const i=e.feature;void 0!==i.id&&t.writeVarintField(1,i.id),t.writeMessage(2,c,e),t.writeVarintField(3,i.type),t.writeMessage(4,h,i);}function c(e,t){for(const i in e.feature?.properties){let n=e.feature.properties[i],r=e.keycache[i];if(null===n)continue;void 0===r&&(e.keys.push(i),r=e.keys.length-1,e.keycache[i]=r),t.writeVarint(r),"string"!=typeof n&&"boolean"!=typeof n&&"number"!=typeof n&&(n=JSON.stringify(n));const o=typeof n+":"+n;let s=e.valuecache[o];void 0===s&&(e.values.push(n),s=e.values.length-1,e.valuecache[o]=s),t.writeVarint(s);}}function u(e,t){return (t<<3)+(7&e)}function l(e){return e<<1^e>>31}function h(e,t){const i=e.loadGeometry(),n=e.type;let r=0,o=0;for(const s of i){let i=1;1===n&&(i=s.length),t.writeVarint(u(1,i));const a=3===n?s.length-1:s.length;for(let e=0;e<a;e++){1===e&&1!==n&&t.writeVarint(u(2,a-1));const i=s[e].x-r,f=s[e].y-o;t.writeVarint(l(i)),t.writeVarint(l(f)),r+=i,o+=f;}3===e.type&&t.writeVarint(u(7,1));}}function y(e,t){const i=typeof e;"string"===i?t.writeStringField(1,e):"boolean"===i?t.writeBooleanField(7,e):"number"===i&&(e%1!=0?t.writeDoubleField(3,e):e<0?t.writeSVarintField(6,e):t.writeVarintField(5,e));}
+class FeatureWrapper {
+    constructor(feature, extent) {
+        this.feature = feature;
+        this.type = feature.type;
+        this.properties = feature.tags ? feature.tags : {};
+        this.extent = extent;
+        // If the feature has a top-level `id` property, copy it over, but only
+        // if it can be coerced to an integer, because this wrapper is used for
+        // serializing geojson feature data into vector tile PBF data, and the
+        // vector tile spec only supports integer values for feature ids --
+        // allowing non-integer values here results in a non-compliant PBF
+        // that causes an exception when it is parsed with vector-tile-js
+        if ('id' in feature) {
+            if (typeof feature.id === 'string') {
+                this.id = parseInt(feature.id, 10);
+            }
+            else if (typeof feature.id === 'number' && !isNaN(feature.id)) {
+                this.id = feature.id;
+            }
+        }
+    }
+    loadGeometry() {
+        const geometry = [];
+        const rawGeo = this.feature.type === 1 ? [this.feature.geometry] : this.feature.geometry;
+        for (const ring of rawGeo) {
+            const newRing = [];
+            for (const point of ring) {
+                newRing.push(new Point(point[0], point[1]));
+            }
+            geometry.push(newRing);
+        }
+        return geometry;
+    }
+}
+const GEOJSON_TILE_LAYER_NAME = "_geojsonTileLayer";
+class GeoJSONWrapper {
+    constructor(features, options) {
+        this.layers = { [GEOJSON_TILE_LAYER_NAME]: this };
+        this.name = GEOJSON_TILE_LAYER_NAME;
+        this.version = options ? options.version : 1;
+        this.extent = options ? options.extent : 4096;
+        this.length = features.length;
+        this.features = features;
+    }
+    feature(i) {
+        return new FeatureWrapper(this.features[i], this.extent);
+    }
+}
+
+/**
+ * Serialize a vector-tile-js-created tile to pbf
+ *
+ * @param tile
+ * @return uncompressed, pbf-serialized tile data
+ */
+function fromVectorTileJs(tile) {
+    const out = new Pbf();
+    writeTile(tile, out);
+    return out.finish();
+}
+/**
+ * Serialized a geojson-vt-created tile to pbf.
+ *
+ * @param layers - An object mapping layer names to geojson-vt-created vector tile objects
+ * @param options - An object specifying the vector-tile specification version and extent that were used to create `layers`.
+ * @return uncompressed, pbf-serialized tile data
+ */
+function fromGeojsonVt(layers, options) {
+    const l = {};
+    // eslint-disable-next-line @typescript-eslint/no-for-in-array
+    for (const k in layers) {
+        l[k] = new GeoJSONWrapper(layers[k].features, options);
+        l[k].name = k;
+        l[k].version = options ? options.version : 1;
+        l[k].extent = options ? options.extent : 4096;
+    }
+    return fromVectorTileJs({ layers: l });
+}
+function writeTile(tile, pbf) {
+    for (const key in tile.layers) {
+        pbf.writeMessage(3, writeLayer, tile.layers[key]);
+    }
+}
+function writeLayer(layer, pbf) {
+    pbf.writeVarintField(15, layer.version || 1);
+    pbf.writeStringField(1, layer.name || '');
+    pbf.writeVarintField(5, layer.extent || 4096);
+    const context = {
+        keys: [],
+        values: [],
+        keycache: {},
+        valuecache: {}
+    };
+    for (let i = 0; i < layer.length; i++) {
+        context.feature = layer.feature(i);
+        pbf.writeMessage(2, writeFeature, context);
+    }
+    const keys = context.keys;
+    for (const key of keys) {
+        pbf.writeStringField(3, key);
+    }
+    const values = context.values;
+    for (const value of values) {
+        pbf.writeMessage(4, writeValue, value);
+    }
+}
+function writeFeature(context, pbf) {
+    if (!context.feature) {
+        return;
+    }
+    const feature = context.feature;
+    if (feature.id !== undefined) {
+        pbf.writeVarintField(1, feature.id);
+    }
+    pbf.writeMessage(2, writeProperties, context);
+    pbf.writeVarintField(3, feature.type);
+    pbf.writeMessage(4, writeGeometry, feature);
+}
+function writeProperties(context, pbf) {
+    for (const key in context.feature?.properties) {
+        let value = context.feature.properties[key];
+        let keyIndex = context.keycache[key];
+        if (value == null)
+            continue; // don't encode null/undefined value properties
+        if (typeof keyIndex === 'undefined') {
+            context.keys.push(key);
+            keyIndex = context.keys.length - 1;
+            context.keycache[key] = keyIndex;
+        }
+        pbf.writeVarint(keyIndex);
+        if (typeof value !== 'string' && typeof value !== 'boolean' && typeof value !== 'number') {
+            value = JSON.stringify(value);
+        }
+        const valueKey = typeof value + ':' + value;
+        let valueIndex = context.valuecache[valueKey];
+        if (typeof valueIndex === 'undefined') {
+            context.values.push(value);
+            valueIndex = context.values.length - 1;
+            context.valuecache[valueKey] = valueIndex;
+        }
+        pbf.writeVarint(valueIndex);
+    }
+}
+function command(cmd, length) {
+    return (length << 3) + (cmd & 0x7);
+}
+function zigzag(num) {
+    return (num << 1) ^ (num >> 31);
+}
+function writeGeometry(feature, pbf) {
+    const geometry = feature.loadGeometry();
+    const type = feature.type;
+    let x = 0;
+    let y = 0;
+    for (const ring of geometry) {
+        let count = 1;
+        if (type === 1) {
+            count = ring.length;
+        }
+        pbf.writeVarint(command(1, count)); // moveto
+        // do not write polygon closing path as lineto
+        const lineCount = type === 3 ? ring.length - 1 : ring.length;
+        for (let i = 0; i < lineCount; i++) {
+            if (i === 1 && type !== 1) {
+                pbf.writeVarint(command(2, lineCount - 1)); // lineto
+            }
+            const dx = ring[i].x - x;
+            const dy = ring[i].y - y;
+            pbf.writeVarint(zigzag(dx));
+            pbf.writeVarint(zigzag(dy));
+            x += dx;
+            y += dy;
+        }
+        if (feature.type === 3) {
+            pbf.writeVarint(command(7, 1)); // closepath
+        }
+    }
+}
+function writeValue(value, pbf) {
+    const type = typeof value;
+    if (type === 'string') {
+        pbf.writeStringField(1, value);
+    }
+    else if (type === 'boolean') {
+        pbf.writeBooleanField(7, value);
+    }
+    else if (type === 'number') {
+        if (value % 1 !== 0) {
+            pbf.writeDoubleField(3, value);
+        }
+        else if (value < 0) {
+            pbf.writeSVarintField(6, value);
+        }
+        else {
+            pbf.writeVarintField(5, value);
+        }
+    }
+}
 
 const ARRAY_TYPES = [
     Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array,
@@ -58694,11 +59315,11 @@ class GeoJSONWorkerSource extends VectorTileWorkerSource {
             if (!geoJSONTile) {
                 return null;
             }
-            const geojsonWrapper = new r(geoJSONTile.features, { version: 2, extent: EXTENT$1 });
+            const geojsonWrapper = new GeoJSONWrapper(geoJSONTile.features, { version: 2, extent: EXTENT$1 });
             // Encode the geojson-vt tile into binary vector tile form.  This
             // is a convenience that allows `FeatureIndex` to operate the same way
             // across `VectorTileSource` and `GeoJSONSource` data.
-            let pbf = o(geojsonWrapper);
+            let pbf = fromVectorTileJs(geojsonWrapper);
             if (pbf.byteOffset !== 0 || pbf.byteLength !== pbf.buffer.byteLength) {
                 // Compatibility with node Buffer (https://github.com/mapbox/pbf/issues/35)
                 pbf = new Uint8Array(pbf);
@@ -59225,10 +59846,10 @@ var linePatternFrag = '#ifdef GL_ES\nprecision highp float;\n#endif\nuniform low
 var linePatternVert = '\n#define scale 0.015873016\n#define LINE_DISTANCE_SCALE 2.0\nin vec2 a_pos_normal;in vec4 a_data;uniform vec2 u_translation;uniform vec2 u_units_to_pixels;uniform mediump float u_ratio;uniform lowp float u_device_pixel_ratio;out vec2 v_normal;out vec2 v_width2;out float v_linesofar;out float v_gamma_scale;out float v_width;\n#ifdef GLOBE\nout float v_depth;\n#endif\n#pragma mapbox: define lowp float blur\n#pragma mapbox: define lowp float opacity\n#pragma mapbox: define lowp float offset\n#pragma mapbox: define mediump float gapwidth\n#pragma mapbox: define mediump float width\n#pragma mapbox: define lowp float floorwidth\n#pragma mapbox: define lowp vec4 pattern_from\n#pragma mapbox: define lowp vec4 pattern_to\n#pragma mapbox: define lowp float pixel_ratio_from\n#pragma mapbox: define lowp float pixel_ratio_to\nvoid main() {\n#pragma mapbox: initialize lowp float blur\n#pragma mapbox: initialize lowp float opacity\n#pragma mapbox: initialize lowp float offset\n#pragma mapbox: initialize mediump float gapwidth\n#pragma mapbox: initialize mediump float width\n#pragma mapbox: initialize lowp float floorwidth\n#pragma mapbox: initialize mediump vec4 pattern_from\n#pragma mapbox: initialize mediump vec4 pattern_to\n#pragma mapbox: initialize lowp float pixel_ratio_from\n#pragma mapbox: initialize lowp float pixel_ratio_to\nfloat ANTIALIASING=1.0/u_device_pixel_ratio/2.0;vec2 a_extrude=a_data.xy-128.0;float a_direction=mod(a_data.z,4.0)-1.0;float a_linesofar=(floor(a_data.z/4.0)+a_data.w*64.0)*LINE_DISTANCE_SCALE;vec2 pos=floor(a_pos_normal*0.5);mediump vec2 normal=a_pos_normal-2.0*pos;normal.y=normal.y*2.0-1.0;v_normal=normal;gapwidth=gapwidth/2.0;float halfwidth=width/2.0;offset=-1.0*offset;float inset=gapwidth+(gapwidth > 0.0 ? ANTIALIASING : 0.0);float outset=gapwidth+halfwidth*(gapwidth > 0.0 ? 2.0 : 1.0)+(halfwidth==0.0 ? 0.0 : ANTIALIASING);mediump vec2 dist=outset*a_extrude*scale;mediump float u=0.5*a_direction;mediump float t=1.0-abs(u);mediump vec2 offset2=offset*a_extrude*scale*normal.y*mat2(t,-u,u,t);float adjustedThickness=projectLineThickness(pos.y);vec4 projected_no_extrude=projectTile(pos+offset2/u_ratio*adjustedThickness+u_translation);vec4 projected_with_extrude=projectTile(pos+offset2/u_ratio*adjustedThickness+u_translation+dist/u_ratio*adjustedThickness);gl_Position=projected_with_extrude;\n#ifdef GLOBE\nv_depth=gl_Position.z/gl_Position.w;\n#endif\n#ifdef TERRAIN3D\nv_gamma_scale=1.0;\n#else\nfloat extrude_length_without_perspective=length(dist);float extrude_length_with_perspective=length((projected_with_extrude.xy-projected_no_extrude.xy)/projected_with_extrude.w*u_units_to_pixels);v_gamma_scale=extrude_length_without_perspective/extrude_length_with_perspective;\n#endif\nv_linesofar=a_linesofar;v_width2=vec2(outset,inset);v_width=floorwidth;}';
 
 // This file is generated. Edit build/generate-shaders.ts, then run `npm run codegen`.
-var lineSDFFrag = 'uniform lowp float u_device_pixel_ratio;uniform sampler2D u_image;uniform float u_sdfgamma;uniform float u_mix;in vec2 v_normal;in vec2 v_width2;in vec2 v_tex_a;in vec2 v_tex_b;in float v_gamma_scale;\n#ifdef GLOBE\nin float v_depth;\n#endif\n#pragma mapbox: define highp vec4 color\n#pragma mapbox: define lowp float blur\n#pragma mapbox: define lowp float opacity\n#pragma mapbox: define mediump float width\n#pragma mapbox: define lowp float floorwidth\nvoid main() {\n#pragma mapbox: initialize highp vec4 color\n#pragma mapbox: initialize lowp float blur\n#pragma mapbox: initialize lowp float opacity\n#pragma mapbox: initialize mediump float width\n#pragma mapbox: initialize lowp float floorwidth\nfloat dist=length(v_normal)*v_width2.s;float blur2=(blur+1.0/u_device_pixel_ratio)*v_gamma_scale;float alpha=clamp(min(dist-(v_width2.t-blur2),v_width2.s-dist)/blur2,0.0,1.0);float sdfdist_a=texture(u_image,v_tex_a).a;float sdfdist_b=texture(u_image,v_tex_b).a;float sdfdist=mix(sdfdist_a,sdfdist_b,u_mix);alpha*=smoothstep(0.5-u_sdfgamma/floorwidth,0.5+u_sdfgamma/floorwidth,sdfdist);fragColor=color*(alpha*opacity);\n#ifdef GLOBE\nif (v_depth > 1.0) {discard;}\n#endif\n#ifdef OVERDRAW_INSPECTOR\nfragColor=vec4(1.0);\n#endif\n}';
+var lineSDFFrag = 'uniform lowp float u_device_pixel_ratio;uniform lowp float u_lineatlas_width;uniform sampler2D u_image;uniform float u_mix;in vec2 v_normal;in vec2 v_width2;in vec2 v_tex_a;in vec2 v_tex_b;in float v_gamma_scale;\n#ifdef GLOBE\nin float v_depth;\n#endif\n#pragma mapbox: define highp vec4 color\n#pragma mapbox: define lowp float blur\n#pragma mapbox: define lowp float opacity\n#pragma mapbox: define mediump float width\n#pragma mapbox: define lowp float floorwidth\n#pragma mapbox: define mediump vec4 dasharray_from\n#pragma mapbox: define mediump vec4 dasharray_to\nvoid main() {\n#pragma mapbox: initialize highp vec4 color\n#pragma mapbox: initialize lowp float blur\n#pragma mapbox: initialize lowp float opacity\n#pragma mapbox: initialize mediump float width\n#pragma mapbox: initialize lowp float floorwidth\n#pragma mapbox: initialize mediump vec4 dasharray_from\n#pragma mapbox: initialize mediump vec4 dasharray_to\nfloat dist=length(v_normal)*v_width2.s;float blur2=(blur+1.0/u_device_pixel_ratio)*v_gamma_scale;float alpha=clamp(min(dist-(v_width2.t-blur2),v_width2.s-dist)/blur2,0.0,1.0);float sdfdist_a=texture(u_image,v_tex_a).a;float sdfdist_b=texture(u_image,v_tex_b).a;float sdfdist=mix(sdfdist_a,sdfdist_b,u_mix);float sdfgamma=(u_lineatlas_width/256.0/u_device_pixel_ratio)/min(dasharray_from.w,dasharray_to.w);alpha*=smoothstep(0.5-sdfgamma/floorwidth,0.5+sdfgamma/floorwidth,sdfdist);fragColor=color*(alpha*opacity);\n#ifdef GLOBE\nif (v_depth > 1.0) {discard;}\n#endif\n#ifdef OVERDRAW_INSPECTOR\nfragColor=vec4(1.0);\n#endif\n}';
 
 // This file is generated. Edit build/generate-shaders.ts, then run `npm run codegen`.
-var lineSDFVert = '\n#define scale 0.015873016\n#define LINE_DISTANCE_SCALE 2.0\nin vec2 a_pos_normal;in vec4 a_data;uniform vec2 u_translation;uniform mediump float u_ratio;uniform lowp float u_device_pixel_ratio;uniform vec2 u_patternscale_a;uniform float u_tex_y_a;uniform vec2 u_patternscale_b;uniform float u_tex_y_b;uniform vec2 u_units_to_pixels;out vec2 v_normal;out vec2 v_width2;out vec2 v_tex_a;out vec2 v_tex_b;out float v_gamma_scale;\n#ifdef GLOBE\nout float v_depth;\n#endif\n#pragma mapbox: define highp vec4 color\n#pragma mapbox: define lowp float blur\n#pragma mapbox: define lowp float opacity\n#pragma mapbox: define mediump float gapwidth\n#pragma mapbox: define lowp float offset\n#pragma mapbox: define mediump float width\n#pragma mapbox: define lowp float floorwidth\nvoid main() {\n#pragma mapbox: initialize highp vec4 color\n#pragma mapbox: initialize lowp float blur\n#pragma mapbox: initialize lowp float opacity\n#pragma mapbox: initialize mediump float gapwidth\n#pragma mapbox: initialize lowp float offset\n#pragma mapbox: initialize mediump float width\n#pragma mapbox: initialize lowp float floorwidth\nfloat ANTIALIASING=1.0/u_device_pixel_ratio/2.0;vec2 a_extrude=a_data.xy-128.0;float a_direction=mod(a_data.z,4.0)-1.0;float a_linesofar=(floor(a_data.z/4.0)+a_data.w*64.0)*LINE_DISTANCE_SCALE;vec2 pos=floor(a_pos_normal*0.5);mediump vec2 normal=a_pos_normal-2.0*pos;normal.y=normal.y*2.0-1.0;v_normal=normal;gapwidth=gapwidth/2.0;float halfwidth=width/2.0;offset=-1.0*offset;float inset=gapwidth+(gapwidth > 0.0 ? ANTIALIASING : 0.0);float outset=gapwidth+halfwidth*(gapwidth > 0.0 ? 2.0 : 1.0)+(halfwidth==0.0 ? 0.0 : ANTIALIASING);mediump vec2 dist=outset*a_extrude*scale;mediump float u=0.5*a_direction;mediump float t=1.0-abs(u);mediump vec2 offset2=offset*a_extrude*scale*normal.y*mat2(t,-u,u,t);float adjustedThickness=projectLineThickness(pos.y);vec4 projected_no_extrude=projectTile(pos+offset2/u_ratio*adjustedThickness+u_translation);vec4 projected_with_extrude=projectTile(pos+offset2/u_ratio*adjustedThickness+u_translation+dist/u_ratio*adjustedThickness);gl_Position=projected_with_extrude;\n#ifdef GLOBE\nv_depth=gl_Position.z/gl_Position.w;\n#endif\n#ifdef TERRAIN3D\nv_gamma_scale=1.0;\n#else\nfloat extrude_length_without_perspective=length(dist);float extrude_length_with_perspective=length((projected_with_extrude.xy-projected_no_extrude.xy)/projected_with_extrude.w*u_units_to_pixels);v_gamma_scale=extrude_length_without_perspective/extrude_length_with_perspective;\n#endif\nv_tex_a=vec2(a_linesofar*u_patternscale_a.x/floorwidth,normal.y*u_patternscale_a.y+u_tex_y_a);v_tex_b=vec2(a_linesofar*u_patternscale_b.x/floorwidth,normal.y*u_patternscale_b.y+u_tex_y_b);v_width2=vec2(outset,inset);}';
+var lineSDFVert = '\n#define scale 0.015873016\n#define LINE_DISTANCE_SCALE 2.0\nin vec2 a_pos_normal;in vec4 a_data;uniform vec2 u_translation;uniform mediump float u_ratio;uniform lowp float u_device_pixel_ratio;uniform vec2 u_units_to_pixels;uniform float u_tileratio;uniform float u_crossfade_from;uniform float u_crossfade_to;uniform float u_lineatlas_height;out vec2 v_normal;out vec2 v_width2;out vec2 v_tex_a;out vec2 v_tex_b;out float v_gamma_scale;\n#ifdef GLOBE\nout float v_depth;\n#endif\n#pragma mapbox: define highp vec4 color\n#pragma mapbox: define lowp float blur\n#pragma mapbox: define lowp float opacity\n#pragma mapbox: define mediump float gapwidth\n#pragma mapbox: define lowp float offset\n#pragma mapbox: define mediump float width\n#pragma mapbox: define lowp float floorwidth\n#pragma mapbox: define mediump vec4 dasharray_from\n#pragma mapbox: define mediump vec4 dasharray_to\nvoid main() {\n#pragma mapbox: initialize highp vec4 color\n#pragma mapbox: initialize lowp float blur\n#pragma mapbox: initialize lowp float opacity\n#pragma mapbox: initialize mediump float gapwidth\n#pragma mapbox: initialize lowp float offset\n#pragma mapbox: initialize mediump float width\n#pragma mapbox: initialize lowp float floorwidth\n#pragma mapbox: initialize mediump vec4 dasharray_from\n#pragma mapbox: initialize mediump vec4 dasharray_to\nfloat ANTIALIASING=1.0/u_device_pixel_ratio/2.0;vec2 a_extrude=a_data.xy-128.0;float a_direction=mod(a_data.z,4.0)-1.0;float a_linesofar=(floor(a_data.z/4.0)+a_data.w*64.0)*LINE_DISTANCE_SCALE;vec2 pos=floor(a_pos_normal*0.5);mediump vec2 normal=a_pos_normal-2.0*pos;normal.y=normal.y*2.0-1.0;v_normal=normal;gapwidth=gapwidth/2.0;float halfwidth=width/2.0;offset=-1.0*offset;float inset=gapwidth+(gapwidth > 0.0 ? ANTIALIASING : 0.0);float outset=gapwidth+halfwidth*(gapwidth > 0.0 ? 2.0 : 1.0)+(halfwidth==0.0 ? 0.0 : ANTIALIASING);mediump vec2 dist=outset*a_extrude*scale;mediump float u=0.5*a_direction;mediump float t=1.0-abs(u);mediump vec2 offset2=offset*a_extrude*scale*normal.y*mat2(t,-u,u,t);float adjustedThickness=projectLineThickness(pos.y);vec4 projected_no_extrude=projectTile(pos+offset2/u_ratio*adjustedThickness+u_translation);vec4 projected_with_extrude=projectTile(pos+offset2/u_ratio*adjustedThickness+u_translation+dist/u_ratio*adjustedThickness);gl_Position=projected_with_extrude;\n#ifdef GLOBE\nv_depth=gl_Position.z/gl_Position.w;\n#endif\n#ifdef TERRAIN3D\nv_gamma_scale=1.0;\n#else\nfloat extrude_length_without_perspective=length(dist);float extrude_length_with_perspective=length((projected_with_extrude.xy-projected_no_extrude.xy)/projected_with_extrude.w*u_units_to_pixels);v_gamma_scale=extrude_length_without_perspective/extrude_length_with_perspective;\n#endif\nfloat u_patternscale_a_x=u_tileratio/dasharray_from.w/u_crossfade_from;float u_patternscale_a_y=-dasharray_from.z/2.0/u_lineatlas_height;float u_patternscale_b_x=u_tileratio/dasharray_to.w/u_crossfade_to;float u_patternscale_b_y=-dasharray_to.z/2.0/u_lineatlas_height;v_tex_a=vec2(a_linesofar*u_patternscale_a_x/floorwidth,normal.y*u_patternscale_a_y+(float(dasharray_from.y)+0.5)/u_lineatlas_height);v_tex_b=vec2(a_linesofar*u_patternscale_b_x/floorwidth,normal.y*u_patternscale_b_y+(float(dasharray_to.y)+0.5)/u_lineatlas_height);v_width2=vec2(outset,inset);}';
 
 // This file is generated. Edit build/generate-shaders.ts, then run `npm run codegen`.
 var preludeFrag = '#ifdef GL_ES\nprecision mediump float;\n#else\n#if !defined(lowp)\n#define lowp\n#endif\n#if !defined(mediump)\n#define mediump\n#endif\n#if !defined(highp)\n#define highp\n#endif\n#endif\nout highp vec4 fragColor;';
@@ -68902,5 +69523,5 @@ function setWorkerUrl(value, module = false) {
 }
 function importScriptInWorkers(workerUrl) { return getGlobalDispatcher().broadcast("IS" /* MessageType.importScript */, workerUrl); }
 
-export { AJAXError, AttributionControl, BoxZoomHandler, Camera, CanonicalTileID, CanvasSource, CooperativeGesturesHandler, DOM, DoubleClickZoomHandler, DragPanHandler, DragRotateHandler, EdgeInsets, ErrorEvent, EvaluationParameters, Event, Evented, FullscreenControl, GeoJSONSource, GeolocateControl, GlobeControl, HandlerManager, Hash, ImageRequest, ImageSource, KeyboardHandler, LngLat, LngLatBounds, LogoControl, Map$1 as Map, MapMouseEvent, MapTouchEvent, MapWheelEvent, Marker, MercatorCameraHelper, MercatorCoordinate, MercatorTransform, NavigationControl, Painter, PerformanceMarkers, PerformanceUtils, Point, Popup, RGBAImage, RasterDEMTileSource, RasterTileSource, RenderToTexture, RequestManager, ScaleControl, ScrollZoomHandler, Style, TaskQueue, Terrain, TerrainControl, TwoFingersTouchPitchHandler, TwoFingersTouchRotateHandler, TwoFingersTouchZoomHandler, TwoFingersTouchZoomRotateHandler, VectorTileSource, VideoSource, Worker$1 as Worker, addProtocol, addSourceType, browser, clearPrewarmedResources, config, coveringTiles, createCalculateTileZoomFunction, createTileMesh, defaultAttributionControlOptions, defaultLocale, extend$1 as extend, getJSON, getMaxParallelImageRequests, getRTLTextPluginStatus, getVersion, getWorkerCount, getWorkerUrl, importScriptInWorkers, isAbortError, isFramebufferNotCompleteError, isImageBitmap, packageJSON, pick, prewarm, registerBackground, registerCanvasSource, registerCircle, registerColorRelief, registerFill, registerFillExtrusion, registerGeoJSONSource, registerGlobeProjection, registerHeatmap, registerHillshade, registerImageSource, registerLine, registerMercatorProjection, registerRaster, registerRasterDEMSource, registerRasterSource, registerSymbol, registerTerrain, registerUtilityShaders, registerVectorSource, registerVerticalPerspectiveProjection, registerVideoSource, removeProtocol, setMaxParallelImageRequests, setRTLTextPlugin, setWorkerCount, setWorkerUrl, throttle, uniqueId, warnOnce, webpSupported };
+export { AJAXError, AttributionControl, BoxZoomHandler, Camera, CanonicalTileID, CanvasSource, CooperativeGesturesHandler, DOM, DoubleClickZoomHandler, DragPanHandler, DragRotateHandler, EdgeInsets, ErrorEvent, EvaluationParameters, Event, Evented, FullscreenControl, GeoJSONSource, GeolocateControl, GlobeControl, HandlerManager, Hash, ImageRequest, ImageSource, KeyboardHandler, LngLat, LngLatBounds, LogoControl, Map$1 as Map, MapMouseEvent, MapTouchEvent, MapWheelEvent, Marker, MercatorCameraHelper, MercatorCoordinate, MercatorTransform, NavigationControl, OverscaledTileID, Painter, PerformanceMarkers, PerformanceUtils, Point, Popup, RGBAImage, RasterDEMTileSource, RasterTileSource, RenderToTexture, RequestManager, ScaleControl, ScrollZoomHandler, Style, TaskQueue, Terrain, TerrainControl, TwoFingersTouchPitchHandler, TwoFingersTouchRotateHandler, TwoFingersTouchZoomHandler, TwoFingersTouchZoomRotateHandler, VectorTileSource, VideoSource, Worker$1 as Worker, addProtocol, addSourceType, browser, clearPrewarmedResources, config, coveringTiles, createCalculateTileZoomFunction, createTileMesh, defaultAttributionControlOptions, defaultLocale, extend$1 as extend, getJSON, getMaxParallelImageRequests, getRTLTextPluginStatus, getVersion, getWorkerCount, getWorkerUrl, importScriptInWorkers, isAbortError, isFramebufferNotCompleteError, isImageBitmap, packageJSON, pick, prewarm, registerBackground, registerCanvasSource, registerCircle, registerColorRelief, registerFill, registerFillExtrusion, registerGeoJSONSource, registerGlobeProjection, registerHeatmap, registerHillshade, registerImageSource, registerLine, registerMercatorProjection, registerRaster, registerRasterDEMSource, registerRasterSource, registerSymbol, registerTerrain, registerUtilityShaders, registerVectorSource, registerVerticalPerspectiveProjection, registerVideoSource, removeProtocol, setMaxParallelImageRequests, setRTLTextPlugin, setWorkerCount, setWorkerUrl, throttle, uniqueId, warnOnce, webpSupported };
 //# sourceMappingURL=maplibre-gl-core-dev.mjs.map

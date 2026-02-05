@@ -81,7 +81,7 @@ export class GeoJSONWorkerSource extends VectorTileWorkerSource {
             return null;
         }
 
-        const geojsonWrapper = new GeoJSONWrapper(geoJSONTile.features, {version: 2, extent: EXTENT});
+        const geojsonWrapper = new GeoJSONWrapper(geoJSONTile.features as any, {version: 2, extent: EXTENT});
         // Encode the geojson-vt tile into binary vector tile form.  This
         // is a convenience that allows `FeatureIndex` to operate the same way
         // across `VectorTileSource` and `GeoJSONSource` data.

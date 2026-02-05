@@ -55,7 +55,7 @@ import type {Tile} from './source/tile';
 import type {GeoJSONFeatureDiff, GeoJSONFeatureId, GeoJSONSourceDiff} from './source/geojson_source_diff';
 import type {QueryRenderedFeaturesOptions, QuerySourceFeatureOptions} from './source/query_features';
 import {RequestManager, ResourceType, type RequestTransformFunction} from './util/request_manager';
-import {CanonicalTileID, type OverscaledTileID} from './source/tile_id';
+import {CanonicalTileID, OverscaledTileID} from './source/tile_id';
 import type {PositionAnchor} from './ui/anchor';
 import type {ProjectionData} from './geo/projection/projection_data';
 import type {WorkerTileResult} from './source/worker_source';
@@ -282,7 +282,7 @@ export {
     type NavigationControlOptions,
     type PopupOptions,
     type Offset,
-    type OverscaledTileID,
+    OverscaledTileID,
     type ScaleControlOptions,
     type Unit,
     type AroundCenterOptions,
