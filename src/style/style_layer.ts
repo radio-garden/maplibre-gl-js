@@ -32,6 +32,13 @@ import {type mat4} from 'gl-matrix';
 import type {UnwrappedTileID} from '../tile/tile_id';
 import type {VectorTileFeatureLike} from '@maplibre/vt-pbf';
 
+/**
+ * StyleLayer class type for registry
+ */
+export type StyleLayerClass = {
+    new (layer: LayerSpecification, globalState: Record<string, any>): StyleLayer;
+};
+
 export type QueryIntersectsFeatureParams = {
     /**
      * The geometry to check intersection with.

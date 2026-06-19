@@ -1,18 +1,18 @@
 import {type QueryIntersectsFeatureParams, StyleLayer} from '../style_layer';
-
-import {HeatmapBucket} from '../../data/bucket/heatmap_bucket';
-import {type RGBAImage} from '../../util/image';
 import properties, {type HeatmapPaintPropsPossiblyEvaluated} from './heatmap_style_layer_properties.g';
 import {renderColorRamp} from '../../util/color_ramp';
-import {type Transitionable, type Transitioning, type PossiblyEvaluated} from '../properties';
+import {registry} from '../../registry';
+import {circleIntersection, getMaximumPaintValue} from '../query_utils';
 
+import type {HeatmapBucket} from '../../data/bucket/heatmap_bucket';
+import type {RGBAImage} from '../../util/image';
+import type {Transitionable, Transitioning, PossiblyEvaluated} from '../properties';
 import type {Texture} from '../../webgl/texture';
 import type {Framebuffer} from '../../webgl/framebuffer';
 import type {HeatmapPaintProps} from './heatmap_style_layer_properties.g';
 import type {LayerSpecification} from '@maplibre/maplibre-gl-style-spec';
-
-import {circleIntersection, getMaximumPaintValue} from '../query_utils';
 import type {Bucket} from '../../data/bucket';
+
 
 export const HEATMAP_FULL_RENDER_FBO_KEY = 'big-fb';
 
@@ -32,7 +32,7 @@ export class HeatmapStyleLayer extends StyleLayer {
     paint: PossiblyEvaluated<HeatmapPaintProps, HeatmapPaintPropsPossiblyEvaluated>;
 
     createBucket(options: any) {
-        return new HeatmapBucket(options);
+        return new registry.bucket.heatmap(options);
     }
 
     constructor(layer: LayerSpecification, globalState: Record<string, any>) {

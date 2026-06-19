@@ -1,10 +1,10 @@
 import Point from '@mapbox/point-geometry';
+import {polygonIntersectsBufferedPoint} from '../util/intersection_tests';
 
 import type {PossiblyEvaluatedPropertyValue} from './properties';
 import type {StyleLayer} from '../style/style_layer';
 import type {CircleBucket} from '../data/bucket/circle_bucket';
 import type {LineBucket} from '../data/bucket/line_bucket';
-import {polygonIntersectsBufferedPoint} from '../util/intersection_tests';
 import type {IReadonlyTransform} from '../geo/transform_interface';
 import type {UnwrappedTileID} from '../tile/tile_id';
 
