@@ -8,5 +8,3 @@ export class HeatmapBucket extends CircleBucket<HeatmapStyleLayer> {
     // https://github.com/facebook/flow/issues/4262
     layers: HeatmapStyleLayer[];
 }
-
-register('HeatmapBucket', HeatmapBucket, {omit: ['layers']});

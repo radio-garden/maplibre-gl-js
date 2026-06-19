@@ -55,7 +55,7 @@ describe('FeatureIndex', () => {
             const featureIndex = new FeatureIndex(tileID);
             featureIndex.rawTileData = rawTileData as any as ArrayBuffer;
             featureIndex.bucketLayerIDs = [['layer']];
-            featureIndex.insert(geojsonWrapper.feature(0), [[new Point(1, 1)]], 0, 0, 0);
+            featureIndex.insert(geojsonWrapper.feature(0) as any, [[new Point(1, 1)]], 0, 0, 0);
 
             const result = featureIndex.query({
                 queryPadding: 0,

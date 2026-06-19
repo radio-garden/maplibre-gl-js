@@ -228,9 +228,7 @@ export class SymbolBuffers {
     }
 }
 
-register('SymbolBuffers', SymbolBuffers);
-
-class CollisionBuffers {
+export class CollisionBuffers {
     layoutVertexArray: StructArray;
     layoutAttributes: StructArrayMember[];
     layoutVertexBuffer: VertexBuffer;
@@ -271,8 +269,6 @@ class CollisionBuffers {
         this.collisionVertexBuffer.destroy();
     }
 }
-
-register('CollisionBuffers', CollisionBuffers);
 
 /**
  * @internal
@@ -957,10 +953,6 @@ export class SymbolBucket implements Bucket {
         if (this.icon.indexBuffer) this.icon.indexBuffer.updateData(this.icon.indexArray);
     }
 }
-
-register('SymbolBucket', SymbolBucket, {
-    omit: ['layers', 'collisionBoxArray', 'features', 'compareText']
-});
 
 // this constant is based on the size of StructArray indexes used in a symbol
 // bucket--namely, glyphOffsetArrayStart

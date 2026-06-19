@@ -195,5 +195,3 @@ export class FillBucket implements Bucket {
         this.programConfigurations.populatePaintArrays(this.layoutVertexArray.length, feature, index, {imagePositions, canonical});
     }
 }
-
-register('FillBucket', FillBucket, {omit: ['layers', 'patternFeatures']});

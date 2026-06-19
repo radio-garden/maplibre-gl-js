@@ -648,5 +648,3 @@ export class LineBucket implements Bucket {
         }
     }
 }
-
-register('LineBucket', LineBucket, {omit: ['layers', 'patternFeatures']});
