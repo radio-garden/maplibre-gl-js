@@ -1,17 +1,18 @@
 import {vi, expect} from 'vitest';
 import {Map} from '../../ui/map';
 import {extend} from '../../util/util';
-import {type Dispatcher} from '../../util/dispatcher';
-import {type IActor} from '../actor';
 import {Evented} from '../evented';
-import {type SourceSpecification, type StyleSpecification, type TerrainSpecification} from '@maplibre/maplibre-gl-style-spec';
 import {MercatorTransform} from '../../geo/projection/mercator_transform';
 import {RequestManager} from '../request_manager';
-import {type IReadonlyTransform, type ITransform} from '../../geo/transform_interface';
-import {type Style} from '../../style/style';
-import {type Terrain} from '../../render/terrain';
 import {Frustum} from '../primitives/frustum';
 import {mat4} from 'gl-matrix';
+
+import type {Dispatcher} from '../../util/dispatcher';
+import type {IActor} from '../actor';
+import type {SourceSpecification, StyleSpecification, TerrainSpecification} from '@maplibre/maplibre-gl-style-spec';
+import type {IReadonlyTransform, ITransform} from '../../geo/transform_interface';
+import type {Style} from '../../style/style';
+import type {Terrain} from '../../render/terrain';
 
 export class StubMap extends Evented {
     style: Style;

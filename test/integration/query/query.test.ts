@@ -13,13 +13,13 @@ import {ensureError} from '../../../src/util/util';
 import {deepEqual} from '../lib/json-diff';
 import {localizeURLs} from '../lib/localize-urls';
 import {launchPuppeteer} from '../lib/puppeteer_config';
-import type {default as MapLibreGL} from '../../../dist/maplibre-gl';
+import type * as MapLibreGL from '../../../src';
 
 let maplibregl: typeof MapLibreGL;
 
 async function performQueryOnFixture(fixture)  {
 
-    async function handleOperation(map: maplibregl.Map, operation) {
+    async function handleOperation(map: MapLibreGL.Map, operation) {
         const opName = operation[0];
 
         switch (opName) {

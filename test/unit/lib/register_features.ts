@@ -1,20 +1,15 @@
-/**
- * Full MapLibre bundle with all default sources, layers, and shaders registered.
- * For tree-shaking, use 'maplibre-gl/core' and import only the features you need from './features'.
- *
- * @example
- * ```typescript
- * import { registry } from 'maplibre-gl/core';
- * import { registerCircle, registerLine, registerVectorSource } from 'maplibre-gl/features';
- *
- * registerVectorSource();
- * registerCircle();
- * registerLine();
- * ```
- */
-
+// Unit-test setup: populate the feature registry the way the full bundle does.
+// The render core reaches draws, shaders, sources, layers, and projections
+// through `registry.*`, so tests that construct a Map/Painter/Style need every
+// feature registered up front, otherwise projection setup and program creation
+// throw on missing entries.
+//
+// We call the register* functions directly (rather than importing src/index)
+// so the setup only pulls in the feature module graph — not the whole public
+// API — which keeps the blast radius small for tests that vi.mock unrelated
+// modules (e.g. UI controls). The register* functions are idempotent, so tests
+// that also import src/index don't double-register.
 import {
-    // Sources
     registerCanvasSource,
     registerGeoJSONSource,
     registerImageSource,
@@ -22,7 +17,6 @@ import {
     registerRasterSource,
     registerVectorSource,
     registerVideoSource,
-    // Layers
     registerBackground,
     registerCircle,
     registerColorRelief,
@@ -33,13 +27,11 @@ import {
     registerLine,
     registerRaster,
     registerSymbol,
-    // Utilities
     registerUtilityShaders,
     registerGlobeProjection,
     registerTerrain
-} from './core';
+} from '../../../src/features';
 
-// ===== SOURCES =====
 registerCanvasSource();
 registerGeoJSONSource();
 registerImageSource();
@@ -48,7 +40,6 @@ registerRasterSource();
 registerVectorSource();
 registerVideoSource();
 
-// ===== LAYERS =====
 registerBackground();
 registerCircle();
 registerColorRelief();
@@ -62,9 +53,4 @@ registerSymbol();
 
 registerTerrain();
 registerGlobeProjection();
-
-// ===== UTILITIES =====
 registerUtilityShaders();
-
-// Re-export everything from core
-export * from './core';

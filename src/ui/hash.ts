@@ -108,7 +108,7 @@ export class Hash {
             return false;
         }
 
-        const bearing = this._map.dragRotate.isEnabled() && this._map.touchZoomRotate.isEnabled() ? +(hash[3] || 0) : this._map.getBearing();
+        const bearing = this._map.dragRotate?.isEnabled() && this._map.touchZoomRotate?.isEnabled() ? +(hash[3] || 0) : this._map.getBearing();
         this._map.jumpTo({
             center: [+hash[2], +hash[1]],
             zoom: +hash[0],
