@@ -75,6 +75,7 @@ import {drawFill} from './webgl/draw/draw_fill';
 import {drawFillExtrusion} from './webgl/draw/draw_fill_extrusion';
 import {drawHeatmap} from './webgl/draw/draw_heatmap';
 import {drawHillshade} from './webgl/draw/draw_hillshade';
+import {drawColorRelief} from './webgl/draw/draw_color_relief';
 import {drawLine} from './webgl/draw/draw_line';
 import {drawRaster} from './webgl/draw/draw_raster';
 import {drawSymbols} from './webgl/draw/draw_symbol';
@@ -229,7 +230,7 @@ export function registerRaster() {
  */
 export function registerColorRelief() {
     registry.layer['color-relief'] = ColorReliefStyleLayer;
-    registry.draw['color-relief'] = drawRaster; // Shares draw function with raster
+    registry.draw['color-relief'] = drawColorRelief;
     registry.shader['colorRelief'] = prepare(colorReliefFrag, colorReliefVert);
 }
 
