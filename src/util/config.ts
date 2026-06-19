@@ -18,6 +18,7 @@ type Config = {
     MAX_TILE_CACHE_ZOOM_LEVELS: number;
     REGISTERED_PROTOCOLS: {[x: string]: AddProtocolAction };
     WORKER_URL: string;
+    WORKER_IS_MODULE: boolean;
 };
 
 export const config: Config = {
@@ -25,5 +26,6 @@ export const config: Config = {
     MAX_PARALLEL_IMAGE_REQUESTS_PER_FRAME: 8,
     MAX_TILE_CACHE_ZOOM_LEVELS: 5,
     REGISTERED_PROTOCOLS: {},
-    WORKER_URL: ''
+    WORKER_URL: '',
+    WORKER_IS_MODULE: false
 };

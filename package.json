@@ -3,7 +3,22 @@
   "description": "BSD licensed community fork of mapbox-gl, a WebGL interactive maps library",
   "version": "5.24.0",
   "main": "dist/maplibre-gl.js",
+  "module": "dist/maplibre-gl.mjs",
   "style": "dist/maplibre-gl.css",
+  "exports": {
+    ".": {
+      "types": "./dist/maplibre-gl.d.ts",
+      "default": "./dist/maplibre-gl.mjs"
+    },
+    "./core": {
+      "types": "./dist/maplibre-gl-core.d.ts",
+      "default": "./dist/maplibre-gl-core.mjs"
+    },
+    "./worker": {
+      "types": "./dist/maplibre-gl-worker.d.ts",
+      "default": "./dist/maplibre-gl-worker.mjs"
+    }
+  },
   "license": "BSD-3-Clause",
   "homepage": "https://maplibre.org/",
   "funding": "https://github.com/maplibre/maplibre-gl-js?sponsor=1",
@@ -14,7 +29,7 @@
     "type": "git",
     "url": "https://github.com/maplibre/maplibre-gl-js"
   },
-  "types": "dist/maplibre-gl.d.ts",
+  "types": "dist/esm/src/index.d.ts",
   "type": "module",
   "dependencies": {
     "@mapbox/jsonlint-lines-primitives": "^2.0.2",
@@ -81,6 +96,7 @@
     "d3-queue": "^3.0.7",
     "devtools-protocol": "^0.0.1617013",
     "diff": "^9.0.0",
+    "dpdm": "^3.14.0",
     "dts-bundle-generator": "^9.5.1",
     "esbuild": "^0.28.0",
     "eslint": "^9.39.2",
@@ -94,6 +110,7 @@
     "is-builtin-module": "^5.0.0",
     "jsdom": "^29.0.2",
     "junit-report-builder": "^5.1.2",
+    "madge": "^8.0.0",
     "minimist": "^1.2.8",
     "mock-geolocation": "^1.0.11",
     "monocart-coverage-reports": "^2.12.10",
@@ -135,7 +152,7 @@
     "generate-shaders": "node --no-warnings --loader ts-node/esm build/generate-shaders.ts",
     "generate-struct-arrays": "node --no-warnings --loader ts-node/esm build/generate-struct-arrays.ts",
     "generate-style-code": "node --no-warnings --loader ts-node/esm build/generate-style-code.ts",
-    "generate-typings": "dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl.d.ts ./src/index.ts",
+    "generate-typings": "dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl.d.ts ./src/index.ts && dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl-core.d.ts ./src/core.ts && dts-bundle-generator --export-referenced-types=false --umd-module-name=maplibregl -o ./dist/maplibre-gl-worker.d.ts ./src/worker.ts",
     "generate-docs": "typedoc && node --no-warnings --loader ts-node/esm build/generate-docs.ts",
     "generate-images": "node --no-warnings --loader ts-node/esm build/generate-doc-images.ts",
     "build-dist": "npm run build-css && npm run generate-unicode-data && npm run generate-typings && npm run generate-shaders && npm run build-dev && npm run build-csp-dev && npm run build-prod && npm run build-csp",
@@ -145,10 +162,12 @@
     "build-csp": "rollup --configPlugin @rollup/plugin-typescript -c rollup.config.csp.ts --environment BUILD:production",
     "build-csp-dev": "rollup --configPlugin @rollup/plugin-typescript -c rollup.config.csp.ts --environment BUILD:dev",
     "build-css": "postcss -o dist/maplibre-gl.css src/css/maplibre-gl.css",
+    "build-esm": "tsc --project tsconfig.build.json",
     "watch-css": "postcss --watch -o dist/maplibre-gl.css src/css/maplibre-gl.css",
     "build-benchmarks": "npm run build-dev && rollup --configPlugin @rollup/plugin-typescript -c test/bench/rollup_config_benchmarks.ts",
     "watch-benchmarks": "rollup --configPlugin @rollup/plugin-typescript -c test/bench/rollup_config_benchmarks.ts --watch",
     "bundle-stats": "rollup --configPlugin @rollup/plugin-typescript -c --environment BUILD:production,BUNDLE:stats",
+    "analyze-registry": "cd analysis && npm run analyze",
     "spellcheck": "cspell",
     "docs": "npm run generate-docs && docker run --rm -v ${PWD}:/docs zensical/zensical build",
     "start-server": "st --no-cache -H localhost --port 9966 .",

@@ -14,5 +14,18 @@ export interface WorkerGlobalScopeInterface {
 }
 
 export function workerFactory() {
+    // Check if we should use module workers (for ESM builds)
+    // Either explicitly set via setWorkerUrl(url, true) or auto-detect .mjs extension
+    const useModuleWorker = config.WORKER_IS_MODULE;
+
+    if (useModuleWorker) {
+        try {
+            return new Worker(config.WORKER_URL, {type: 'module'});
+        } catch (e) {
+            // Fallback to regular worker if module workers not supported
+            console.warn('Module worker not supported, falling back to classic worker', e);
+        }
+    }
+
     return new Worker(config.WORKER_URL);
 }
