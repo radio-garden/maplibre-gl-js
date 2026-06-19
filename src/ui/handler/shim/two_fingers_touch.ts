@@ -13,14 +13,14 @@ import type {TapDragZoomHandler} from '../tap_drag_zoom';
 export class TwoFingersTouchZoomRotateHandler {
 
     _el: HTMLElement;
-    _touchZoom: TwoFingersTouchZoomHandler;
-    _touchRotate: TwoFingersTouchRotateHandler;
-    _tapDragZoom: TapDragZoomHandler;
+    _touchZoom?: TwoFingersTouchZoomHandler;
+    _touchRotate?: TwoFingersTouchRotateHandler;
+    _tapDragZoom?: TapDragZoomHandler;
     _rotationDisabled: boolean;
     _enabled: boolean;
 
     /** @internal */
-    constructor(el: HTMLElement, touchZoom: TwoFingersTouchZoomHandler, touchRotate: TwoFingersTouchRotateHandler, tapDragZoom: TapDragZoomHandler) {
+    constructor(el: HTMLElement, touchZoom?: TwoFingersTouchZoomHandler, touchRotate?: TwoFingersTouchRotateHandler, tapDragZoom?: TapDragZoomHandler) {
         this._el = el;
         this._touchZoom = touchZoom;
         this._touchRotate = touchRotate;
@@ -41,9 +41,9 @@ export class TwoFingersTouchZoomRotateHandler {
      * ```
      */
     enable(options?: AroundCenterOptions | boolean | null) {
-        this._touchZoom.enable(options);
-        if (!this._rotationDisabled) this._touchRotate.enable(options);
-        this._tapDragZoom.enable();
+        this._touchZoom?.enable(options);
+        if (!this._rotationDisabled) this._touchRotate?.enable(options);
+        this._tapDragZoom?.enable();
         this._el.classList.add('maplibregl-touch-zoom-rotate');
     }
 
@@ -56,9 +56,9 @@ export class TwoFingersTouchZoomRotateHandler {
      * ```
      */
     disable() {
-        this._touchZoom.disable();
-        this._touchRotate.disable();
-        this._tapDragZoom.disable();
+        this._touchZoom?.disable();
+        this._touchRotate?.disable();
+        this._tapDragZoom?.disable();
         this._el.classList.remove('maplibregl-touch-zoom-rotate');
     }
 
@@ -68,9 +68,9 @@ export class TwoFingersTouchZoomRotateHandler {
      * @returns `true` if the "pinch to rotate and zoom" interaction is enabled.
      */
     isEnabled() {
-        return this._touchZoom.isEnabled() &&
-            (this._rotationDisabled || this._touchRotate.isEnabled()) &&
-            this._tapDragZoom.isEnabled();
+        return !!(this._touchZoom?.isEnabled() &&
+            (this._rotationDisabled || this._touchRotate?.isEnabled()) &&
+            this._tapDragZoom?.isEnabled());
     }
 
     /**
@@ -79,7 +79,7 @@ export class TwoFingersTouchZoomRotateHandler {
      * @returns `true` if the handler is active, `false` otherwise
      */
     isActive() {
-        return this._touchZoom.isActive() || this._touchRotate.isActive() || this._tapDragZoom.isActive();
+        return !!(this._touchZoom?.isActive() || this._touchRotate?.isActive() || this._tapDragZoom?.isActive());
     }
 
     /**
@@ -120,7 +120,7 @@ export class TwoFingersTouchZoomRotateHandler {
      */
     disableRotation() {
         this._rotationDisabled = true;
-        this._touchRotate.disable();
+        this._touchRotate?.disable();
     }
 
     /**
@@ -134,6 +134,6 @@ export class TwoFingersTouchZoomRotateHandler {
      */
     enableRotation() {
         this._rotationDisabled = false;
-        if (this._touchZoom.isEnabled()) this._touchRotate.enable();
+        if (this._touchZoom?.isEnabled()) this._touchRotate?.enable();
     }
 }

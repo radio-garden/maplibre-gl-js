@@ -37,12 +37,12 @@ export type DragPanOptions = {
 export class DragPanHandler {
 
     _el: HTMLElement;
-    _mousePan: MousePanHandler;
-    _touchPan: TouchPanHandler;
+    _mousePan?: MousePanHandler;
+    _touchPan?: TouchPanHandler;
     _inertiaOptions: DragPanOptions | boolean;
 
     /** @internal */
-    constructor(el: HTMLElement, mousePan: MousePanHandler, touchPan: TouchPanHandler) {
+    constructor(el: HTMLElement, mousePan?: MousePanHandler, touchPan?: TouchPanHandler) {
         this._el = el;
         this._mousePan = mousePan;
         this._touchPan = touchPan;
@@ -65,8 +65,8 @@ export class DragPanHandler {
      */
     enable(options?: DragPanOptions | boolean) {
         this._inertiaOptions = options || {};
-        this._mousePan.enable();
-        this._touchPan.enable();
+        this._mousePan?.enable();
+        this._touchPan?.enable();
         this._el.classList.add('maplibregl-touch-drag-pan');
     }
 
@@ -79,8 +79,8 @@ export class DragPanHandler {
      * ```
      */
     disable() {
-        this._mousePan.disable();
-        this._touchPan.disable();
+        this._mousePan?.disable();
+        this._touchPan?.disable();
         this._el.classList.remove('maplibregl-touch-drag-pan');
     }
 
@@ -90,7 +90,7 @@ export class DragPanHandler {
      * @returns `true` if the "drag to pan" interaction is enabled.
      */
     isEnabled() {
-        return this._mousePan.isEnabled() && this._touchPan.isEnabled();
+        return !!(this._mousePan?.isEnabled() && this._touchPan?.isEnabled());
     }
 
     /**
@@ -99,6 +99,6 @@ export class DragPanHandler {
      * @returns `true` if the "drag to pan" interaction is active.
      */
     isActive() {
-        return this._mousePan.isActive() || this._touchPan.isActive();
+        return !!(this._mousePan?.isActive() || this._touchPan?.isActive());
     }
 }

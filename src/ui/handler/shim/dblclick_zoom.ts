@@ -9,11 +9,11 @@ import type {TapZoomHandler} from './../tap_zoom';
  */
 export class DoubleClickZoomHandler {
 
-    _clickZoom: ClickZoomHandler;
-    _tapZoom: TapZoomHandler;
+    _clickZoom?: ClickZoomHandler;
+    _tapZoom?: TapZoomHandler;
 
     /** @internal */
-    constructor(clickZoom: ClickZoomHandler, TapZoom: TapZoomHandler) {
+    constructor(clickZoom?: ClickZoomHandler, TapZoom?: TapZoomHandler) {
         this._clickZoom = clickZoom;
         this._tapZoom = TapZoom;
     }
@@ -27,8 +27,8 @@ export class DoubleClickZoomHandler {
      * ```
      */
     enable() {
-        this._clickZoom.enable();
-        this._tapZoom.enable();
+        this._clickZoom?.enable();
+        this._tapZoom?.enable();
     }
 
     /**
@@ -40,8 +40,8 @@ export class DoubleClickZoomHandler {
      * ```
      */
     disable() {
-        this._clickZoom.disable();
-        this._tapZoom.disable();
+        this._clickZoom?.disable();
+        this._tapZoom?.disable();
     }
 
     /**
@@ -50,7 +50,7 @@ export class DoubleClickZoomHandler {
      * @returns `true` if the "double click to zoom" interaction is enabled.
      */
     isEnabled() {
-        return this._clickZoom.isEnabled() && this._tapZoom.isEnabled();
+        return !!(this._clickZoom?.isEnabled() && this._tapZoom?.isEnabled());
     }
 
     /**
@@ -59,6 +59,6 @@ export class DoubleClickZoomHandler {
      * @returns `true` if the "double click to zoom" interaction is active.
      */
     isActive() {
-        return this._clickZoom.isActive() || this._tapZoom.isActive();
+        return !!(this._clickZoom?.isActive() || this._tapZoom?.isActive());
     }
 }
