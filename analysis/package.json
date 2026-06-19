@@ -1,0 +1,12 @@
+{
+  "name": "maplibre-registry-analysis",
+  "version": "1.0.0",
+  "description": "MapLibre registry dependency analysis",
+  "type": "module",
+  "scripts": {
+    "analyze": "node src/analyze-registry-sizes.mjs"
+  },
+  "dependencies": {
+    "dpdm": "^3.14.0"
+  }
+}
