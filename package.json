@@ -29,7 +29,7 @@
     "type": "git",
     "url": "https://github.com/maplibre/maplibre-gl-js"
   },
-  "types": "dist/esm/src/index.d.ts",
+  "types": "./dist/maplibre-gl.d.ts",
   "type": "module",
   "dependencies": {
     "@mapbox/jsonlint-lines-primitives": "^2.0.2",
