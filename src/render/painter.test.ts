@@ -4,6 +4,7 @@ import {MercatorTransform} from '../geo/projection/mercator_transform';
 import {Style} from '../style/style';
 import {StubMap} from '../util/test/util';
 import {Texture} from '../webgl/texture';
+import {registry} from '../registry';
 
 describe('render', () => {
     let painter: Painter;
@@ -36,8 +37,11 @@ describe('render', () => {
     });
 
     test('calls terrainDepth but not terrainCoords', () => {
-        const terrainDepth = vi.spyOn(painter.drawFunctions, 'terrainDepth').mockImplementation(() => {});
-        const terrainCoords = vi.spyOn(painter.drawFunctions, 'terrainCoords').mockImplementation(() => {});
+        // Terrain draws are dispatched through the tree-shakeable registry now.
+        const terrainDepth = vi.fn();
+        const terrainCoords = vi.fn();
+        registry.terrain.drawDepth = terrainDepth;
+        registry.terrain.drawCoords = terrainCoords;
         map.terrain = {tileManager: {anyTilesAfterTime: () => false}};
 
         painter.render(style, renderOptions);

@@ -1,9 +1,9 @@
 import {uniqueId, parseCacheControl} from '../util/util';
 import {deserialize as deserializeBucket} from '../data/bucket';
+import {registry} from '../registry';
 import {GEOJSON_TILE_LAYER_NAME, type FeatureIndex, type QueryResults} from '../data/feature_index';
 import {GeoJSONFeature} from '../util/vectortile_to_geojson';
 import {featureFilter} from '@maplibre/maplibre-gl-style-spec';
-import {SymbolBucket} from '../data/bucket/symbol_bucket';
 import {CollisionBoxArray} from '../data/array_types.g';
 import {Texture} from '../webgl/texture';
 import {now} from '../util/time_control';
@@ -243,24 +243,24 @@ export class Tile {
         this.buckets = deserializeBucket(data.buckets, painter?.style);
 
         this.hasSymbolBuckets = false;
-        for (const id in this.buckets) {
-            const bucket = this.buckets[id];
-            if (bucket instanceof SymbolBucket) {
-                this.hasSymbolBuckets = true;
-                if (justReloaded) {
-                    bucket.justReloaded = true;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        this.hasRTLText = false;
-        if (this.hasSymbolBuckets) {
+        if (registry.bucket.symbol) {
             for (const id in this.buckets) {
                 const bucket = this.buckets[id];
-                if (bucket instanceof SymbolBucket) {
-                    if (bucket.hasRTLText) {
+                if (bucket instanceof registry.bucket.symbol) {
+                    this.hasSymbolBuckets = true;
+                    if (justReloaded) {
+                        bucket.justReloaded = true;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            this.hasRTLText = false;
+            if (this.hasSymbolBuckets) {
+                for (const id in this.buckets) {
+                    const bucket = this.buckets[id];
+                    if (bucket instanceof registry.bucket.symbol && bucket.hasRTLText) {
                         this.hasRTLText = true;
                         rtlMainThreadPluginFactory().lazyLoad();
                         break;

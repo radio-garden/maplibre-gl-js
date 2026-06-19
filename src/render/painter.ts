@@ -8,7 +8,7 @@ import rasterBoundsAttributes from '../data/raster_bounds_attributes';
 import posAttributes from '../data/pos_attributes';
 import {type ProgramConfiguration} from '../data/program_configuration';
 import {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
-import {shaders} from '../shaders/shaders';
+import {registry} from '../registry';
 import {Program} from '../webgl/program';
 import {programUniforms} from '../webgl/program/program_uniforms';
 import {Context} from '../webgl/context';
@@ -18,7 +18,9 @@ import {ColorMode} from '../webgl/color_mode';
 import {CullFaceMode} from '../webgl/cull_face_mode';
 import {Texture} from '../webgl/texture';
 import {Color} from '@maplibre/maplibre-gl-style-spec';
-import {selectDebugSource, webglDrawFunctions, type DrawFunctions} from '../webgl/draw';
+import {selectDebugSource, drawDebug, drawDebugPadding} from '../webgl/draw/draw_debug';
+import {drawSky, drawAtmosphere} from '../webgl/draw/draw_sky';
+import {drawCustom} from '../webgl/draw/draw_custom';
 import {type OverscaledTileID} from '../tile/tile_id';
 import {Mesh} from './mesh';
 import {MercatorShaderDefine, MercatorShaderVariantKey} from '../geo/projection/mercator_projection';
@@ -37,16 +39,6 @@ import type {ResolvedImage} from '@maplibre/maplibre-gl-style-spec';
 import type {IRenderToTexture} from './render_to_texture_interface';
 import type {ProjectionData} from '../geo/projection/projection_data';
 import {coveringTiles} from '../geo/projection/covering_tiles';
-import {isSymbolStyleLayer} from '../style/style_layer/symbol_style_layer';
-import {isCircleStyleLayer} from '../style/style_layer/circle_style_layer';
-import {isHeatmapStyleLayer} from '../style/style_layer/heatmap_style_layer';
-import {isLineStyleLayer} from '../style/style_layer/line_style_layer';
-import {isFillStyleLayer} from '../style/style_layer/fill_style_layer';
-import {isFillExtrusionStyleLayer} from '../style/style_layer/fill_extrusion_style_layer';
-import {isHillshadeStyleLayer} from '../style/style_layer/hillshade_style_layer';
-import {isColorReliefStyleLayer} from '../style/style_layer/color_relief_style_layer';
-import {isRasterStyleLayer} from '../style/style_layer/raster_style_layer';
-import {isBackgroundStyleLayer} from '../style/style_layer/background_style_layer';
 import {isCustomStyleLayer} from '../style/style_layer/custom_style_layer';
 
 export type RenderPass = 'offscreen' | 'opaque' | 'translucent';
@@ -73,7 +65,6 @@ export type RenderOptions = {
  */
 
 export class Painter {
-    drawFunctions: DrawFunctions;
     context: Context;
     transform: IReadonlyTransform;
     renderToTexture: IRenderToTexture;
@@ -126,7 +117,6 @@ export class Painter {
     terrainFacilitator: {depthDirty: boolean; coordsDirty: boolean; matrix: mat4; renderTime: number};
 
     constructor(gl: WebGLRenderingContext | WebGL2RenderingContext, transform: IReadonlyTransform) {
-        this.drawFunctions = webglDrawFunctions;
         this.context = new Context(gl);
         this.transform = transform;
         this._tileTextures = {};
@@ -546,7 +536,7 @@ export class Painter {
         this.clearStencil();
 
         // draw sky first to not overwrite symbols
-        if (this.style.sky) this.drawFunctions.sky(this, this.style.sky);
+        if (this.style.sky) drawSky(this, this.style.sky);
 
         this._showOverdrawInspector = options.showOverdrawInspector;
         this.depthRangeFor3D = [0, 1 - ((style._order.length + 2) * this.numSublayers * this.depthEpsilon)];
@@ -598,18 +588,18 @@ export class Painter {
 
         // Render atmosphere, only for Globe projection
         if (renderOptions.isRenderingGlobe) {
-            this.drawFunctions.atmosphere(this, this.style.sky, this.style.light);
+            drawAtmosphere(this, this.style.sky, this.style.light);
         }
 
         if (this.options.showTileBoundaries) {
             const selectedSource = selectDebugSource(this.style, this.transform.zoom);
             if (selectedSource) {
-                this.drawFunctions.debug(this, selectedSource, selectedSource.getVisibleCoordinates());
+                drawDebug(this, selectedSource, selectedSource.getVisibleCoordinates());
             }
         }
 
         if (this.options.showPadding) {
-            this.drawFunctions.debugPadding(this);
+            drawDebugPadding(this);
         }
 
         // Set defaults for most GL values so that anyone using the state after the render
@@ -641,7 +631,7 @@ export class Painter {
         this.terrainFacilitator.renderTime = Date.now();
         this.terrainFacilitator.depthDirty = false;
         this.terrainFacilitator.coordsDirty = true;
-        this.drawFunctions.terrainDepth(this, this.style.map.terrain);
+        registry.terrain.drawDepth?.(this, this.style.map.terrain);
     }
 
     /**
@@ -652,7 +642,7 @@ export class Painter {
             return;
         }
         this.terrainFacilitator.coordsDirty = false;
-        this.drawFunctions.terrainCoords(this, this.style.map.terrain);
+        registry.terrain.drawCoords?.(this, this.style.map.terrain);
     }
 
     renderLayer(painter: Painter, tileManager: TileManager, layer: StyleLayer, coords: OverscaledTileID[], renderOptions: RenderOptions) {
@@ -660,30 +650,16 @@ export class Painter {
         if (layer.type !== 'background' && layer.type !== 'custom' && !(coords || []).length) return;
         this.id = layer.id;
 
-        const draw = this.drawFunctions;
-        if (isSymbolStyleLayer(layer)) {
-            draw.symbol(painter, tileManager, layer, coords, this.style.placement.variableOffsets, renderOptions);
-        } else if (isCircleStyleLayer(layer)) {
-            draw.circle(painter, tileManager, layer, coords, renderOptions);
-        } else if (isHeatmapStyleLayer(layer)) {
-            draw.heatmap(painter, tileManager, layer, coords, renderOptions);
-        } else if (isLineStyleLayer(layer)) {
-            draw.line(painter, tileManager, layer, coords, renderOptions);
-        } else if (isFillStyleLayer(layer)) {
-            draw.fill(painter, tileManager, layer, coords, renderOptions);
-        } else if (isFillExtrusionStyleLayer(layer)) {
-            draw.fillExtrusion(painter, tileManager, layer, coords, renderOptions);
-        } else if (isHillshadeStyleLayer(layer)) {
-            draw.hillshade(painter, tileManager, layer, coords, renderOptions);
-        } else if (isColorReliefStyleLayer(layer)) {
-            draw.colorRelief(painter, tileManager, layer, coords, renderOptions);
-        } else if (isRasterStyleLayer(layer)) {
-            draw.raster(painter, tileManager, layer, coords, renderOptions);
-        } else if (isBackgroundStyleLayer(layer)) {
-            draw.background(painter, tileManager, layer, coords, renderOptions);
-        } else if (isCustomStyleLayer(layer)) {
-            draw.custom(painter, tileManager, layer, renderOptions);
+        // Custom layers are built-in (not registerable) and have their own
+        // signature without tile coords; everything else dispatches through the
+        // tree-shakeable draw registry keyed by layer type. The symbol draw is a
+        // registered closure that reads placement.variableOffsets internally.
+        if (isCustomStyleLayer(layer)) {
+            drawCustom(painter, tileManager, layer, renderOptions);
+            return;
         }
+
+        registry.draw[layer.type as keyof typeof registry.draw]?.(painter, tileManager, layer, coords, renderOptions);
     }
 
     static readonly MAX_TEXTURE_POOL_SIZE_PER_BUCKET = 50;
@@ -732,7 +708,7 @@ export class Painter {
 
         const projection = this.style.projection;
 
-        const projectionPrelude = forceSimpleProjection ? shaders.projectionMercator : projection.shaderPreludeCode;
+        const projectionPrelude = forceSimpleProjection ? registry.shader.projectionMercator : projection.shaderPreludeCode;
         const projectionDefine = forceSimpleProjection ? MercatorShaderDefine : projection.shaderDefine;
         const projectionKey = `/${forceSimpleProjection ? MercatorShaderVariantKey : projection.shaderVariantName}`;
 
@@ -745,7 +721,7 @@ export class Painter {
 
         this.cache[key] ||= new Program(
             this.context,
-            shaders[name],
+            registry.shader[name as keyof typeof registry.shader],
             programConfiguration,
             programUniforms[name],
             this._showOverdrawInspector,

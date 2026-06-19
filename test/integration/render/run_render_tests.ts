@@ -13,7 +13,10 @@ import type {Page, Browser} from 'puppeteer';
 import {ensureError} from '../../../src/util/util';
 import {localizeURLs} from '../lib/localize-urls';
 import {launchPuppeteer} from '../lib/puppeteer_config';
-import type {default as MapLibreGL, Map as MaplibreMap, CanvasSource, PointLike, StyleSpecification} from '../../../dist/maplibre-gl';
+import type {StyleSpecification} from '@maplibre/maplibre-gl-style-spec';
+import type {PointLike, CanvasSource} from '../../../src';
+import type * as MapLibreGL from '../../../src';
+import type {Map as MaplibreMap} from '../../../src';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 let maplibregl: typeof MapLibreGL;

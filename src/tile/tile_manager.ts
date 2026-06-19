@@ -108,10 +108,14 @@ export class TileManager extends Evented {
 
         this.on('error', () => {
             // Only set _sourceErrored if the source does not have pending loads.
-            this._sourceErrored = this._source.loaded();
+            this._sourceErrored = this._source?.loaded();
         });
 
         this._source = createSource(id, options, dispatcher, this);
+        if (!this._source) {
+            // Source type not registered, skip initialization
+            return;
+        }
 
         this._inViewTiles = new InViewTiles();
         this._outOfViewCache = new TileCache(0, (tile) => this._unloadTile(tile));

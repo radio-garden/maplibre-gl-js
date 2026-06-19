@@ -7,8 +7,8 @@ import {type Style} from '../style/style';
 import {type Terrain} from '../render/terrain';
 import {RenderPool} from './render_pool';
 import {type Texture} from './texture';
+import {registry} from '../registry';
 import type {StyleLayer} from '../style/style_layer';
-import {ImageSource} from '../source/image_source';
 
 /**
  * lookup table which layers should rendered to texture
@@ -90,7 +90,7 @@ export class RenderToTexture {
             this._coordsAscending[id] = {};
             const tileIDs = style.tileManagers[id].getVisibleCoordinates();
             const source = style.tileManagers[id].getSource();
-            const terrainTileRanges = source instanceof ImageSource ? source.terrainTileRanges : null;
+            const terrainTileRanges = registry.source.image && source instanceof registry.source.image ? source.terrainTileRanges : null;
             for (const tileID of tileIDs) {
                 const keys = this.terrain.tileManager.getTerrainCoords(tileID, terrainTileRanges);
                 for (const key in keys) {
@@ -163,7 +163,7 @@ export class RenderToTexture {
             for (const tile of this._renderableTiles) {
                 // if render pool is full draw current tiles to screen and free pool
                 if (this.pool.isFull()) {
-                    drawTerrain(this.painter, this.terrain, this._rttTiles, options);
+                    registry.terrain.drawTerrain?.(this.painter, this.terrain, this._rttTiles, options);
                     this._rttTiles = [];
                     this.pool.freeAllObjects();
                 }
@@ -194,7 +194,7 @@ export class RenderToTexture {
                     if (layer.source) tile.rttFingerprint[layer.source] = this._rttFingerprints[layer.source][tile.tileID.key];
                 }
             }
-            drawTerrain(this.painter, this.terrain, this._rttTiles, options);
+            registry.terrain.drawTerrain?.(this.painter, this.terrain, this._rttTiles, options);
             this._rttTiles = [];
             this.pool.freeAllObjects();
 

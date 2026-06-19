@@ -1,6 +1,6 @@
 import {clamp} from '../../util/util';
 
-import {ImageSource} from '../../source/image_source';
+import {registry} from '../../registry';
 import {now} from '../../util/time_control';
 import {StencilMode} from '../stencil_mode';
 import {DepthMode} from '../depth_mode';
@@ -57,7 +57,7 @@ export function drawRaster(painter: Painter, tileManager: TileManager, layer: Ra
     // This approach also avoids pixel shader overdraw, as any pixel is drawn at most once.
 
     // Stencil mask and two-pass is not used for ImageSource sources regardless of projection.
-    if (source instanceof ImageSource) {
+    if (registry.source.image && source instanceof registry.source.image) {
         // Image source - no stencil is used
         drawTiles(painter, tileManager, layer, tileIDs, null, false, false, source.tileCoords, source.flippedWindingOrder, isRenderingToTexture);
     } else if (useSubdivision) {

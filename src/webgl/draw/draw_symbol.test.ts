@@ -28,8 +28,7 @@ vi.mock('../../data/bucket/symbol_bucket', () => {
     };
 });
 
-vi.mock('../../symbol/projection');
-(symbolProjection.getPitchedLabelPlaneMatrix as Mock).mockReturnValue(mat4.create());
+vi.spyOn(symbolProjection, 'getPitchedLabelPlaneMatrix').mockReturnValue(mat4.create());
 
 function createMockTransform() {
     return {
@@ -184,7 +183,7 @@ describe('drawSymbol', () => {
             projection: new MercatorProjection()
         } as any as Style;
 
-        const spy = vi.spyOn(symbolProjection, 'updateLineLabels');
+        const spy = vi.spyOn(symbolProjection, 'updateLineLabels').mockImplementation(() => {});
         const renderOptions: RenderOptions = {isRenderingToTexture: false, isRenderingGlobe: false};
         drawSymbols(painterMock, tileManagerMock, layer, [tileId], null, renderOptions);
 
