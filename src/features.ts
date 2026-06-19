@@ -44,6 +44,8 @@ import linePatternFrag from './shaders/glsl/line_pattern.fragment.glsl.g';
 import linePatternVert from './shaders/glsl/line_pattern.vertex.glsl.g';
 import lineSDFFrag from './shaders/glsl/line_sdf.fragment.glsl.g';
 import lineSDFVert from './shaders/glsl/line_sdf.vertex.glsl.g';
+import lineGradientSDFFrag from './shaders/glsl/line_gradient_sdf.fragment.glsl.g';
+import lineGradientSDFVert from './shaders/glsl/line_gradient_sdf.vertex.glsl.g';
 import preludeFrag from './shaders/glsl/_prelude.fragment.glsl.g';
 import preludeVert from './shaders/glsl/_prelude.vertex.glsl.g';
 import projectionErrorMeasurementFrag from './shaders/glsl/projection_error_measurement.fragment.glsl.g';
@@ -210,6 +212,7 @@ export function registerLine() {
     registry.shader.lineGradient = prepare(lineGradientFrag, lineGradientVert);
     registry.shader.linePattern = prepare(linePatternFrag, linePatternVert);
     registry.shader.lineSDF = prepare(lineSDFFrag, lineSDFVert);
+    registry.shader.lineGradientSDF = prepare(lineGradientSDFFrag, lineGradientSDFVert);
     registry.bucket.line = LineBucket;
     register('LineBucket', LineBucket, {omit: ['layers', 'patternFeatures']});
 }

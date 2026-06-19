@@ -163,6 +163,7 @@ export interface ShaderRegistry {
     lineGradient?: PreparedShader;
     linePattern?: PreparedShader;
     lineSDF?: PreparedShader;
+    lineGradientSDF?: PreparedShader;
     prelude?: PreparedShader;
     projectionErrorMeasurement?: PreparedShader;
     projectionMercator?: PreparedShader;
