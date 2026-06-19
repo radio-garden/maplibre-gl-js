@@ -1,7 +1,8 @@
 import type {Projection, ProjectionGPUContext, TileMeshUsage} from './projection';
 import type {CanonicalTileID} from '../../tile/tile_id';
 import {EXTENT} from '../../data/extent';
-import {type PreparedShader, shaders} from '../../shaders/shaders';
+import {type PreparedShader} from '../../shaders/shaders';
+import {registry} from '../../registry';
 import type {Context} from '../../webgl/context';
 import {Mesh} from '../../render/mesh';
 import {PosArray, TriangleIndexArray} from '../../data/array_types.g';
@@ -33,11 +34,11 @@ export class MercatorProjection implements Projection {
     }
 
     get shaderPreludeCode(): PreparedShader {
-        return shaders.projectionMercator;
+        return registry.shader.projectionMercator;
     }
 
     get vertexShaderPreludeCode(): string {
-        return shaders.projectionMercator.vertexSource;
+        return registry.shader.projectionMercator.vertexSource;
     }
 
     get subdivisionGranularity(): SubdivisionGranularitySetting {
