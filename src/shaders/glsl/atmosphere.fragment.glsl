@@ -1,5 +1,7 @@
-#ifdef GL_ES
+#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+#else
+precision mediump float;
 #endif
 
 in vec3 view_direction;
