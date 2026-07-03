@@ -88,6 +88,26 @@ describe('TaskQueue', () => {
         expect(() => q.run()).toThrow();
     });
 
+    test('A throwing task does not strand the queue as permanently running', () => {
+        // Regression for tel "Attempting to run(), but is already running."
+        // (radiogarden/mono#3342): map._render fires handler events (zoom/
+        // moveend) synchronously from inside a _renderTaskQueue task. If one of
+        // those listeners throws, run() escaped without clearing
+        // _currentlyRunning, so every subsequent frame's run() re-threw — one
+        // stuck client emitted hundreds of events (8 users -> 572 events).
+        const q = new TaskQueue();
+        q.add(() => {
+            throw new Error('listener blew up mid-render');
+        });
+        expect(() => q.run()).toThrow('listener blew up mid-render');
+
+        // The next frame must run cleanly, not re-throw "already running".
+        const next = vi.fn();
+        q.add(next);
+        expect(() => q.run()).not.toThrow();
+        expect(next).toHaveBeenCalledTimes(1);
+    });
+
     test('TaskQueue.clear() prevents queued task from being executed', () => {
         const q = new TaskQueue();
         const before = vi.fn();
