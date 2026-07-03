@@ -55515,15 +55515,23 @@ class TaskQueue {
         // Tasks queued by callbacks in the current queue should be executed
         // on the next run, not the current run.
         this._queue = [];
-        for (const task of queue) {
-            if (task.cancelled)
-                continue;
-            task.callback(timeStamp);
-            if (this._cleared)
-                break;
+        try {
+            for (const task of queue) {
+                if (task.cancelled)
+                    continue;
+                task.callback(timeStamp);
+                if (this._cleared)
+                    break;
+            }
         }
-        this._cleared = false;
-        this._currentlyRunning = false;
+        finally {
+            // Clear in a finally so a throwing task callback (e.g. a map event
+            // listener firing synchronously during _render) can never strand
+            // the queue as permanently running. See radiogarden/mono#3342 and
+            // upstream maplibre/maplibre-gl-js#6093 / #7031.
+            this._cleared = false;
+            this._currentlyRunning = false;
+        }
     }
     clear() {
         if (this._currentlyRunning) {
