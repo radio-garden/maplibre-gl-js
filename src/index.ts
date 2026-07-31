@@ -22,6 +22,8 @@ import {
     registerRasterSource,
     registerVectorSource,
     registerVideoSource,
+    // Tile decoders
+    registerMLTDecoder,
     // Layers
     registerBackground,
     registerCircle,
@@ -47,6 +49,9 @@ registerRasterDEMSource();
 registerRasterSource();
 registerVectorSource();
 registerVideoSource();
+
+// ===== TILE DECODERS =====
+registerMLTDecoder();
 
 // ===== LAYERS =====
 registerBackground();

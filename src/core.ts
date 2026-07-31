@@ -101,6 +101,8 @@ export {
     registerRasterSource,
     registerVectorSource,
     registerVideoSource,
+    // Tile decoders
+    registerMLTDecoder,
     // Layers
     registerBackground,
     registerCircle,

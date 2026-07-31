@@ -17,6 +17,7 @@ import {
     registerRasterSource,
     registerVectorSource,
     registerVideoSource,
+    registerMLTDecoder,
     registerBackground,
     registerCircle,
     registerColorRelief,
@@ -39,6 +40,7 @@ registerRasterDEMSource();
 registerRasterSource();
 registerVectorSource();
 registerVideoSource();
+registerMLTDecoder();
 
 registerBackground();
 registerCircle();

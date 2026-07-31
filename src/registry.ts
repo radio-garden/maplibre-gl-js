@@ -11,6 +11,7 @@ import type {RasterDEMTileSource} from './source/raster_dem_tile_source';
 import type {RasterTileSource} from './source/raster_tile_source';
 import type {VectorTileSource} from './source/vector_tile_source';
 import type {VideoSource} from './source/video_source';
+import type {MLTVectorTile} from './source/vector_tile_mlt';
 import type {BackgroundStyleLayer} from './style/style_layer/background_style_layer';
 import type {CircleStyleLayer} from './style/style_layer/circle_style_layer';
 import type {ColorReliefStyleLayer} from './style/style_layer/color_relief_style_layer';
@@ -102,6 +103,15 @@ export interface SourceRegistry {
     raster?: typeof RasterTileSource;
     vector?: typeof VectorTileSource;
     video?: typeof VideoSource;
+};
+
+/**
+ * Tile decoder registry type with specific tile encoding keys
+ * Decoders turn a raw tile buffer into a `VectorTileLike`. Tiles without an
+ * `encoding` are MVT, which is decoded by the built-in protobuf reader.
+ */
+export interface TileDecoderRegistry {
+    mlt?: typeof MLTVectorTile;
 };
 
 /**
@@ -239,6 +249,7 @@ export interface ProjectionRegistry {
  */
 export const registry = {
     source: {} as SourceRegistry,
+    tileDecoder: {} as TileDecoderRegistry,
     layer: {} as LayerRegistry,
     draw: {} as DrawFunctionRegistry,
     shader: {} as ShaderRegistry,

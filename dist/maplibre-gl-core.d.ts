@@ -15587,6 +15587,15 @@ export declare function registerVectorSource(): void;
  */
 export declare function registerVideoSource(): void;
 /**
+ * Registers the MLT (MapLibre Tiles) decoder.
+ * Enables reading tiles served with `encoding: 'mlt'`; MVT tiles need no decoder.
+ *
+ * The decoder pulls in `@maplibre/mlt`, which uses BigInt literals — syntax that
+ * pre-2020 engines cannot parse. Leave it unregistered to keep it out of the
+ * bundle, and out of a legacy build's reach.
+ */
+export declare function registerMLTDecoder(): void;
+/**
  * Registers Mercator projection support.
  * Enables flat 2D map rendering with mercator projection.
  * This is the most common projection for 2D maps.

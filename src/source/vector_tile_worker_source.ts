@@ -7,7 +7,7 @@ import {BoundedLRUCache} from '../tile/tile_cache';
 import {ensureError, extend} from '../util/util';
 import {RequestPerformance} from '../util/request_performance';
 import {VectorTileOverzoomed, sliceVectorTileLayer, toVirtualVectorTile} from './vector_tile_overzoomed';
-import {MLTVectorTile} from './vector_tile_mlt';
+import {decodeTile} from './tile_decoder';
 import type {
     WorkerSource,
     WorkerTileParameters,
@@ -50,7 +50,7 @@ export class VectorTileWorkerSource implements WorkerSource {
         try {
             const vectorTile = params.encoding !== 'mlt'
                 ? new VectorTile(new Protobuf(rawData))
-                : new MLTVectorTile(rawData);
+                : decodeTile(params.encoding, rawData);
 
             return {vectorTile, rawData};
         } catch (ex) {

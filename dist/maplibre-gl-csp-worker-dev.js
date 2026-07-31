@@ -346,12 +346,14 @@ var terrainVertCoords = 'in vec3 a_pos3d;uniform float u_ele_delta;out vec2 v_te
 ;
 ;
 ;
+;
 /**
  * Global registries for tree-shaking
  * Set these to register sources, layers, draws, shaders, and buckets
  */
 const registry$1 = {
     source: {},
+    tileDecoder: {},
     layer: {},
     draw: {},
     shader: {},
@@ -27987,4760 +27989,23 @@ class LineIndexArray extends StructArrayLayout2ui4 {
 class LineStripIndexArray extends StructArrayLayout1ui2 {
 }
 
-class Vector {
-    constructor(_name, dataBuffer, sizeOrNullabilityBuffer) {
-        this._name = _name;
-        this.dataBuffer = dataBuffer;
-        if (typeof sizeOrNullabilityBuffer === "number") {
-            this._size = sizeOrNullabilityBuffer;
-        }
-        else {
-            this.nullabilityBuffer = sizeOrNullabilityBuffer;
-            this._size = sizeOrNullabilityBuffer.size();
-        }
-    }
-    getValue(index) {
-        return this.nullabilityBuffer && !this.nullabilityBuffer.get(index) ? null : this.getValueFromBuffer(index);
-    }
-    has(index) {
-        return this.nullabilityBuffer?.get(index) || !this.nullabilityBuffer;
-    }
-    get name() {
-        return this._name;
-    }
-    get size() {
-        return this._size;
-    }
-}
-
-class FixedSizeVector extends Vector {
-}
-
-class Int32FlatVector extends FixedSizeVector {
-    getValueFromBuffer(index) {
-        return this.dataBuffer[index];
-    }
-}
-
-class DoubleFlatVector extends FixedSizeVector {
-    getValueFromBuffer(index) {
-        return this.dataBuffer[index];
-    }
-}
-
-class SequenceVector extends Vector {
-    constructor(name, baseValueBuffer, delta, size) {
-        super(name, baseValueBuffer, size);
-        this.delta = delta;
-    }
-}
-
-class Int32SequenceVector extends SequenceVector {
-    constructor(name, baseValue, delta, size) {
-        super(name, Int32Array.of(baseValue), delta, size);
-    }
-    getValueFromBuffer(index) {
-        return this.dataBuffer[0] + index * this.delta;
-    }
-}
-
-class Int32ConstVector extends Vector {
-    constructor(name, value, sizeOrNullabilityBuffer, isSigned) {
-        super(name, isSigned ? Int32Array.of(value) : Uint32Array.of(value), sizeOrNullabilityBuffer);
-    }
-    getValueFromBuffer(_index) {
-        return this.dataBuffer[0];
-    }
-}
-
-class FeatureTable {
-    constructor(_name, _geometryVector, _idVector, _propertyVectors, _extent = 4096) {
-        this._name = _name;
-        this._geometryVector = _geometryVector;
-        this._idVector = _idVector;
-        this._propertyVectors = _propertyVectors;
-        this._extent = _extent;
-    }
-    get name() {
-        return this._name;
-    }
-    get idVector() {
-        return this._idVector;
-    }
-    get geometryVector() {
-        return this._geometryVector;
-    }
-    get propertyVectors() {
-        return this._propertyVectors;
-    }
-    getPropertyVector(name) {
-        if (!this.propertyVectorsMap) {
-            this.propertyVectorsMap = new Map(this._propertyVectors.map((vector) => [vector.name, vector]));
-        }
-        return this.propertyVectorsMap.get(name);
-    }
-    get numFeatures() {
-        return this.geometryVector.numGeometries;
-    }
-    get extent() {
-        return this._extent;
-    }
-    /**
-     * Returns all features as an array
-     */
-    getFeatures() {
-        const features = [];
-        const geometries = this.geometryVector.getGeometries();
-        for (let i = 0; i < this.numFeatures; i++) {
-            let id;
-            if (this.idVector) {
-                const idValue = this.idVector.getValue(i);
-                id = this.containsMaxSafeIntegerValues(this.idVector) && idValue !== null ? Number(idValue) : idValue;
-            }
-            const geometry = {
-                coordinates: geometries[i],
-                type: this.geometryVector.geometryType(i),
-            };
-            const properties = {};
-            for (const propertyColumn of this.propertyVectors) {
-                if (!propertyColumn)
-                    continue;
-                const columnName = propertyColumn.name;
-                const propertyValue = propertyColumn.getValue(i);
-                if (propertyValue !== null) {
-                    properties[columnName] = propertyValue;
-                }
-            }
-            features.push({ id, geometry, properties });
-        }
-        return features;
-    }
-    containsMaxSafeIntegerValues(idVector) {
-        return (idVector instanceof Int32FlatVector ||
-            idVector instanceof Int32ConstVector ||
-            idVector instanceof Int32SequenceVector ||
-            idVector instanceof DoubleFlatVector);
-    }
-}
-
-// based on ../spec/schema/mlt_tileset_metadata.proto
-const ColumnScope = {
-    FEATURE: 0,
-    VERTEX: 1,
-};
-const ScalarType = {
-    BOOLEAN: 0,
-    INT_8: 1,
-    UINT_8: 2,
-    INT_32: 3,
-    UINT_32: 4,
-    INT_64: 5,
-    UINT_64: 6,
-    FLOAT: 7,
-    DOUBLE: 8,
-    STRING: 9,
-};
-const ComplexType = {
-    GEOMETRY: 0,
-    STRUCT: 1,
-};
-const LogicalScalarType = {
-    ID: 0,
-};
-const LogicalComplexType = {
-    BINARY: 0,
-    RANGE_MAP: 1,
-};
-
-// Ported from https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/IntWrapper.java
-class IntWrapper {
-    constructor(value) {
-        this.value = value;
-    }
-    get() {
-        return this.value;
-    }
-    set(v) {
-        this.value = v;
-    }
-    increment() {
-        return this.value++;
-    }
-    add(v) {
-        this.value += v;
-    }
-}
-
-var LogicalLevelTechnique;
-(function (LogicalLevelTechnique) {
-    LogicalLevelTechnique["NONE"] = "NONE";
-    LogicalLevelTechnique["DELTA"] = "DELTA";
-    LogicalLevelTechnique["COMPONENTWISE_DELTA"] = "COMPONENTWISE_DELTA";
-    LogicalLevelTechnique["RLE"] = "RLE";
-    LogicalLevelTechnique["MORTON"] = "MORTON";
-    // Pseudodecimal Encoding of floats -> only for the exponent integer part an additional logical level technique is used.
-    // Both exponent and significant parts are encoded with the same physical level technique
-    LogicalLevelTechnique["PDE"] = "PDE";
-})(LogicalLevelTechnique || (LogicalLevelTechnique = {}));
-
-var PhysicalLevelTechnique;
-(function (PhysicalLevelTechnique) {
-    PhysicalLevelTechnique["NONE"] = "NONE";
-    /**
-     * Preferred option, tends to produce the best compression ratio and decoding performance.
-     * But currently only limited to 32 bit integer.
-     */
-    PhysicalLevelTechnique["FAST_PFOR"] = "FAST_PFOR";
-    /**
-     * Can produce better results in combination with a heavyweight compression scheme like Gzip.
-     * Simple compression scheme where the decoder are easier to implement compared to FastPfor.
-     */
-    PhysicalLevelTechnique["VARINT"] = "VARINT";
-})(PhysicalLevelTechnique || (PhysicalLevelTechnique = {}));
-
 /**
- * Bit masks for each bitwidth 0-32.
- * DO NOT MUTATE - this is a shared constant.
- */
-const masks = new Uint32Array(33);
-masks[0] = 0;
-for (let bitWidth = 1; bitWidth <= 32; bitWidth++) {
-    masks[bitWidth] = bitWidth === 32 ? 0xffffffff : 0xffffffff >>> (32 - bitWidth);
-}
-const MASKS = masks;
-const DEFAULT_PAGE_SIZE = 65536;
-const BLOCK_SIZE = 256;
-function greatestMultiple(value, factor) {
-    return value - (value % factor);
-}
-function roundUpToMultipleOf32(value) {
-    return greatestMultiple(value + 31, 32);
-}
-function normalizePageSize(pageSize) {
-    if (!Number.isFinite(pageSize) || pageSize <= 0)
-        return DEFAULT_PAGE_SIZE;
-    const aligned = greatestMultiple(Math.floor(pageSize), BLOCK_SIZE);
-    return aligned === 0 ? BLOCK_SIZE : aligned;
-}
-function bswap32(value) {
-    const x = value >>> 0;
-    return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
-}
-
-function fastUnpack32_1(inValues, inPos, out, outPos) {
-    const in0 = inValues[inPos] >>> 0;
-    for (let i = 0; i < 32; i++) {
-        out[outPos + i] = (in0 >>> i) & 1;
-    }
-}
-function fastUnpack32_2(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x3;
-    out[op++] = (in0 >>> 2) & 0x3;
-    out[op++] = (in0 >>> 4) & 0x3;
-    out[op++] = (in0 >>> 6) & 0x3;
-    out[op++] = (in0 >>> 8) & 0x3;
-    out[op++] = (in0 >>> 10) & 0x3;
-    out[op++] = (in0 >>> 12) & 0x3;
-    out[op++] = (in0 >>> 14) & 0x3;
-    out[op++] = (in0 >>> 16) & 0x3;
-    out[op++] = (in0 >>> 18) & 0x3;
-    out[op++] = (in0 >>> 20) & 0x3;
-    out[op++] = (in0 >>> 22) & 0x3;
-    out[op++] = (in0 >>> 24) & 0x3;
-    out[op++] = (in0 >>> 26) & 0x3;
-    out[op++] = (in0 >>> 28) & 0x3;
-    out[op++] = (in0 >>> 30) & 0x3;
-    out[op++] = (in1 >>> 0) & 0x3;
-    out[op++] = (in1 >>> 2) & 0x3;
-    out[op++] = (in1 >>> 4) & 0x3;
-    out[op++] = (in1 >>> 6) & 0x3;
-    out[op++] = (in1 >>> 8) & 0x3;
-    out[op++] = (in1 >>> 10) & 0x3;
-    out[op++] = (in1 >>> 12) & 0x3;
-    out[op++] = (in1 >>> 14) & 0x3;
-    out[op++] = (in1 >>> 16) & 0x3;
-    out[op++] = (in1 >>> 18) & 0x3;
-    out[op++] = (in1 >>> 20) & 0x3;
-    out[op++] = (in1 >>> 22) & 0x3;
-    out[op++] = (in1 >>> 24) & 0x3;
-    out[op++] = (in1 >>> 26) & 0x3;
-    out[op++] = (in1 >>> 28) & 0x3;
-    out[op] = (in1 >>> 30) & 0x3;
-}
-function fastUnpack32_3(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x7;
-    out[op++] = (in0 >>> 3) & 0x7;
-    out[op++] = (in0 >>> 6) & 0x7;
-    out[op++] = (in0 >>> 9) & 0x7;
-    out[op++] = (in0 >>> 12) & 0x7;
-    out[op++] = (in0 >>> 15) & 0x7;
-    out[op++] = (in0 >>> 18) & 0x7;
-    out[op++] = (in0 >>> 21) & 0x7;
-    out[op++] = (in0 >>> 24) & 0x7;
-    out[op++] = (in0 >>> 27) & 0x7;
-    out[op++] = ((in0 >>> 30) | ((in1 & 0x1) << 2)) & 0x7;
-    out[op++] = (in1 >>> 1) & 0x7;
-    out[op++] = (in1 >>> 4) & 0x7;
-    out[op++] = (in1 >>> 7) & 0x7;
-    out[op++] = (in1 >>> 10) & 0x7;
-    out[op++] = (in1 >>> 13) & 0x7;
-    out[op++] = (in1 >>> 16) & 0x7;
-    out[op++] = (in1 >>> 19) & 0x7;
-    out[op++] = (in1 >>> 22) & 0x7;
-    out[op++] = (in1 >>> 25) & 0x7;
-    out[op++] = (in1 >>> 28) & 0x7;
-    out[op++] = ((in1 >>> 31) | ((in2 & 0x3) << 1)) & 0x7;
-    out[op++] = (in2 >>> 2) & 0x7;
-    out[op++] = (in2 >>> 5) & 0x7;
-    out[op++] = (in2 >>> 8) & 0x7;
-    out[op++] = (in2 >>> 11) & 0x7;
-    out[op++] = (in2 >>> 14) & 0x7;
-    out[op++] = (in2 >>> 17) & 0x7;
-    out[op++] = (in2 >>> 20) & 0x7;
-    out[op++] = (in2 >>> 23) & 0x7;
-    out[op++] = (in2 >>> 26) & 0x7;
-    out[op] = (in2 >>> 29) & 0x7;
-}
-function fastUnpack32_4(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    out[op++] = (in0 >>> 0) & 0xf;
-    out[op++] = (in0 >>> 4) & 0xf;
-    out[op++] = (in0 >>> 8) & 0xf;
-    out[op++] = (in0 >>> 12) & 0xf;
-    out[op++] = (in0 >>> 16) & 0xf;
-    out[op++] = (in0 >>> 20) & 0xf;
-    out[op++] = (in0 >>> 24) & 0xf;
-    out[op++] = (in0 >>> 28) & 0xf;
-    out[op++] = (in1 >>> 0) & 0xf;
-    out[op++] = (in1 >>> 4) & 0xf;
-    out[op++] = (in1 >>> 8) & 0xf;
-    out[op++] = (in1 >>> 12) & 0xf;
-    out[op++] = (in1 >>> 16) & 0xf;
-    out[op++] = (in1 >>> 20) & 0xf;
-    out[op++] = (in1 >>> 24) & 0xf;
-    out[op++] = (in1 >>> 28) & 0xf;
-    out[op++] = (in2 >>> 0) & 0xf;
-    out[op++] = (in2 >>> 4) & 0xf;
-    out[op++] = (in2 >>> 8) & 0xf;
-    out[op++] = (in2 >>> 12) & 0xf;
-    out[op++] = (in2 >>> 16) & 0xf;
-    out[op++] = (in2 >>> 20) & 0xf;
-    out[op++] = (in2 >>> 24) & 0xf;
-    out[op++] = (in2 >>> 28) & 0xf;
-    out[op++] = (in3 >>> 0) & 0xf;
-    out[op++] = (in3 >>> 4) & 0xf;
-    out[op++] = (in3 >>> 8) & 0xf;
-    out[op++] = (in3 >>> 12) & 0xf;
-    out[op++] = (in3 >>> 16) & 0xf;
-    out[op++] = (in3 >>> 20) & 0xf;
-    out[op++] = (in3 >>> 24) & 0xf;
-    out[op] = (in3 >>> 28) & 0xf;
-}
-function fastUnpack32_5(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x1f;
-    out[op++] = (in0 >>> 5) & 0x1f;
-    out[op++] = (in0 >>> 10) & 0x1f;
-    out[op++] = (in0 >>> 15) & 0x1f;
-    out[op++] = (in0 >>> 20) & 0x1f;
-    out[op++] = (in0 >>> 25) & 0x1f;
-    out[op++] = ((in0 >>> 30) | ((in1 & 0x7) << 2)) & 0x1f;
-    out[op++] = (in1 >>> 3) & 0x1f;
-    out[op++] = (in1 >>> 8) & 0x1f;
-    out[op++] = (in1 >>> 13) & 0x1f;
-    out[op++] = (in1 >>> 18) & 0x1f;
-    out[op++] = (in1 >>> 23) & 0x1f;
-    out[op++] = ((in1 >>> 28) | ((in2 & 0x1) << 4)) & 0x1f;
-    out[op++] = (in2 >>> 1) & 0x1f;
-    out[op++] = (in2 >>> 6) & 0x1f;
-    out[op++] = (in2 >>> 11) & 0x1f;
-    out[op++] = (in2 >>> 16) & 0x1f;
-    out[op++] = (in2 >>> 21) & 0x1f;
-    out[op++] = (in2 >>> 26) & 0x1f;
-    out[op++] = ((in2 >>> 31) | ((in3 & 0xf) << 1)) & 0x1f;
-    out[op++] = (in3 >>> 4) & 0x1f;
-    out[op++] = (in3 >>> 9) & 0x1f;
-    out[op++] = (in3 >>> 14) & 0x1f;
-    out[op++] = (in3 >>> 19) & 0x1f;
-    out[op++] = (in3 >>> 24) & 0x1f;
-    out[op++] = ((in3 >>> 29) | ((in4 & 0x3) << 3)) & 0x1f;
-    out[op++] = (in4 >>> 2) & 0x1f;
-    out[op++] = (in4 >>> 7) & 0x1f;
-    out[op++] = (in4 >>> 12) & 0x1f;
-    out[op++] = (in4 >>> 17) & 0x1f;
-    out[op++] = (in4 >>> 22) & 0x1f;
-    out[op] = (in4 >>> 27) & 0x1f;
-}
-function fastUnpack32_6(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x3f;
-    out[op++] = (in0 >>> 6) & 0x3f;
-    out[op++] = (in0 >>> 12) & 0x3f;
-    out[op++] = (in0 >>> 18) & 0x3f;
-    out[op++] = (in0 >>> 24) & 0x3f;
-    out[op++] = ((in0 >>> 30) | ((in1 & 0xf) << 2)) & 0x3f;
-    out[op++] = (in1 >>> 4) & 0x3f;
-    out[op++] = (in1 >>> 10) & 0x3f;
-    out[op++] = (in1 >>> 16) & 0x3f;
-    out[op++] = (in1 >>> 22) & 0x3f;
-    out[op++] = ((in1 >>> 28) | ((in2 & 0x3) << 4)) & 0x3f;
-    out[op++] = (in2 >>> 2) & 0x3f;
-    out[op++] = (in2 >>> 8) & 0x3f;
-    out[op++] = (in2 >>> 14) & 0x3f;
-    out[op++] = (in2 >>> 20) & 0x3f;
-    out[op++] = (in2 >>> 26) & 0x3f;
-    out[op++] = (in3 >>> 0) & 0x3f;
-    out[op++] = (in3 >>> 6) & 0x3f;
-    out[op++] = (in3 >>> 12) & 0x3f;
-    out[op++] = (in3 >>> 18) & 0x3f;
-    out[op++] = (in3 >>> 24) & 0x3f;
-    out[op++] = ((in3 >>> 30) | ((in4 & 0xf) << 2)) & 0x3f;
-    out[op++] = (in4 >>> 4) & 0x3f;
-    out[op++] = (in4 >>> 10) & 0x3f;
-    out[op++] = (in4 >>> 16) & 0x3f;
-    out[op++] = (in4 >>> 22) & 0x3f;
-    out[op++] = ((in4 >>> 28) | ((in5 & 0x3) << 4)) & 0x3f;
-    out[op++] = (in5 >>> 2) & 0x3f;
-    out[op++] = (in5 >>> 8) & 0x3f;
-    out[op++] = (in5 >>> 14) & 0x3f;
-    out[op++] = (in5 >>> 20) & 0x3f;
-    out[op] = (in5 >>> 26) & 0x3f;
-}
-function fastUnpack32_7(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x7f;
-    out[op++] = (in0 >>> 7) & 0x7f;
-    out[op++] = (in0 >>> 14) & 0x7f;
-    out[op++] = (in0 >>> 21) & 0x7f;
-    out[op++] = ((in0 >>> 28) | ((in1 & 0x7) << 4)) & 0x7f;
-    out[op++] = (in1 >>> 3) & 0x7f;
-    out[op++] = (in1 >>> 10) & 0x7f;
-    out[op++] = (in1 >>> 17) & 0x7f;
-    out[op++] = (in1 >>> 24) & 0x7f;
-    out[op++] = ((in1 >>> 31) | ((in2 & 0x3f) << 1)) & 0x7f;
-    out[op++] = (in2 >>> 6) & 0x7f;
-    out[op++] = (in2 >>> 13) & 0x7f;
-    out[op++] = (in2 >>> 20) & 0x7f;
-    out[op++] = ((in2 >>> 27) | ((in3 & 0x3) << 5)) & 0x7f;
-    out[op++] = (in3 >>> 2) & 0x7f;
-    out[op++] = (in3 >>> 9) & 0x7f;
-    out[op++] = (in3 >>> 16) & 0x7f;
-    out[op++] = (in3 >>> 23) & 0x7f;
-    out[op++] = ((in3 >>> 30) | ((in4 & 0x1f) << 2)) & 0x7f;
-    out[op++] = (in4 >>> 5) & 0x7f;
-    out[op++] = (in4 >>> 12) & 0x7f;
-    out[op++] = (in4 >>> 19) & 0x7f;
-    out[op++] = ((in4 >>> 26) | ((in5 & 0x1) << 6)) & 0x7f;
-    out[op++] = (in5 >>> 1) & 0x7f;
-    out[op++] = (in5 >>> 8) & 0x7f;
-    out[op++] = (in5 >>> 15) & 0x7f;
-    out[op++] = (in5 >>> 22) & 0x7f;
-    out[op++] = ((in5 >>> 29) | ((in6 & 0xf) << 3)) & 0x7f;
-    out[op++] = (in6 >>> 4) & 0x7f;
-    out[op++] = (in6 >>> 11) & 0x7f;
-    out[op++] = (in6 >>> 18) & 0x7f;
-    out[op] = (in6 >>> 25) & 0x7f;
-}
-function fastUnpack32_8(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    const in7 = inValues[inPos + 7] >>> 0;
-    out[op++] = (in0 >>> 0) & 0xff;
-    out[op++] = (in0 >>> 8) & 0xff;
-    out[op++] = (in0 >>> 16) & 0xff;
-    out[op++] = (in0 >>> 24) & 0xff;
-    out[op++] = (in1 >>> 0) & 0xff;
-    out[op++] = (in1 >>> 8) & 0xff;
-    out[op++] = (in1 >>> 16) & 0xff;
-    out[op++] = (in1 >>> 24) & 0xff;
-    out[op++] = (in2 >>> 0) & 0xff;
-    out[op++] = (in2 >>> 8) & 0xff;
-    out[op++] = (in2 >>> 16) & 0xff;
-    out[op++] = (in2 >>> 24) & 0xff;
-    out[op++] = (in3 >>> 0) & 0xff;
-    out[op++] = (in3 >>> 8) & 0xff;
-    out[op++] = (in3 >>> 16) & 0xff;
-    out[op++] = (in3 >>> 24) & 0xff;
-    out[op++] = (in4 >>> 0) & 0xff;
-    out[op++] = (in4 >>> 8) & 0xff;
-    out[op++] = (in4 >>> 16) & 0xff;
-    out[op++] = (in4 >>> 24) & 0xff;
-    out[op++] = (in5 >>> 0) & 0xff;
-    out[op++] = (in5 >>> 8) & 0xff;
-    out[op++] = (in5 >>> 16) & 0xff;
-    out[op++] = (in5 >>> 24) & 0xff;
-    out[op++] = (in6 >>> 0) & 0xff;
-    out[op++] = (in6 >>> 8) & 0xff;
-    out[op++] = (in6 >>> 16) & 0xff;
-    out[op++] = (in6 >>> 24) & 0xff;
-    out[op++] = (in7 >>> 0) & 0xff;
-    out[op++] = (in7 >>> 8) & 0xff;
-    out[op++] = (in7 >>> 16) & 0xff;
-    out[op] = (in7 >>> 24) & 0xff;
-}
-function fastUnpack32_9(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    const in7 = inValues[inPos + 7] >>> 0;
-    const in8 = inValues[inPos + 8] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x1ff;
-    out[op++] = (in0 >>> 9) & 0x1ff;
-    out[op++] = (in0 >>> 18) & 0x1ff;
-    out[op++] = ((in0 >>> 27) | ((in1 & 0xf) << 5)) & 0x1ff;
-    out[op++] = (in1 >>> 4) & 0x1ff;
-    out[op++] = (in1 >>> 13) & 0x1ff;
-    out[op++] = (in1 >>> 22) & 0x1ff;
-    out[op++] = ((in1 >>> 31) | ((in2 & 0xff) << 1)) & 0x1ff;
-    out[op++] = (in2 >>> 8) & 0x1ff;
-    out[op++] = (in2 >>> 17) & 0x1ff;
-    out[op++] = ((in2 >>> 26) | ((in3 & 0x7) << 6)) & 0x1ff;
-    out[op++] = (in3 >>> 3) & 0x1ff;
-    out[op++] = (in3 >>> 12) & 0x1ff;
-    out[op++] = (in3 >>> 21) & 0x1ff;
-    out[op++] = ((in3 >>> 30) | ((in4 & 0x7f) << 2)) & 0x1ff;
-    out[op++] = (in4 >>> 7) & 0x1ff;
-    out[op++] = (in4 >>> 16) & 0x1ff;
-    out[op++] = ((in4 >>> 25) | ((in5 & 0x3) << 7)) & 0x1ff;
-    out[op++] = (in5 >>> 2) & 0x1ff;
-    out[op++] = (in5 >>> 11) & 0x1ff;
-    out[op++] = (in5 >>> 20) & 0x1ff;
-    out[op++] = ((in5 >>> 29) | ((in6 & 0x3f) << 3)) & 0x1ff;
-    out[op++] = (in6 >>> 6) & 0x1ff;
-    out[op++] = (in6 >>> 15) & 0x1ff;
-    out[op++] = ((in6 >>> 24) | ((in7 & 0x1) << 8)) & 0x1ff;
-    out[op++] = (in7 >>> 1) & 0x1ff;
-    out[op++] = (in7 >>> 10) & 0x1ff;
-    out[op++] = (in7 >>> 19) & 0x1ff;
-    out[op++] = ((in7 >>> 28) | ((in8 & 0x1f) << 4)) & 0x1ff;
-    out[op++] = (in8 >>> 5) & 0x1ff;
-    out[op++] = (in8 >>> 14) & 0x1ff;
-    out[op] = (in8 >>> 23) & 0x1ff;
-}
-function fastUnpack32_10(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    const in7 = inValues[inPos + 7] >>> 0;
-    const in8 = inValues[inPos + 8] >>> 0;
-    const in9 = inValues[inPos + 9] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x3ff;
-    out[op++] = (in0 >>> 10) & 0x3ff;
-    out[op++] = (in0 >>> 20) & 0x3ff;
-    out[op++] = ((in0 >>> 30) | ((in1 & 0xff) << 2)) & 0x3ff;
-    out[op++] = (in1 >>> 8) & 0x3ff;
-    out[op++] = (in1 >>> 18) & 0x3ff;
-    out[op++] = ((in1 >>> 28) | ((in2 & 0x3f) << 4)) & 0x3ff;
-    out[op++] = (in2 >>> 6) & 0x3ff;
-    out[op++] = (in2 >>> 16) & 0x3ff;
-    out[op++] = ((in2 >>> 26) | ((in3 & 0xf) << 6)) & 0x3ff;
-    out[op++] = (in3 >>> 4) & 0x3ff;
-    out[op++] = (in3 >>> 14) & 0x3ff;
-    out[op++] = ((in3 >>> 24) | ((in4 & 0x3) << 8)) & 0x3ff;
-    out[op++] = (in4 >>> 2) & 0x3ff;
-    out[op++] = (in4 >>> 12) & 0x3ff;
-    out[op++] = (in4 >>> 22) & 0x3ff;
-    out[op++] = (in5 >>> 0) & 0x3ff;
-    out[op++] = (in5 >>> 10) & 0x3ff;
-    out[op++] = (in5 >>> 20) & 0x3ff;
-    out[op++] = ((in5 >>> 30) | ((in6 & 0xff) << 2)) & 0x3ff;
-    out[op++] = (in6 >>> 8) & 0x3ff;
-    out[op++] = (in6 >>> 18) & 0x3ff;
-    out[op++] = ((in6 >>> 28) | ((in7 & 0x3f) << 4)) & 0x3ff;
-    out[op++] = (in7 >>> 6) & 0x3ff;
-    out[op++] = (in7 >>> 16) & 0x3ff;
-    out[op++] = ((in7 >>> 26) | ((in8 & 0xf) << 6)) & 0x3ff;
-    out[op++] = (in8 >>> 4) & 0x3ff;
-    out[op++] = (in8 >>> 14) & 0x3ff;
-    out[op++] = ((in8 >>> 24) | ((in9 & 0x3) << 8)) & 0x3ff;
-    out[op++] = (in9 >>> 2) & 0x3ff;
-    out[op++] = (in9 >>> 12) & 0x3ff;
-    out[op] = (in9 >>> 22) & 0x3ff;
-}
-function fastUnpack32_11(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    const in7 = inValues[inPos + 7] >>> 0;
-    const in8 = inValues[inPos + 8] >>> 0;
-    const in9 = inValues[inPos + 9] >>> 0;
-    const in10 = inValues[inPos + 10] >>> 0;
-    out[op++] = (in0 >>> 0) & 0x7ff;
-    out[op++] = (in0 >>> 11) & 0x7ff;
-    out[op++] = ((in0 >>> 22) | ((in1 & 0x1) << 10)) & 0x7ff;
-    out[op++] = (in1 >>> 1) & 0x7ff;
-    out[op++] = (in1 >>> 12) & 0x7ff;
-    out[op++] = ((in1 >>> 23) | ((in2 & 0x3) << 9)) & 0x7ff;
-    out[op++] = (in2 >>> 2) & 0x7ff;
-    out[op++] = (in2 >>> 13) & 0x7ff;
-    out[op++] = ((in2 >>> 24) | ((in3 & 0x7) << 8)) & 0x7ff;
-    out[op++] = (in3 >>> 3) & 0x7ff;
-    out[op++] = (in3 >>> 14) & 0x7ff;
-    out[op++] = ((in3 >>> 25) | ((in4 & 0xf) << 7)) & 0x7ff;
-    out[op++] = (in4 >>> 4) & 0x7ff;
-    out[op++] = (in4 >>> 15) & 0x7ff;
-    out[op++] = ((in4 >>> 26) | ((in5 & 0x1f) << 6)) & 0x7ff;
-    out[op++] = (in5 >>> 5) & 0x7ff;
-    out[op++] = (in5 >>> 16) & 0x7ff;
-    out[op++] = ((in5 >>> 27) | ((in6 & 0x3f) << 5)) & 0x7ff;
-    out[op++] = (in6 >>> 6) & 0x7ff;
-    out[op++] = (in6 >>> 17) & 0x7ff;
-    out[op++] = ((in6 >>> 28) | ((in7 & 0x7f) << 4)) & 0x7ff;
-    out[op++] = (in7 >>> 7) & 0x7ff;
-    out[op++] = (in7 >>> 18) & 0x7ff;
-    out[op++] = ((in7 >>> 29) | ((in8 & 0xff) << 3)) & 0x7ff;
-    out[op++] = (in8 >>> 8) & 0x7ff;
-    out[op++] = (in8 >>> 19) & 0x7ff;
-    out[op++] = ((in8 >>> 30) | ((in9 & 0x1ff) << 2)) & 0x7ff;
-    out[op++] = (in9 >>> 9) & 0x7ff;
-    out[op++] = (in9 >>> 20) & 0x7ff;
-    out[op++] = ((in9 >>> 31) | ((in10 & 0x3ff) << 1)) & 0x7ff;
-    out[op++] = (in10 >>> 10) & 0x7ff;
-    out[op] = (in10 >>> 21) & 0x7ff;
-}
-function fastUnpack32_12(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    const in7 = inValues[inPos + 7] >>> 0;
-    const in8 = inValues[inPos + 8] >>> 0;
-    const in9 = inValues[inPos + 9] >>> 0;
-    const in10 = inValues[inPos + 10] >>> 0;
-    const in11 = inValues[inPos + 11] >>> 0;
-    out[op++] = (in0 >>> 0) & 0xfff;
-    out[op++] = (in0 >>> 12) & 0xfff;
-    out[op++] = ((in0 >>> 24) | ((in1 & 0xf) << 8)) & 0xfff;
-    out[op++] = (in1 >>> 4) & 0xfff;
-    out[op++] = (in1 >>> 16) & 0xfff;
-    out[op++] = ((in1 >>> 28) | ((in2 & 0xff) << 4)) & 0xfff;
-    out[op++] = (in2 >>> 8) & 0xfff;
-    out[op++] = (in2 >>> 20) & 0xfff;
-    out[op++] = (in3 >>> 0) & 0xfff;
-    out[op++] = (in3 >>> 12) & 0xfff;
-    out[op++] = ((in3 >>> 24) | ((in4 & 0xf) << 8)) & 0xfff;
-    out[op++] = (in4 >>> 4) & 0xfff;
-    out[op++] = (in4 >>> 16) & 0xfff;
-    out[op++] = ((in4 >>> 28) | ((in5 & 0xff) << 4)) & 0xfff;
-    out[op++] = (in5 >>> 8) & 0xfff;
-    out[op++] = (in5 >>> 20) & 0xfff;
-    out[op++] = (in6 >>> 0) & 0xfff;
-    out[op++] = (in6 >>> 12) & 0xfff;
-    out[op++] = ((in6 >>> 24) | ((in7 & 0xf) << 8)) & 0xfff;
-    out[op++] = (in7 >>> 4) & 0xfff;
-    out[op++] = (in7 >>> 16) & 0xfff;
-    out[op++] = ((in7 >>> 28) | ((in8 & 0xff) << 4)) & 0xfff;
-    out[op++] = (in8 >>> 8) & 0xfff;
-    out[op++] = (in8 >>> 20) & 0xfff;
-    out[op++] = (in9 >>> 0) & 0xfff;
-    out[op++] = (in9 >>> 12) & 0xfff;
-    out[op++] = ((in9 >>> 24) | ((in10 & 0xf) << 8)) & 0xfff;
-    out[op++] = (in10 >>> 4) & 0xfff;
-    out[op++] = (in10 >>> 16) & 0xfff;
-    out[op++] = ((in10 >>> 28) | ((in11 & 0xff) << 4)) & 0xfff;
-    out[op++] = (in11 >>> 8) & 0xfff;
-    out[op] = (in11 >>> 20) & 0xfff;
-}
-function fastUnpack32_16(inValues, inPos, out, outPos) {
-    let op = outPos;
-    const in0 = inValues[inPos] >>> 0;
-    const in1 = inValues[inPos + 1] >>> 0;
-    const in2 = inValues[inPos + 2] >>> 0;
-    const in3 = inValues[inPos + 3] >>> 0;
-    const in4 = inValues[inPos + 4] >>> 0;
-    const in5 = inValues[inPos + 5] >>> 0;
-    const in6 = inValues[inPos + 6] >>> 0;
-    const in7 = inValues[inPos + 7] >>> 0;
-    const in8 = inValues[inPos + 8] >>> 0;
-    const in9 = inValues[inPos + 9] >>> 0;
-    const in10 = inValues[inPos + 10] >>> 0;
-    const in11 = inValues[inPos + 11] >>> 0;
-    const in12 = inValues[inPos + 12] >>> 0;
-    const in13 = inValues[inPos + 13] >>> 0;
-    const in14 = inValues[inPos + 14] >>> 0;
-    const in15 = inValues[inPos + 15] >>> 0;
-    out[op++] = (in0 >>> 0) & 0xffff;
-    out[op++] = (in0 >>> 16) & 0xffff;
-    out[op++] = (in1 >>> 0) & 0xffff;
-    out[op++] = (in1 >>> 16) & 0xffff;
-    out[op++] = (in2 >>> 0) & 0xffff;
-    out[op++] = (in2 >>> 16) & 0xffff;
-    out[op++] = (in3 >>> 0) & 0xffff;
-    out[op++] = (in3 >>> 16) & 0xffff;
-    out[op++] = (in4 >>> 0) & 0xffff;
-    out[op++] = (in4 >>> 16) & 0xffff;
-    out[op++] = (in5 >>> 0) & 0xffff;
-    out[op++] = (in5 >>> 16) & 0xffff;
-    out[op++] = (in6 >>> 0) & 0xffff;
-    out[op++] = (in6 >>> 16) & 0xffff;
-    out[op++] = (in7 >>> 0) & 0xffff;
-    out[op++] = (in7 >>> 16) & 0xffff;
-    out[op++] = (in8 >>> 0) & 0xffff;
-    out[op++] = (in8 >>> 16) & 0xffff;
-    out[op++] = (in9 >>> 0) & 0xffff;
-    out[op++] = (in9 >>> 16) & 0xffff;
-    out[op++] = (in10 >>> 0) & 0xffff;
-    out[op++] = (in10 >>> 16) & 0xffff;
-    out[op++] = (in11 >>> 0) & 0xffff;
-    out[op++] = (in11 >>> 16) & 0xffff;
-    out[op++] = (in12 >>> 0) & 0xffff;
-    out[op++] = (in12 >>> 16) & 0xffff;
-    out[op++] = (in13 >>> 0) & 0xffff;
-    out[op++] = (in13 >>> 16) & 0xffff;
-    out[op++] = (in14 >>> 0) & 0xffff;
-    out[op++] = (in14 >>> 16) & 0xffff;
-    out[op++] = (in15 >>> 0) & 0xffff;
-    out[op] = (in15 >>> 16) & 0xffff;
-}
-function fastUnpack256_1(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0x1;
-        out[op++] = (in0 >>> 1) & 0x1;
-        out[op++] = (in0 >>> 2) & 0x1;
-        out[op++] = (in0 >>> 3) & 0x1;
-        out[op++] = (in0 >>> 4) & 0x1;
-        out[op++] = (in0 >>> 5) & 0x1;
-        out[op++] = (in0 >>> 6) & 0x1;
-        out[op++] = (in0 >>> 7) & 0x1;
-        out[op++] = (in0 >>> 8) & 0x1;
-        out[op++] = (in0 >>> 9) & 0x1;
-        out[op++] = (in0 >>> 10) & 0x1;
-        out[op++] = (in0 >>> 11) & 0x1;
-        out[op++] = (in0 >>> 12) & 0x1;
-        out[op++] = (in0 >>> 13) & 0x1;
-        out[op++] = (in0 >>> 14) & 0x1;
-        out[op++] = (in0 >>> 15) & 0x1;
-        out[op++] = (in0 >>> 16) & 0x1;
-        out[op++] = (in0 >>> 17) & 0x1;
-        out[op++] = (in0 >>> 18) & 0x1;
-        out[op++] = (in0 >>> 19) & 0x1;
-        out[op++] = (in0 >>> 20) & 0x1;
-        out[op++] = (in0 >>> 21) & 0x1;
-        out[op++] = (in0 >>> 22) & 0x1;
-        out[op++] = (in0 >>> 23) & 0x1;
-        out[op++] = (in0 >>> 24) & 0x1;
-        out[op++] = (in0 >>> 25) & 0x1;
-        out[op++] = (in0 >>> 26) & 0x1;
-        out[op++] = (in0 >>> 27) & 0x1;
-        out[op++] = (in0 >>> 28) & 0x1;
-        out[op++] = (in0 >>> 29) & 0x1;
-        out[op++] = (in0 >>> 30) & 0x1;
-        out[op++] = (in0 >>> 31) & 0x1;
-    }
-}
-function fastUnpack256_2(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0x3;
-        out[op++] = (in0 >>> 2) & 0x3;
-        out[op++] = (in0 >>> 4) & 0x3;
-        out[op++] = (in0 >>> 6) & 0x3;
-        out[op++] = (in0 >>> 8) & 0x3;
-        out[op++] = (in0 >>> 10) & 0x3;
-        out[op++] = (in0 >>> 12) & 0x3;
-        out[op++] = (in0 >>> 14) & 0x3;
-        out[op++] = (in0 >>> 16) & 0x3;
-        out[op++] = (in0 >>> 18) & 0x3;
-        out[op++] = (in0 >>> 20) & 0x3;
-        out[op++] = (in0 >>> 22) & 0x3;
-        out[op++] = (in0 >>> 24) & 0x3;
-        out[op++] = (in0 >>> 26) & 0x3;
-        out[op++] = (in0 >>> 28) & 0x3;
-        out[op++] = (in0 >>> 30) & 0x3;
-        out[op++] = (in1 >>> 0) & 0x3;
-        out[op++] = (in1 >>> 2) & 0x3;
-        out[op++] = (in1 >>> 4) & 0x3;
-        out[op++] = (in1 >>> 6) & 0x3;
-        out[op++] = (in1 >>> 8) & 0x3;
-        out[op++] = (in1 >>> 10) & 0x3;
-        out[op++] = (in1 >>> 12) & 0x3;
-        out[op++] = (in1 >>> 14) & 0x3;
-        out[op++] = (in1 >>> 16) & 0x3;
-        out[op++] = (in1 >>> 18) & 0x3;
-        out[op++] = (in1 >>> 20) & 0x3;
-        out[op++] = (in1 >>> 22) & 0x3;
-        out[op++] = (in1 >>> 24) & 0x3;
-        out[op++] = (in1 >>> 26) & 0x3;
-        out[op++] = (in1 >>> 28) & 0x3;
-        out[op++] = (in1 >>> 30) & 0x3;
-    }
-}
-function fastUnpack256_3(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        const in2 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0x7;
-        out[op++] = (in0 >>> 3) & 0x7;
-        out[op++] = (in0 >>> 6) & 0x7;
-        out[op++] = (in0 >>> 9) & 0x7;
-        out[op++] = (in0 >>> 12) & 0x7;
-        out[op++] = (in0 >>> 15) & 0x7;
-        out[op++] = (in0 >>> 18) & 0x7;
-        out[op++] = (in0 >>> 21) & 0x7;
-        out[op++] = (in0 >>> 24) & 0x7;
-        out[op++] = (in0 >>> 27) & 0x7;
-        out[op++] = ((in0 >>> 30) | ((in1 & 0x1) << 2)) & 0x7;
-        out[op++] = (in1 >>> 1) & 0x7;
-        out[op++] = (in1 >>> 4) & 0x7;
-        out[op++] = (in1 >>> 7) & 0x7;
-        out[op++] = (in1 >>> 10) & 0x7;
-        out[op++] = (in1 >>> 13) & 0x7;
-        out[op++] = (in1 >>> 16) & 0x7;
-        out[op++] = (in1 >>> 19) & 0x7;
-        out[op++] = (in1 >>> 22) & 0x7;
-        out[op++] = (in1 >>> 25) & 0x7;
-        out[op++] = (in1 >>> 28) & 0x7;
-        out[op++] = ((in1 >>> 31) | ((in2 & 0x3) << 1)) & 0x7;
-        out[op++] = (in2 >>> 2) & 0x7;
-        out[op++] = (in2 >>> 5) & 0x7;
-        out[op++] = (in2 >>> 8) & 0x7;
-        out[op++] = (in2 >>> 11) & 0x7;
-        out[op++] = (in2 >>> 14) & 0x7;
-        out[op++] = (in2 >>> 17) & 0x7;
-        out[op++] = (in2 >>> 20) & 0x7;
-        out[op++] = (in2 >>> 23) & 0x7;
-        out[op++] = (in2 >>> 26) & 0x7;
-        out[op++] = (in2 >>> 29) & 0x7;
-    }
-}
-function fastUnpack256_4(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        const in2 = inValues[ip++] >>> 0;
-        const in3 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0xf;
-        out[op++] = (in0 >>> 4) & 0xf;
-        out[op++] = (in0 >>> 8) & 0xf;
-        out[op++] = (in0 >>> 12) & 0xf;
-        out[op++] = (in0 >>> 16) & 0xf;
-        out[op++] = (in0 >>> 20) & 0xf;
-        out[op++] = (in0 >>> 24) & 0xf;
-        out[op++] = (in0 >>> 28) & 0xf;
-        out[op++] = (in1 >>> 0) & 0xf;
-        out[op++] = (in1 >>> 4) & 0xf;
-        out[op++] = (in1 >>> 8) & 0xf;
-        out[op++] = (in1 >>> 12) & 0xf;
-        out[op++] = (in1 >>> 16) & 0xf;
-        out[op++] = (in1 >>> 20) & 0xf;
-        out[op++] = (in1 >>> 24) & 0xf;
-        out[op++] = (in1 >>> 28) & 0xf;
-        out[op++] = (in2 >>> 0) & 0xf;
-        out[op++] = (in2 >>> 4) & 0xf;
-        out[op++] = (in2 >>> 8) & 0xf;
-        out[op++] = (in2 >>> 12) & 0xf;
-        out[op++] = (in2 >>> 16) & 0xf;
-        out[op++] = (in2 >>> 20) & 0xf;
-        out[op++] = (in2 >>> 24) & 0xf;
-        out[op++] = (in2 >>> 28) & 0xf;
-        out[op++] = (in3 >>> 0) & 0xf;
-        out[op++] = (in3 >>> 4) & 0xf;
-        out[op++] = (in3 >>> 8) & 0xf;
-        out[op++] = (in3 >>> 12) & 0xf;
-        out[op++] = (in3 >>> 16) & 0xf;
-        out[op++] = (in3 >>> 20) & 0xf;
-        out[op++] = (in3 >>> 24) & 0xf;
-        out[op++] = (in3 >>> 28) & 0xf;
-    }
-}
-function fastUnpack256_5(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        const in2 = inValues[ip++] >>> 0;
-        const in3 = inValues[ip++] >>> 0;
-        const in4 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0x1f;
-        out[op++] = (in0 >>> 5) & 0x1f;
-        out[op++] = (in0 >>> 10) & 0x1f;
-        out[op++] = (in0 >>> 15) & 0x1f;
-        out[op++] = (in0 >>> 20) & 0x1f;
-        out[op++] = (in0 >>> 25) & 0x1f;
-        out[op++] = ((in0 >>> 30) | ((in1 & 0x7) << 2)) & 0x1f;
-        out[op++] = (in1 >>> 3) & 0x1f;
-        out[op++] = (in1 >>> 8) & 0x1f;
-        out[op++] = (in1 >>> 13) & 0x1f;
-        out[op++] = (in1 >>> 18) & 0x1f;
-        out[op++] = (in1 >>> 23) & 0x1f;
-        out[op++] = ((in1 >>> 28) | ((in2 & 0x1) << 4)) & 0x1f;
-        out[op++] = (in2 >>> 1) & 0x1f;
-        out[op++] = (in2 >>> 6) & 0x1f;
-        out[op++] = (in2 >>> 11) & 0x1f;
-        out[op++] = (in2 >>> 16) & 0x1f;
-        out[op++] = (in2 >>> 21) & 0x1f;
-        out[op++] = (in2 >>> 26) & 0x1f;
-        out[op++] = ((in2 >>> 31) | ((in3 & 0xf) << 1)) & 0x1f;
-        out[op++] = (in3 >>> 4) & 0x1f;
-        out[op++] = (in3 >>> 9) & 0x1f;
-        out[op++] = (in3 >>> 14) & 0x1f;
-        out[op++] = (in3 >>> 19) & 0x1f;
-        out[op++] = (in3 >>> 24) & 0x1f;
-        out[op++] = ((in3 >>> 29) | ((in4 & 0x3) << 3)) & 0x1f;
-        out[op++] = (in4 >>> 2) & 0x1f;
-        out[op++] = (in4 >>> 7) & 0x1f;
-        out[op++] = (in4 >>> 12) & 0x1f;
-        out[op++] = (in4 >>> 17) & 0x1f;
-        out[op++] = (in4 >>> 22) & 0x1f;
-        out[op++] = (in4 >>> 27) & 0x1f;
-    }
-}
-function fastUnpack256_6(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        const in2 = inValues[ip++] >>> 0;
-        const in3 = inValues[ip++] >>> 0;
-        const in4 = inValues[ip++] >>> 0;
-        const in5 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0x3f;
-        out[op++] = (in0 >>> 6) & 0x3f;
-        out[op++] = (in0 >>> 12) & 0x3f;
-        out[op++] = (in0 >>> 18) & 0x3f;
-        out[op++] = (in0 >>> 24) & 0x3f;
-        out[op++] = ((in0 >>> 30) | ((in1 & 0xf) << 2)) & 0x3f;
-        out[op++] = (in1 >>> 4) & 0x3f;
-        out[op++] = (in1 >>> 10) & 0x3f;
-        out[op++] = (in1 >>> 16) & 0x3f;
-        out[op++] = (in1 >>> 22) & 0x3f;
-        out[op++] = ((in1 >>> 28) | ((in2 & 0x3) << 4)) & 0x3f;
-        out[op++] = (in2 >>> 2) & 0x3f;
-        out[op++] = (in2 >>> 8) & 0x3f;
-        out[op++] = (in2 >>> 14) & 0x3f;
-        out[op++] = (in2 >>> 20) & 0x3f;
-        out[op++] = (in2 >>> 26) & 0x3f;
-        out[op++] = (in3 >>> 0) & 0x3f;
-        out[op++] = (in3 >>> 6) & 0x3f;
-        out[op++] = (in3 >>> 12) & 0x3f;
-        out[op++] = (in3 >>> 18) & 0x3f;
-        out[op++] = (in3 >>> 24) & 0x3f;
-        out[op++] = ((in3 >>> 30) | ((in4 & 0xf) << 2)) & 0x3f;
-        out[op++] = (in4 >>> 4) & 0x3f;
-        out[op++] = (in4 >>> 10) & 0x3f;
-        out[op++] = (in4 >>> 16) & 0x3f;
-        out[op++] = (in4 >>> 22) & 0x3f;
-        out[op++] = ((in4 >>> 28) | ((in5 & 0x3) << 4)) & 0x3f;
-        out[op++] = (in5 >>> 2) & 0x3f;
-        out[op++] = (in5 >>> 8) & 0x3f;
-        out[op++] = (in5 >>> 14) & 0x3f;
-        out[op++] = (in5 >>> 20) & 0x3f;
-        out[op++] = (in5 >>> 26) & 0x3f;
-    }
-}
-function fastUnpack256_7(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        const in2 = inValues[ip++] >>> 0;
-        const in3 = inValues[ip++] >>> 0;
-        const in4 = inValues[ip++] >>> 0;
-        const in5 = inValues[ip++] >>> 0;
-        const in6 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0x7f;
-        out[op++] = (in0 >>> 7) & 0x7f;
-        out[op++] = (in0 >>> 14) & 0x7f;
-        out[op++] = (in0 >>> 21) & 0x7f;
-        out[op++] = ((in0 >>> 28) | ((in1 & 0x7) << 4)) & 0x7f;
-        out[op++] = (in1 >>> 3) & 0x7f;
-        out[op++] = (in1 >>> 10) & 0x7f;
-        out[op++] = (in1 >>> 17) & 0x7f;
-        out[op++] = (in1 >>> 24) & 0x7f;
-        out[op++] = ((in1 >>> 31) | ((in2 & 0x3f) << 1)) & 0x7f;
-        out[op++] = (in2 >>> 6) & 0x7f;
-        out[op++] = (in2 >>> 13) & 0x7f;
-        out[op++] = (in2 >>> 20) & 0x7f;
-        out[op++] = ((in2 >>> 27) | ((in3 & 0x3) << 5)) & 0x7f;
-        out[op++] = (in3 >>> 2) & 0x7f;
-        out[op++] = (in3 >>> 9) & 0x7f;
-        out[op++] = (in3 >>> 16) & 0x7f;
-        out[op++] = (in3 >>> 23) & 0x7f;
-        out[op++] = ((in3 >>> 30) | ((in4 & 0x1f) << 2)) & 0x7f;
-        out[op++] = (in4 >>> 5) & 0x7f;
-        out[op++] = (in4 >>> 12) & 0x7f;
-        out[op++] = (in4 >>> 19) & 0x7f;
-        out[op++] = ((in4 >>> 26) | ((in5 & 0x1) << 6)) & 0x7f;
-        out[op++] = (in5 >>> 1) & 0x7f;
-        out[op++] = (in5 >>> 8) & 0x7f;
-        out[op++] = (in5 >>> 15) & 0x7f;
-        out[op++] = (in5 >>> 22) & 0x7f;
-        out[op++] = ((in5 >>> 29) | ((in6 & 0xf) << 3)) & 0x7f;
-        out[op++] = (in6 >>> 4) & 0x7f;
-        out[op++] = (in6 >>> 11) & 0x7f;
-        out[op++] = (in6 >>> 18) & 0x7f;
-        out[op++] = (in6 >>> 25) & 0x7f;
-    }
-}
-function fastUnpack256_8(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let c = 0; c < 8; c++) {
-        const in0 = inValues[ip++] >>> 0;
-        const in1 = inValues[ip++] >>> 0;
-        const in2 = inValues[ip++] >>> 0;
-        const in3 = inValues[ip++] >>> 0;
-        const in4 = inValues[ip++] >>> 0;
-        const in5 = inValues[ip++] >>> 0;
-        const in6 = inValues[ip++] >>> 0;
-        const in7 = inValues[ip++] >>> 0;
-        out[op++] = (in0 >>> 0) & 0xff;
-        out[op++] = (in0 >>> 8) & 0xff;
-        out[op++] = (in0 >>> 16) & 0xff;
-        out[op++] = (in0 >>> 24) & 0xff;
-        out[op++] = (in1 >>> 0) & 0xff;
-        out[op++] = (in1 >>> 8) & 0xff;
-        out[op++] = (in1 >>> 16) & 0xff;
-        out[op++] = (in1 >>> 24) & 0xff;
-        out[op++] = (in2 >>> 0) & 0xff;
-        out[op++] = (in2 >>> 8) & 0xff;
-        out[op++] = (in2 >>> 16) & 0xff;
-        out[op++] = (in2 >>> 24) & 0xff;
-        out[op++] = (in3 >>> 0) & 0xff;
-        out[op++] = (in3 >>> 8) & 0xff;
-        out[op++] = (in3 >>> 16) & 0xff;
-        out[op++] = (in3 >>> 24) & 0xff;
-        out[op++] = (in4 >>> 0) & 0xff;
-        out[op++] = (in4 >>> 8) & 0xff;
-        out[op++] = (in4 >>> 16) & 0xff;
-        out[op++] = (in4 >>> 24) & 0xff;
-        out[op++] = (in5 >>> 0) & 0xff;
-        out[op++] = (in5 >>> 8) & 0xff;
-        out[op++] = (in5 >>> 16) & 0xff;
-        out[op++] = (in5 >>> 24) & 0xff;
-        out[op++] = (in6 >>> 0) & 0xff;
-        out[op++] = (in6 >>> 8) & 0xff;
-        out[op++] = (in6 >>> 16) & 0xff;
-        out[op++] = (in6 >>> 24) & 0xff;
-        out[op++] = (in7 >>> 0) & 0xff;
-        out[op++] = (in7 >>> 8) & 0xff;
-        out[op++] = (in7 >>> 16) & 0xff;
-        out[op++] = (in7 >>> 24) & 0xff;
-    }
-}
-function fastUnpack256_16(inValues, inPos, out, outPos) {
-    let op = outPos;
-    let ip = inPos;
-    for (let i = 0; i < 128; i++) {
-        const in0 = inValues[ip++] >>> 0;
-        out[op++] = in0 & 0xffff;
-        out[op++] = (in0 >>> 16) & 0xffff;
-    }
-}
-function fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth) {
-    const mask = MASKS[bitWidth] >>> 0;
-    let inputWordIndex = inPos;
-    let bitOffset = 0;
-    let currentWord = inValues[inputWordIndex] >>> 0;
-    let op = outPos;
-    for (let c = 0; c < 8; c++) {
-        for (let i = 0; i < 32; i++) {
-            if (bitOffset + bitWidth <= 32) {
-                const value = (currentWord >>> bitOffset) & mask;
-                out[op + i] = value | 0;
-                bitOffset += bitWidth;
-                if (bitOffset === 32) {
-                    bitOffset = 0;
-                    inputWordIndex++;
-                    if (i !== 31) {
-                        currentWord = inValues[inputWordIndex] >>> 0;
-                    }
-                }
-            }
-            else {
-                const lowBits = 32 - bitOffset;
-                const low = currentWord >>> bitOffset;
-                inputWordIndex++;
-                currentWord = inValues[inputWordIndex] >>> 0;
-                const highBits = bitWidth - lowBits;
-                const highMask = (-1 >>> (32 - highBits)) >>> 0;
-                const high = currentWord & highMask;
-                const value = (low | (high << lowBits)) & mask;
-                out[op + i] = value | 0;
-                bitOffset = highBits;
-            }
-        }
-        op += 32;
-        bitOffset = 0;
-        if (c < 7) {
-            currentWord = inValues[inputWordIndex] >>> 0;
-        }
-    }
-}
-
-const MAX_BIT_WIDTH = 32;
-const BIT_WIDTH_SLOTS = MAX_BIT_WIDTH + 1;
-const PAGE_SIZE = normalizePageSize(DEFAULT_PAGE_SIZE);
-const BYTE_CONTAINER_SIZE = ((3 * PAGE_SIZE) / BLOCK_SIZE + PAGE_SIZE) | 0;
-/**
- * Creates an isolated workspace for decoding.
- * Reusing a workspace across calls avoids repeated allocations.
- */
-function createDecoderWorkspace() {
-    const byteContainer = new Uint8Array(BYTE_CONTAINER_SIZE);
-    return {
-        dataToBePacked: new Array(BIT_WIDTH_SLOTS),
-        dataPointers: new Int32Array(BIT_WIDTH_SLOTS),
-        byteContainer,
-        byteContainerI32: new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2),
-        exceptionSizes: new Int32Array(BIT_WIDTH_SLOTS),
-    };
-}
-function createFastPforWireDecodeWorkspace(initialEncodedWordCapacity = 16) {
-    if (initialEncodedWordCapacity < 0) {
-        throw new RangeError(`initialEncodedWordCapacity must be >= 0, got ${initialEncodedWordCapacity}`);
-    }
-    const capacity = Math.max(16, initialEncodedWordCapacity | 0);
-    return {
-        encodedWords: new Uint32Array(capacity),
-        decoderWorkspace: createDecoderWorkspace(),
-    };
-}
-function ensureFastPforWireEncodedWordsCapacity(workspace, requiredWordCount) {
-    if (requiredWordCount <= workspace.encodedWords.length)
-        return workspace.encodedWords;
-    const next = new Uint32Array(Math.max(16, requiredWordCount * 2));
-    workspace.encodedWords = next;
-    return next;
-}
-function materializeByteContainer(inValues, byteContainerStart, byteSize, workspace) {
-    if (workspace.byteContainer.length < byteSize) {
-        workspace.byteContainer = new Uint8Array(byteSize * 2);
-        workspace.byteContainerI32 = undefined;
-    }
-    const byteContainer = workspace.byteContainer;
-    const numFullInts = byteSize >>> 2;
-    if ((byteContainer.byteOffset & 3) === 0) {
-        let intView = workspace.byteContainerI32;
-        if (!intView ||
-            intView.buffer !== byteContainer.buffer ||
-            intView.byteOffset !== byteContainer.byteOffset ||
-            intView.length < numFullInts) {
-            intView = workspace.byteContainerI32 = new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2);
-        }
-        intView.set(inValues.subarray(byteContainerStart, byteContainerStart + numFullInts));
-    }
-    else {
-        for (let i = 0; i < numFullInts; i = (i + 1) | 0) {
-            const val = inValues[(byteContainerStart + i) | 0] | 0;
-            const base = i << 2;
-            byteContainer[base] = val & 0xff;
-            byteContainer[(base + 1) | 0] = (val >>> 8) & 0xff;
-            byteContainer[(base + 2) | 0] = (val >>> 16) & 0xff;
-            byteContainer[(base + 3) | 0] = (val >>> 24) & 0xff;
-        }
-    }
-    const remainder = byteSize & 3;
-    if (remainder > 0) {
-        const lastIntIdx = (byteContainerStart + numFullInts) | 0;
-        const lastVal = inValues[lastIntIdx] | 0;
-        const base = numFullInts << 2;
-        for (let r = 0; r < remainder; r = (r + 1) | 0) {
-            byteContainer[(base + r) | 0] = (lastVal >>> (r << 3)) & 0xff;
-        }
-    }
-    return byteContainer;
-}
-/**
- * Unpacks the per-bitWidth "exception streams" described by the page's bitmap.
+ * Decodes a raw tile buffer with the decoder registered for its encoding.
  *
- * @remarks
- * For each bit-width present in the bitmap, a stream header gives the count of outlier values for that
- * bit-width, followed by packed bits representing those values.
+ * Decoders are opt-in, like sources and layers: `registerMLTDecoder()` installs
+ * the MLT decoder. Leaving it unregistered keeps `@maplibre/mlt` out of the
+ * bundle entirely.
  *
- * @param inValues - Packed input (32-bit words).
- * @param inExcept - Offset (32-bit word index) where the exception bitmap starts.
- * @param workspace - Decoder workspace used to store the unpacked exception streams.
- * @returns The new input offset (32-bit word index) after consuming all exception streams.
+ * @param encoding - the tile encoding, as declared by the source
+ * @param rawData - the raw tile buffer
+ * @returns the decoded tile
  */
-function unpackExceptionStreams(inValues, inExcept, workspace) {
-    const bitmap = inValues[inExcept++] | 0;
-    const dataToBePacked = workspace.dataToBePacked;
-    for (let bitWidth = 2; bitWidth <= MAX_BIT_WIDTH; bitWidth = (bitWidth + 1) | 0) {
-        if (((bitmap >>> (bitWidth - 1)) & 1) === 0)
-            continue;
-        if (inExcept >= inValues.length) {
-            throw new Error(`FastPFOR decode: truncated exception stream header (bitWidth=${bitWidth}, streamWordIndex=${inExcept}, needWords=1, availableWords=${inValues.length - inExcept}, encodedWords=${inValues.length})`);
-        }
-        const size = inValues[inExcept++] >>> 0;
-        const roundedUp = roundUpToMultipleOf32(size);
-        const wordsNeeded = (size * bitWidth + 31) >>> 5;
-        if (inExcept + wordsNeeded > inValues.length) {
-            throw new Error(`FastPFOR decode: truncated exception stream (bitWidth=${bitWidth}, size=${size}, streamWordIndex=${inExcept}, needWords=${wordsNeeded}, availableWords=${inValues.length - inExcept}, encodedWords=${inValues.length})`);
-        }
-        let exceptionStream = dataToBePacked[bitWidth];
-        if (!exceptionStream || exceptionStream.length < roundedUp) {
-            exceptionStream = dataToBePacked[bitWidth] = new Uint32Array(roundedUp);
-        }
-        let j = 0;
-        for (; j < size; j = (j + 32) | 0) {
-            fastUnpack32(inValues, inExcept, exceptionStream, j, bitWidth);
-            inExcept = (inExcept + bitWidth) | 0;
-        }
-        const overflow = (j - size) | 0;
-        inExcept = (inExcept - ((overflow * bitWidth) >>> 5)) | 0;
-        workspace.exceptionSizes[bitWidth] = size;
-    }
-    return inExcept;
-}
-/**
- * Unpacks one 256-value block from the packed bitstream using a specialized implementation for common widths.
- *
- * @param inValues - Packed input (32-bit words).
- * @param inPos - Input offset (32-bit word index) where the packed block starts.
- * @param out - Output buffer.
- * @param outPos - Output offset where the 256 values will be written.
- * @param bitWidth - Base bit-width used for this block.
- * @returns The new input offset (32-bit word index) right after the packed block data.
- */
-function unpackBlock256(inValues, inPos, out, outPos, bitWidth) {
-    switch (bitWidth) {
-        case 1:
-            fastUnpack256_1(inValues, inPos, out, outPos);
-            break;
-        case 2:
-            fastUnpack256_2(inValues, inPos, out, outPos);
-            break;
-        case 3:
-            fastUnpack256_3(inValues, inPos, out, outPos);
-            break;
-        case 4:
-            fastUnpack256_4(inValues, inPos, out, outPos);
-            break;
-        case 5:
-            fastUnpack256_5(inValues, inPos, out, outPos);
-            break;
-        case 6:
-            fastUnpack256_6(inValues, inPos, out, outPos);
-            break;
-        case 7:
-            fastUnpack256_7(inValues, inPos, out, outPos);
-            break;
-        case 8:
-            fastUnpack256_8(inValues, inPos, out, outPos);
-            break;
-        case 16:
-            fastUnpack256_16(inValues, inPos, out, outPos);
-            break;
-        default:
-            fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth);
-            break;
-    }
-    return (inPos + (bitWidth << 3)) | 0;
-}
-/**
- * Reads and validates the 2-byte block header from the byteContainer.
- *
- * @remarks
- * The header is `[bitWidth, exceptionCount]`, both stored as single bytes.
- *
- * @param byteContainer - Byte metadata buffer for the page.
- * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
- * @param bytePosIn - Current offset in `byteContainer`.
- * @param block - Block index within the page (for error messages).
- * @returns The parsed header and the updated `bytePosIn`.
- */
-function readBlockHeader(byteContainer, byteContainerLen, bytePosIn, block) {
-    if (bytePosIn + 2 > byteContainerLen) {
-        throw new Error(`FastPFOR decode: byteContainer underflow at block=${block} (need 2 bytes for [bitWidth, exceptionCount], bytePos=${bytePosIn}, byteSize=${byteContainerLen})`);
-    }
-    const bitWidth = byteContainer[bytePosIn++];
-    const exceptionCount = byteContainer[bytePosIn++];
-    if (bitWidth > MAX_BIT_WIDTH) {
-        throw new Error(`FastPFOR decode: invalid bitWidth=${bitWidth} at block=${block} (expected 0..${MAX_BIT_WIDTH}). This likely indicates corrupted or truncated input.`);
-    }
-    return { bitWidth, exceptionCount, bytePosIn };
-}
-/**
- * Reads and validates the exception header for a block.
- *
- * @remarks
- * The header contains `maxBits` (1 byte), which defines the width of the outlier values as
- * `exceptionBitWidth = maxBits - bitWidth`.
- *
- * @param byteContainer - Byte metadata buffer for the page.
- * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
- * @param bytePosIn - Current offset in `byteContainer`.
- * @param bitWidth - Base bit-width for the block.
- * @param exceptionCount - Number of exceptions/outliers in this block.
- * @param block - Block index within the page (for error messages).
- * @returns Parsed `maxBits`, `exceptionBitWidth`, and the updated `bytePosIn`.
- */
-function readBlockExceptionHeader(byteContainer, byteContainerLen, bytePosIn, bitWidth, exceptionCount, block) {
-    if (bytePosIn + 1 > byteContainerLen) {
-        throw new Error(`FastPFOR decode: exception header underflow at block=${block} (need 1 byte for maxBits, bytePos=${bytePosIn}, byteSize=${byteContainerLen})`);
-    }
-    const maxBits = byteContainer[bytePosIn++];
-    if (maxBits < bitWidth || maxBits > MAX_BIT_WIDTH) {
-        throw new Error(`FastPFOR decode: invalid maxBits=${maxBits} at block=${block} (bitWidth=${bitWidth}, expected ${bitWidth}..${MAX_BIT_WIDTH})`);
-    }
-    const exceptionBitWidth = (maxBits - bitWidth) | 0;
-    if (exceptionBitWidth < 1 || exceptionBitWidth > MAX_BIT_WIDTH) {
-        throw new Error(`FastPFOR decode: invalid exceptionBitWidth=${exceptionBitWidth} at block=${block} (bitWidth=${bitWidth}, maxBits=${maxBits})`);
-    }
-    if (bytePosIn + exceptionCount > byteContainerLen) {
-        throw new Error(`FastPFOR decode: exception positions underflow at block=${block} (need=${exceptionCount}, have=${byteContainerLen - bytePosIn})`);
-    }
-    return { maxBits, exceptionBitWidth, bytePosIn };
-}
-/**
- * Applies (block-local) FastPFOR "exceptions" (outliers) to an already-unpacked base 256-value block.
- *
- * @param out - Output buffer containing the base unpacked values for the block.
- * @param blockOutPos - Offset in `out` where the 256-value block starts.
- * @param bitWidth - Base bit-width for the block.
- * @param exceptionCount - Number of exceptions/outliers in this block.
- * @param byteContainer - Byte metadata buffer for the page.
- * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
- * @param bytePosIn - Current offset in `byteContainer` (right after `[bitWidth, exceptionCount]`).
- * @param workspace - Decoder workspace holding the unpacked exception streams.
- * @param block - Block index within the page (for error messages).
- * @returns The updated `bytePosIn` after consuming the exception metadata bytes.
- *
- * The exception metadata is stored in `byteContainer`:
- * - `maxBits` (1 byte): the maximum bit-width of any value in the block
- * - `exceptionCount` exception positions (1 byte each, 0..255)
- *
- * The exception values themselves are read from the pre-unpacked exception streams stored in `workspace`.
- * Returns the new position in the byteContainer after consuming the exception metadata bytes.
- */
-function applyBlockExceptions(out, blockOutPos, bitWidth, exceptionCount, byteContainer, byteContainerLen, bytePosIn, workspace, block) {
-    const { maxBits, exceptionBitWidth, bytePosIn: afterHeaderPos, } = readBlockExceptionHeader(byteContainer, byteContainerLen, bytePosIn, bitWidth, exceptionCount, block);
-    bytePosIn = afterHeaderPos;
-    if (exceptionBitWidth === 1) {
-        const shift = 1 << bitWidth;
-        for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
-            const pos = byteContainer[bytePosIn++];
-            out[(pos + blockOutPos) | 0] |= shift;
-        }
-        return bytePosIn;
-    }
-    const exceptionValues = workspace.dataToBePacked[exceptionBitWidth];
-    if (!exceptionValues) {
-        throw new Error(`FastPFOR decode: missing exception stream for exceptionBitWidth=${exceptionBitWidth} (bitWidth=${bitWidth}, maxBits=${maxBits}) at block ${block}`);
-    }
-    const exceptionPointers = workspace.dataPointers;
-    let exPtr = exceptionPointers[exceptionBitWidth] | 0;
-    const exSize = workspace.exceptionSizes[exceptionBitWidth] | 0;
-    if (exPtr + exceptionCount > exSize) {
-        throw new Error(`FastPFOR decode: exception stream overflow for exceptionBitWidth=${exceptionBitWidth} (ptr=${exPtr}, need ${exceptionCount}, size=${exSize}) at block ${block}`);
-    }
-    for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
-        const pos = byteContainer[bytePosIn++];
-        const val = exceptionValues[exPtr++] | 0;
-        out[(pos + blockOutPos) | 0] |= val << bitWidth;
-    }
-    exceptionPointers[exceptionBitWidth] = exPtr;
-    return bytePosIn;
-}
-function decodePageBlocks(inValues, pageStart, inPos, packedEnd, out, outPos, blocks, byteContainer, byteContainerLen, workspace) {
-    let tmpInPos = inPos | 0;
-    let bytePosIn = 0;
-    for (let run = 0; run < blocks; run = (run + 1) | 0) {
-        const header = readBlockHeader(byteContainer, byteContainerLen, bytePosIn, run);
-        bytePosIn = header.bytePosIn;
-        const bitWidth = header.bitWidth;
-        const exceptionCount = header.exceptionCount;
-        const blockOutPos = (outPos + run * BLOCK_SIZE) | 0;
-        switch (bitWidth) {
-            case 0:
-                out.fill(0, blockOutPos, blockOutPos + BLOCK_SIZE);
-                break;
-            case 32:
-                for (let i = 0; i < BLOCK_SIZE; i = (i + 1) | 0) {
-                    out[(blockOutPos + i) | 0] = inValues[(tmpInPos + i) | 0] | 0;
-                }
-                tmpInPos = (tmpInPos + BLOCK_SIZE) | 0;
-                break;
-            default:
-                tmpInPos = unpackBlock256(inValues, tmpInPos, out, blockOutPos, bitWidth);
-                break;
-        }
-        if (exceptionCount > 0) {
-            bytePosIn = applyBlockExceptions(out, blockOutPos, bitWidth, exceptionCount, byteContainer, byteContainerLen, bytePosIn, workspace, run);
-        }
-    }
-    if (tmpInPos !== packedEnd) {
-        throw new Error(`FastPFOR decode: packed region mismatch (pageStart=${pageStart}, packedStart=${inPos}, consumedPackedEnd=${tmpInPos}, expectedPackedEnd=${packedEnd}, packedWords=${packedEnd - inPos}, encoded.length=${inValues.length})`);
-    }
-    return;
-}
-/**
- * Decodes one FastPFOR page (aligned to 256-value blocks).
- */
-function decodePage(inValues, out, inPos, outPos, thisSize, workspace) {
-    const pageStart = inPos | 0;
-    const whereMeta = inValues[pageStart] | 0;
-    if (whereMeta <= 0 || pageStart + whereMeta > inValues.length - 1) {
-        throw new Error(`FastPFOR decode: invalid whereMeta=${whereMeta} at pageStart=${pageStart} (expected > 0 and pageStart+whereMeta < encoded.length=${inValues.length})`);
-    }
-    const packedStart = (pageStart + 1) | 0;
-    const packedEnd = (pageStart + whereMeta) | 0;
-    const byteSize = inValues[packedEnd] >>> 0;
-    const metaInts = (byteSize + 3) >>> 2;
-    const byteContainerStart = packedEnd + 1;
-    const bitmapPos = byteContainerStart + metaInts;
-    if (bitmapPos >= inValues.length) {
-        throw new Error(`FastPFOR decode: invalid byteSize=${byteSize} (metaInts=${metaInts}, pageStart=${pageStart}, packedEnd=${packedEnd}, byteContainerStart=${byteContainerStart}) causes bitmapPos=${bitmapPos} out of bounds (encoded.length=${inValues.length})`);
-    }
-    const byteContainer = materializeByteContainer(inValues, byteContainerStart, byteSize, workspace);
-    const byteContainerLen = byteSize;
-    const inExcept = unpackExceptionStreams(inValues, bitmapPos, workspace);
-    const exceptionPointers = workspace.dataPointers;
-    exceptionPointers.fill(0);
-    const startOutPos = outPos | 0;
-    const blocks = (thisSize / BLOCK_SIZE) | 0;
-    decodePageBlocks(inValues, pageStart, packedStart, packedEnd, out, startOutPos, blocks, byteContainer, byteContainerLen, workspace);
-    return inExcept;
-}
-function decodeAlignedPages(inValues, out, inPos, outPos, outLength, workspace) {
-    const alignedOutLength = greatestMultiple(outLength, BLOCK_SIZE);
-    const finalOut = outPos + alignedOutLength;
-    let tmpOutPos = outPos;
-    let tmpInPos = inPos;
-    while (tmpOutPos !== finalOut) {
-        const thisSize = Math.min(PAGE_SIZE, finalOut - tmpOutPos);
-        tmpInPos = decodePage(inValues, out, tmpInPos, tmpOutPos, thisSize, workspace);
-        tmpOutPos = (tmpOutPos + thisSize) | 0;
-    }
-    return tmpInPos;
-}
-/**
- * Decodes the VariableByte tail (MSB=1 terminator, opposite of Protobuf Varint).
- */
-function decodeVByte(inValues, inPos, inLength, out, outPos, expectedCount) {
-    if (expectedCount === 0)
-        return inPos;
-    let bitOffset = 0;
-    let wordIndex = inPos;
-    const finalWordIndex = inPos + inLength;
-    const outPos0 = outPos;
-    let tmpOutPos = outPos;
-    const targetOut = outPos + expectedCount;
-    let accumulator = 0;
-    let accumulatorShift = 0;
-    while (wordIndex < finalWordIndex && tmpOutPos < targetOut) {
-        const word = inValues[wordIndex];
-        const byte = (word >>> bitOffset) & 0xff;
-        bitOffset += 8;
-        wordIndex += bitOffset >>> 5;
-        bitOffset &= 31;
-        accumulator |= (byte & 0x7f) << accumulatorShift;
-        if ((byte & 0x80) !== 0) {
-            out[tmpOutPos++] = accumulator | 0;
-            accumulator = 0;
-            accumulatorShift = 0;
-        }
-        else {
-            accumulatorShift += 7;
-            if (accumulatorShift > 28) {
-                throw new Error(`FastPFOR VByte: unterminated value (expected MSB=1 terminator within 5 bytes; shift=${accumulatorShift}, partial=${accumulator}, decoded=${tmpOutPos - outPos0}/${expectedCount}, inPos=${wordIndex}, inEnd=${finalWordIndex})`);
-            }
-        }
-    }
-    if (tmpOutPos !== targetOut) {
-        throw new Error(`FastPFOR VByte: truncated stream (decoded=${tmpOutPos - outPos0}, expected=${expectedCount}, consumedWords=${wordIndex - inPos}/${inLength}, vbyteStart=${inPos}, vbyteEnd=${finalWordIndex})`);
-    }
-    return wordIndex;
-}
-/**
- * Decodes a sequence of FastPFOR-encoded integers.
- *
- * @param encoded The input buffer containing FastPFOR encoded data.
- * @param numValues The number of integers expected to be decoded.
- * @param workspace Optional workspace for reuse across calls. If omitted, a new workspace is created per call.
- */
-function decodeFastPforInt32(encoded, numValues, workspace) {
-    let inPos = 0;
-    let outPos = 0;
-    const decoded = new Uint32Array(numValues);
-    const decoderWorkspace = workspace ?? createDecoderWorkspace();
-    if (encoded.length > 0) {
-        const alignedLength = encoded[inPos] | 0;
-        inPos = (inPos + 1) | 0;
-        if ((alignedLength & (BLOCK_SIZE - 1)) !== 0) {
-            throw new Error(`FastPFOR decode: invalid alignedLength=${alignedLength} (expected multiple of ${BLOCK_SIZE})`);
-        }
-        if (outPos + alignedLength > decoded.length) {
-            throw new Error(`FastPFOR decode: output buffer too small (outPos=${outPos}, alignedLength=${alignedLength}, out.length=${decoded.length})`);
-        }
-        inPos = decodeAlignedPages(encoded, decoded, inPos, outPos, alignedLength, decoderWorkspace);
-        outPos = (outPos + alignedLength) | 0;
-    }
-    const remainingLength = (encoded.length - inPos) | 0;
-    const expectedTail = (numValues - outPos) | 0;
-    decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
-    return decoded;
-}
-function fastUnpack32(inValues, inPos, out, outPos, bitWidth) {
-    switch (bitWidth) {
-        case 2:
-            fastUnpack32_2(inValues, inPos, out, outPos);
-            return;
-        case 3:
-            fastUnpack32_3(inValues, inPos, out, outPos);
-            return;
-        case 4:
-            fastUnpack32_4(inValues, inPos, out, outPos);
-            return;
-        case 5:
-            fastUnpack32_5(inValues, inPos, out, outPos);
-            return;
-        case 6:
-            fastUnpack32_6(inValues, inPos, out, outPos);
-            return;
-        case 7:
-            fastUnpack32_7(inValues, inPos, out, outPos);
-            return;
-        case 8:
-            fastUnpack32_8(inValues, inPos, out, outPos);
-            return;
-        case 9:
-            fastUnpack32_9(inValues, inPos, out, outPos);
-            return;
-        case 10:
-            fastUnpack32_10(inValues, inPos, out, outPos);
-            return;
-        case 11:
-            fastUnpack32_11(inValues, inPos, out, outPos);
-            return;
-        case 12:
-            fastUnpack32_12(inValues, inPos, out, outPos);
-            return;
-        case 16:
-            fastUnpack32_16(inValues, inPos, out, outPos);
-            return;
-        case 32:
-            for (let i = 0; i < 32; i = (i + 1) | 0) {
-                out[(outPos + i) | 0] = inValues[(inPos + i) | 0] | 0;
-            }
-            return;
-        default:
-            break;
-    }
-    const valueMask = MASKS[bitWidth] >>> 0;
-    let inputWordIndex = inPos;
-    let bitOffset = 0;
-    let currentWord = inValues[inputWordIndex] >>> 0;
-    for (let i = 0; i < 32; i++) {
-        if (bitOffset + bitWidth <= 32) {
-            const value = (currentWord >>> bitOffset) & valueMask;
-            out[outPos + i] = value | 0;
-            bitOffset += bitWidth;
-            if (bitOffset === 32) {
-                bitOffset = 0;
-                inputWordIndex++;
-                if (i !== 31)
-                    currentWord = inValues[inputWordIndex] >>> 0;
-            }
-        }
-        else {
-            const lowBits = 32 - bitOffset;
-            const low = currentWord >>> bitOffset;
-            inputWordIndex++;
-            currentWord = inValues[inputWordIndex] >>> 0;
-            const highMask = MASKS[bitWidth - lowBits] >>> 0;
-            const high = currentWord & highMask;
-            const value = (low | (high << lowBits)) & valueMask;
-            out[outPos + i] = value | 0;
-            bitOffset = bitWidth - lowBits;
-        }
-    }
-}
-
-/**
- * Decodes big-endian bytes into `out` without allocating the output buffer.
- *
- * This function does not copy `bytes`; it writes decoded words into the provided `out` array.
- * For aligned inputs it may create a temporary typed-array view (`Uint32Array`) over `bytes.buffer`
- * to speed up decoding.
- *
- * If `byteLength` is not a multiple of 4, the final word is padded with zeros.
- *
- * @returns Number of int32 words written.
- * @throws RangeError If `(offset, byteLength)` is out of bounds, or if `out` is too small.
- */
-function decodeBigEndianInt32sInto(bytes, offset, byteLength, out) {
-    if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
-        throw new RangeError(`decodeBigEndianInt32sInto: out of bounds (offset=${offset}, byteLength=${byteLength}, bytes.length=${bytes.length})`);
-    }
-    const numCompleteInts = Math.floor(byteLength / 4);
-    const hasTrailingBytes = byteLength % 4 !== 0;
-    const numInts = hasTrailingBytes ? numCompleteInts + 1 : numCompleteInts;
-    if (out.length < numInts) {
-        throw new RangeError(`decodeBigEndianInt32sInto: out.length=${out.length} < ${numInts}`);
-    }
-    if (numCompleteInts > 0) {
-        const absoluteOffset = bytes.byteOffset + offset;
-        if ((absoluteOffset & 3) === 0) {
-            const u32 = new Uint32Array(bytes.buffer, absoluteOffset, numCompleteInts);
-            for (let i = 0; i < numCompleteInts; i++) {
-                out[i] = bswap32(u32[i]) | 0;
-            }
-        }
-        else {
-            for (let i = 0; i < numCompleteInts; i++) {
-                const base = offset + i * 4;
-                out[i] = (bytes[base] << 24) | (bytes[base + 1] << 16) | (bytes[base + 2] << 8) | bytes[base + 3] | 0;
-            }
-        }
-    }
-    if (hasTrailingBytes) {
-        const base = offset + numCompleteInts * 4;
-        const remaining = byteLength - numCompleteInts * 4;
-        let v = 0;
-        for (let i = 0; i < remaining; i++) {
-            v |= bytes[base + i] << (24 - i * 8);
-        }
-        out[numCompleteInts] = v | 0;
-    }
-    return numInts;
-}
-
-//based on https://github.com/mapbox/pbf/blob/main/index.js
-function decodeVarintInt32(buf, bufferOffset, numValues) {
-    const dst = new Uint32Array(numValues);
-    let dstOffset = 0;
-    let offset = bufferOffset.get();
-    for (let i = 0; i < dst.length; i++) {
-        let b = buf[offset++];
-        let val = b & 0x7f;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-        b = buf[offset++];
-        val |= (b & 0x7f) << 7;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-        b = buf[offset++];
-        val |= (b & 0x7f) << 14;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-        b = buf[offset++];
-        val |= (b & 0x7f) << 21;
-        if (b < 0x80) {
-            dst[dstOffset++] = val;
-            continue;
-        }
-        b = buf[offset++];
-        val |= (b & 0x0f) << 28;
-        dst[dstOffset++] = val;
-    }
-    bufferOffset.set(offset);
-    return dst;
-}
-function decodeVarintInt64(src, offset, numValues) {
-    const dst = new BigUint64Array(numValues);
-    for (let i = 0; i < dst.length; i++) {
-        dst[i] = decodeVarintInt64Value(src, offset);
-    }
-    return dst;
-}
-// Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
-function decodeVarintInt64Value(bytes, pos) {
-    let value = 0n;
-    let shift = 0;
-    let index = pos.get();
-    while (index < bytes.length) {
-        const b = bytes[index++];
-        value |= BigInt(b & 0x7f) << BigInt(shift);
-        if ((b & 0x80) === 0) {
-            break;
-        }
-        shift += 7;
-        if (shift >= 64) {
-            throw new Error("Varint too long");
-        }
-    }
-    pos.set(index);
-    return value;
-}
-/*
- * Since decoding Int64 values to BigInt is more than an order of magnitude slower in the tests then using a Float64,
- * this decoding method limits the max size of a Long value to 53 bits
- */
-function decodeVarintFloat64(src, offset, numValues) {
-    const dst = new Float64Array(numValues);
-    for (let i = 0; i < numValues; i++) {
-        dst[i] = decodeVarintFloat64Value(src, offset);
-    }
-    return dst;
-}
-//based on https://github.com/mapbox/pbf/blob/main/index.js
-function decodeVarintFloat64Value(buf, offset) {
-    let val;
-    let b;
-    b = buf[offset.get()];
-    offset.increment();
-    val = b & 0x7f;
-    if (b < 0x80)
-        return val;
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x7f) << 7;
-    if (b < 0x80)
-        return val;
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x7f) << 14;
-    if (b < 0x80)
-        return val;
-    b = buf[offset.get()];
-    offset.increment();
-    val |= (b & 0x7f) << 21;
-    if (b < 0x80)
-        return val;
-    b = buf[offset.get()];
-    val |= (b & 0x0f) << 28;
-    return decodeVarintRemainder(val, buf, offset);
-}
-function decodeVarintRemainder(l, buf, offset) {
-    let h;
-    let b;
-    b = buf[offset.get()];
-    offset.increment();
-    h = (b & 0x70) >> 4;
-    if (b < 0x80)
-        return h * 0x100000000 + (l >>> 0);
-    b = buf[offset.get()];
-    offset.increment();
-    h |= (b & 0x7f) << 3;
-    if (b < 0x80)
-        return h * 0x100000000 + (l >>> 0);
-    b = buf[offset.get()];
-    offset.increment();
-    h |= (b & 0x7f) << 10;
-    if (b < 0x80)
-        return h * 0x100000000 + (l >>> 0);
-    b = buf[offset.get()];
-    offset.increment();
-    h |= (b & 0x7f) << 17;
-    if (b < 0x80)
-        return h * 0x100000000 + (l >>> 0);
-    b = buf[offset.get()];
-    offset.increment();
-    h |= (b & 0x7f) << 24;
-    if (b < 0x80)
-        return h * 0x100000000 + (l >>> 0);
-    b = buf[offset.get()];
-    offset.increment();
-    h |= (b & 0x01) << 31;
-    if (b < 0x80)
-        return h * 0x100000000 + (l >>> 0);
-    throw new Error("Expected varint not more than 10 bytes");
-}
-function decodeFastPfor(encodedBytes, expectedValueCount, encodedByteLength, offset) {
-    const workspace = createFastPforWireDecodeWorkspace(encodedByteLength >>> 2);
-    return decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace);
-}
-function decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace) {
-    const inputByteOffset = offset.get();
-    if ((encodedByteLength & 3) !== 0) {
-        throw new Error(`FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`);
-    }
-    const encodedWordCount = encodedByteLength >>> 2;
-    const encodedWordBuffer = ensureFastPforWireEncodedWordsCapacity(workspace, encodedWordCount);
-    decodeBigEndianInt32sInto(encodedBytes, inputByteOffset, encodedByteLength, encodedWordBuffer);
-    const decodedValues = decodeFastPforInt32(encodedWordBuffer.subarray(0, encodedWordCount), expectedValueCount, workspace.decoderWorkspace);
-    offset.add(encodedByteLength);
-    return decodedValues;
-}
-function decodeZigZagInt32Value(encoded) {
-    return (encoded >>> 1) ^ -(encoded & 1);
-}
-function decodeZigZagInt64Value(encoded) {
-    return (encoded >> 1n) ^ -(encoded & 1n);
-}
-function decodeZigZagFloat64Value(encoded) {
-    return encoded % 2 === 1 ? (encoded + 1) / -2 : encoded / 2;
-}
-function decodeZigZagInt32(encodedData) {
-    const decodedValues = new Int32Array(encodedData.length);
-    for (let i = 0; i < encodedData.length; i++) {
-        decodedValues[i] = decodeZigZagInt32Value(encodedData[i]);
-    }
-    return decodedValues;
-}
-function decodeZigZagInt64(encodedData) {
-    const decodedValues = new BigInt64Array(encodedData.length);
-    for (let i = 0; i < encodedData.length; i++) {
-        decodedValues[i] = decodeZigZagInt64Value(encodedData[i]);
-    }
-    return decodedValues;
-}
-function decodeZigZagFloat64(encodedData) {
-    for (let i = 0; i < encodedData.length; i++) {
-        encodedData[i] = decodeZigZagFloat64Value(encodedData[i]);
-    }
-}
-function decodeUnsignedRleInt32(encodedData, numRuns, numTotalValues) {
-    // If numTotalValues not provided, calculate from runs (nullable case)
-    if (numTotalValues === undefined) {
-        numTotalValues = 0;
-        for (let i = 0; i < numRuns; i++) {
-            numTotalValues += encodedData[i];
-        }
-    }
-    const decodedValues = new Uint32Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = encodedData[i];
-        const value = encodedData[i + numRuns];
-        decodedValues.fill(value, offset, offset + runLength);
-        offset += runLength;
-    }
-    return decodedValues;
-}
-function decodeUnsignedRleInt64(encodedData, numRuns, numTotalValues) {
-    // If numTotalValues not provided, calculate from runs (nullable case)
-    if (numTotalValues === undefined) {
-        numTotalValues = 0;
-        for (let i = 0; i < numRuns; i++) {
-            numTotalValues += Number(encodedData[i]);
-        }
-    }
-    const decodedValues = new BigUint64Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = Number(encodedData[i]);
-        const value = encodedData[i + numRuns];
-        decodedValues.fill(value, offset, offset + runLength);
-        offset += runLength;
-    }
-    return decodedValues;
-}
-function decodeUnsignedRleFloat64(encodedData, numRuns, numTotalValues) {
-    const decodedValues = new Float64Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = encodedData[i];
-        const value = encodedData[i + numRuns];
-        decodedValues.fill(value, offset, offset + runLength);
-        offset += runLength;
-    }
-    return decodedValues;
-}
-/*
- * In place decoding of the zigzag encoded delta values.
- * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
- */
-function decodeZigZagDeltaInt32(data) {
-    const decodedValues = new Int32Array(data.length);
-    decodedValues[0] = decodeZigZagInt32Value(data[0]);
-    const sz0 = (data.length / 4) * 4;
-    let i = 1;
-    if (sz0 >= 4) {
-        for (; i < sz0 - 4; i += 4) {
-            const data1 = data[i];
-            const data2 = data[i + 1];
-            const data3 = data[i + 2];
-            const data4 = data[i + 3];
-            decodedValues[i] = decodeZigZagInt32Value(data1) + decodedValues[i - 1];
-            decodedValues[i + 1] = decodeZigZagInt32Value(data2) + decodedValues[i];
-            decodedValues[i + 2] = decodeZigZagInt32Value(data3) + decodedValues[i + 1];
-            decodedValues[i + 3] = decodeZigZagInt32Value(data4) + decodedValues[i + 2];
-        }
-    }
-    for (; i !== data.length; ++i) {
-        decodedValues[i] = decodeZigZagInt32Value(data[i]) + decodedValues[i - 1];
-    }
-    return decodedValues;
-}
-function decodeZigZagDeltaInt64(data) {
-    const decodedValues = new BigInt64Array(data.length);
-    decodedValues[0] = decodeZigZagInt64Value(data[0]);
-    const sz0 = (data.length / 4) * 4;
-    let i = 1;
-    if (sz0 >= 4) {
-        for (; i < sz0 - 4; i += 4) {
-            const data1 = data[i];
-            const data2 = data[i + 1];
-            const data3 = data[i + 2];
-            const data4 = data[i + 3];
-            decodedValues[i] = decodeZigZagInt64Value(data1) + decodedValues[i - 1];
-            decodedValues[i + 1] = decodeZigZagInt64Value(data2) + decodedValues[i];
-            decodedValues[i + 2] = decodeZigZagInt64Value(data3) + decodedValues[i + 1];
-            decodedValues[i + 3] = decodeZigZagInt64Value(data4) + decodedValues[i + 2];
-        }
-    }
-    for (; i !== decodedValues.length; ++i) {
-        decodedValues[i] = decodeZigZagInt64Value(data[i]) + decodedValues[i - 1];
-    }
-    return decodedValues;
-}
-function decodeZigZagDeltaFloat64(data) {
-    data[0] = decodeZigZagFloat64Value(data[0]);
-    const sz0 = (data.length / 4) * 4;
-    let i = 1;
-    if (sz0 >= 4) {
-        for (; i < sz0 - 4; i += 4) {
-            const data1 = data[i];
-            const data2 = data[i + 1];
-            const data3 = data[i + 2];
-            const data4 = data[i + 3];
-            data[i] = decodeZigZagFloat64Value(data1) + data[i - 1];
-            data[i + 1] = decodeZigZagFloat64Value(data2) + data[i];
-            data[i + 2] = decodeZigZagFloat64Value(data3) + data[i + 1];
-            data[i + 3] = decodeZigZagFloat64Value(data4) + data[i + 2];
-        }
-    }
-    for (; i !== data.length; ++i) {
-        data[i] = decodeZigZagFloat64Value(data[i]) + data[i - 1];
-    }
-}
-function decodeZigZagRleInt32(data, numRuns, numTotalValues) {
-    // If numTotalValues not provided, calculate from runs (nullable case)
-    if (numTotalValues === undefined) {
-        numTotalValues = 0;
-        for (let i = 0; i < numRuns; i++) {
-            numTotalValues += data[i];
-        }
-    }
-    const decodedValues = new Int32Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        let value = data[i + numRuns];
-        value = decodeZigZagInt32Value(value);
-        decodedValues.fill(value, offset, offset + runLength);
-        offset += runLength;
-    }
-    return decodedValues;
-}
-function decodeZigZagRleInt64(data, numRuns, numTotalValues) {
-    // If numTotalValues not provided, calculate from runs (nullable case)
-    if (numTotalValues === undefined) {
-        numTotalValues = 0;
-        for (let i = 0; i < numRuns; i++) {
-            numTotalValues += Number(data[i]);
-        }
-    }
-    const decodedValues = new BigInt64Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = Number(data[i]);
-        let value = data[i + numRuns];
-        value = decodeZigZagInt64Value(value);
-        decodedValues.fill(value, offset, offset + runLength);
-        offset += runLength;
-    }
-    return decodedValues;
-}
-function decodeZigZagRleFloat64(data, numRuns, numTotalValues) {
-    const decodedValues = new Float64Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        let value = data[i + numRuns];
-        value = decodeZigZagFloat64Value(value);
-        decodedValues.fill(value, offset, offset + runLength);
-        offset += runLength;
-    }
-    return decodedValues;
-}
-/*
- * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
- */
-function fastInverseDelta(data) {
-    const sz0 = (data.length / 4) * 4;
-    let i = 1;
-    if (sz0 >= 4) {
-        for (let a = data[0]; i < sz0 - 4; i += 4) {
-            a = data[i] += a;
-            a = data[i + 1] += a;
-            a = data[i + 2] += a;
-            a = data[i + 3] += a;
-        }
-    }
-    while (i !== data.length) {
-        data[i] += data[i - 1];
-        ++i;
-    }
-}
-function inverseDelta(data) {
-    let prevValue = 0;
-    for (let i = 0; i < data.length; i++) {
-        data[i] += prevValue;
-        prevValue = data[i];
-    }
-}
-/*
- * In place decoding of the zigzag delta encoded Vec2.
- * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
- */
-function decodeComponentwiseDeltaVec2(data) {
-    if (data.length < 2)
-        return new Int32Array(data);
-    const decodedData = new Int32Array(data.length);
-    decodedData[0] = decodeZigZagInt32Value(data[0]);
-    decodedData[1] = decodeZigZagInt32Value(data[1]);
-    const sz0 = (data.length / 4) * 4;
-    let i = 2;
-    if (sz0 >= 4) {
-        for (; i < sz0 - 4; i += 4) {
-            const x1 = data[i];
-            const y1 = data[i + 1];
-            const x2 = data[i + 2];
-            const y2 = data[i + 3];
-            decodedData[i] = decodeZigZagInt32Value(x1) + decodedData[i - 2];
-            decodedData[i + 1] = decodeZigZagInt32Value(y1) + decodedData[i - 1];
-            decodedData[i + 2] = decodeZigZagInt32Value(x2) + decodedData[i];
-            decodedData[i + 3] = decodeZigZagInt32Value(y2) + decodedData[i + 1];
-        }
-    }
-    for (; i !== data.length; i += 2) {
-        decodedData[i] = decodeZigZagInt32Value(data[i]) + decodedData[i - 2];
-        decodedData[i + 1] = decodeZigZagInt32Value(data[i + 1]) + decodedData[i - 1];
-    }
-    return decodedData;
-}
-function decodeComponentwiseDeltaVec2Scaled(data, scale, min, max) {
-    if (data.length < 2)
-        return new Int32Array(data);
-    const decodedData = new Int32Array(data.length);
-    let previousVertexX = decodeZigZagInt32Value(data[0]);
-    let previousVertexY = decodeZigZagInt32Value(data[1]);
-    decodedData[0] = clamp(Math.round(previousVertexX * scale), min, max);
-    decodedData[1] = clamp(Math.round(previousVertexY * scale), min, max);
-    const sz0 = data.length / 16;
-    let i = 2;
-    if (sz0 >= 4) {
-        for (; i < sz0 - 4; i += 4) {
-            const x1 = data[i];
-            const y1 = data[i + 1];
-            const currentVertexX = decodeZigZagInt32Value(x1) + previousVertexX;
-            const currentVertexY = decodeZigZagInt32Value(y1) + previousVertexY;
-            decodedData[i] = clamp(Math.round(currentVertexX * scale), min, max);
-            decodedData[i + 1] = clamp(Math.round(currentVertexY * scale), min, max);
-            const x2 = data[i + 2];
-            const y2 = data[i + 3];
-            previousVertexX = decodeZigZagInt32Value(x2) + currentVertexX;
-            previousVertexY = decodeZigZagInt32Value(y2) + currentVertexY;
-            decodedData[i + 2] = clamp(Math.round(previousVertexX * scale), min, max);
-            decodedData[i + 3] = clamp(Math.round(previousVertexY * scale), min, max);
-        }
-    }
-    for (; i !== data.length; i += 2) {
-        previousVertexX += decodeZigZagInt32Value(data[i]);
-        previousVertexY += decodeZigZagInt32Value(data[i + 1]);
-        decodedData[i] = clamp(Math.round(previousVertexX * scale), min, max);
-        decodedData[i + 1] = clamp(Math.round(previousVertexY * scale), min, max);
-    }
-    return decodedData;
-}
-function clamp(n, min, max) {
-    return Math.min(max, Math.max(min, n));
-}
-/* Transform data to allow util access ------------------------------------------------------------------------ */
-function decodeZigZagDeltaOfDeltaInt32(data) {
-    const decodedData = new Int32Array(data.length + 1);
-    decodedData[0] = 0;
-    decodedData[1] = decodeZigZagInt32Value(data[0]);
-    let deltaSum = decodedData[1];
-    for (let i = 2; i !== decodedData.length; ++i) {
-        const zigZagValue = data[i - 1];
-        const delta = decodeZigZagInt32Value(zigZagValue);
-        deltaSum += delta;
-        decodedData[i] = decodedData[i - 1] + deltaSum;
-    }
-    return new Uint32Array(decodedData);
-}
-function decodeZigZagRleDeltaInt32(data, numRuns, numTotalValues) {
-    const decodedValues = new Int32Array(numTotalValues + 1);
-    decodedValues[0] = 0;
-    let offset = 1;
-    let previousValue = decodedValues[0];
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        let value = data[i + numRuns];
-        value = decodeZigZagInt32Value(value);
-        for (let j = offset; j < offset + runLength; j++) {
-            decodedValues[j] = value + previousValue;
-            previousValue = decodedValues[j];
-        }
-        offset += runLength;
-    }
-    return decodedValues;
-}
-function decodeRleDeltaInt32(data, numRuns, numTotalValues) {
-    const decodedValues = new Uint32Array(numTotalValues + 1);
-    decodedValues[0] = 0;
-    let offset = 1;
-    let previousValue = decodedValues[0];
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        const value = data[i + numRuns];
-        for (let j = offset; j < offset + runLength; j++) {
-            decodedValues[j] = value + previousValue;
-            previousValue = decodedValues[j];
-        }
-        offset += runLength;
-    }
-    return decodedValues;
-}
-/**
- * Decode Delta-RLE with multiple runs by fully reconstructing values.
- *
- * @param data RLE encoded data: [run1, run2, ..., value1, value2, ...]
- * @param numRuns Number of runs in the RLE encoding
- * @param numValues Total number of values to reconstruct
- * @returns Reconstructed values with deltas applied
- */
-function decodeDeltaRleInt32(data, numRuns, numValues) {
-    const result = new Int32Array(numValues);
-    let outPos = 0;
-    let previousValue = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        const zigZagDelta = data[i + numRuns];
-        const delta = decodeZigZagInt32Value(zigZagDelta);
-        for (let j = 0; j < runLength; j++) {
-            previousValue += delta;
-            result[outPos++] = previousValue;
-        }
-    }
-    return result;
-}
-/**
- * Decode Delta-RLE with multiple runs for 64-bit integers.
- */
-function decodeDeltaRleInt64(data, numRuns, numValues) {
-    const result = new BigInt64Array(numValues);
-    let outPos = 0;
-    let previousValue = 0n;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = Number(data[i]);
-        const zigZagDelta = data[i + numRuns];
-        const delta = decodeZigZagInt64Value(zigZagDelta);
-        for (let j = 0; j < runLength; j++) {
-            previousValue += delta;
-            result[outPos++] = previousValue;
-        }
-    }
-    return result;
-}
-function decodeUnsignedZigZagDeltaInt32(data) {
-    const decodedValues = new Uint32Array(data.length);
-    decodedValues[0] = decodeZigZagInt32Value(data[0]) >>> 0;
-    for (let i = 1; i < data.length; i++) {
-        decodedValues[i] = (decodedValues[i - 1] + decodeZigZagInt32Value(data[i])) >>> 0;
-    }
-    return decodedValues;
-}
-function decodeUnsignedZigZagDeltaInt64(data) {
-    const decodedValues = new BigUint64Array(data.length);
-    decodedValues[0] = BigInt.asUintN(64, decodeZigZagInt64Value(data[0]));
-    for (let i = 1; i < data.length; i++) {
-        decodedValues[i] = BigInt.asUintN(64, decodedValues[i - 1] + decodeZigZagInt64Value(data[i]));
-    }
-    return decodedValues;
-}
-function decodeUnsignedComponentwiseDeltaVec2(data) {
-    if (data.length < 2) {
-        return new Uint32Array(data);
-    }
-    const decodedData = new Uint32Array(data.length);
-    decodedData[0] = decodeZigZagInt32Value(data[0]) >>> 0;
-    decodedData[1] = decodeZigZagInt32Value(data[1]) >>> 0;
-    for (let i = 2; i < data.length; i += 2) {
-        decodedData[i] = (decodedData[i - 2] + decodeZigZagInt32Value(data[i])) >>> 0;
-        decodedData[i + 1] = (decodedData[i - 1] + decodeZigZagInt32Value(data[i + 1])) >>> 0;
-    }
-    return decodedData;
-}
-function decodeUnsignedComponentwiseDeltaVec2Scaled(data, scale, min, max) {
-    const scaledValues = decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
-    return new Uint32Array(scaledValues);
-}
-function decodeUnsignedConstRleInt32(data) {
-    return data[1];
-}
-function decodeZigZagConstRleInt32(data) {
-    return decodeZigZagInt32Value(data[1]);
-}
-function decodeZigZagSequenceRleInt32(data) {
-    /* base value and delta value are equal */
-    if (data.length === 2) {
-        const value = decodeZigZagInt32Value(data[1]);
-        return [value, value];
-    }
-    /* base value and delta value are not equal -> 2 runs and 2 values*/
-    const base = decodeZigZagInt32Value(data[2]);
-    const delta = decodeZigZagInt32Value(data[3]);
-    return [base, delta];
-}
-function decodeUnsignedConstRleInt64(data) {
-    return data[1];
-}
-function decodeZigZagConstRleInt64(data) {
-    return decodeZigZagInt64Value(data[1]);
-}
-function decodeZigZagSequenceRleInt64(data) {
-    /* base value and delta value are equal */
-    if (data.length === 2) {
-        const value = decodeZigZagInt64Value(data[1]);
-        return [value, value];
-    }
-    /* base value and delta value are not equal -> 2 runs and 2 values*/
-    const base = decodeZigZagInt64Value(data[2]);
-    const delta = decodeZigZagInt64Value(data[3]);
-    return [base, delta];
-}
-
-var PhysicalStreamType;
-(function (PhysicalStreamType) {
-    PhysicalStreamType["PRESENT"] = "PRESENT";
-    PhysicalStreamType["DATA"] = "DATA";
-    PhysicalStreamType["OFFSET"] = "OFFSET";
-    PhysicalStreamType["LENGTH"] = "LENGTH";
-})(PhysicalStreamType || (PhysicalStreamType = {}));
-
-var DictionaryType;
-(function (DictionaryType) {
-    DictionaryType["NONE"] = "NONE";
-    DictionaryType["SINGLE"] = "SINGLE";
-    DictionaryType["SHARED"] = "SHARED";
-    DictionaryType["VERTEX"] = "VERTEX";
-    DictionaryType["MORTON"] = "MORTON";
-    DictionaryType["FSST"] = "FSST";
-})(DictionaryType || (DictionaryType = {}));
-
-var OffsetType;
-(function (OffsetType) {
-    OffsetType["VERTEX"] = "VERTEX";
-    OffsetType["INDEX"] = "INDEX";
-    OffsetType["STRING"] = "STRING";
-    OffsetType["KEY"] = "KEY";
-})(OffsetType || (OffsetType = {}));
-
-var LengthType;
-(function (LengthType) {
-    LengthType["VAR_BINARY"] = "VAR_BINARY";
-    LengthType["GEOMETRIES"] = "GEOMETRIES";
-    LengthType["PARTS"] = "PARTS";
-    LengthType["RINGS"] = "RINGS";
-    LengthType["TRIANGLES"] = "TRIANGLES";
-    LengthType["SYMBOL"] = "SYMBOL";
-    LengthType["DICTIONARY"] = "DICTIONARY";
-})(LengthType || (LengthType = {}));
-
-const PHYSICAL_STREAM_TYPE_BY_ID = [
-    PhysicalStreamType.PRESENT,
-    PhysicalStreamType.DATA,
-    PhysicalStreamType.OFFSET,
-    PhysicalStreamType.LENGTH,
-];
-const LOGICAL_LEVEL_TECHNIQUE_BY_ID = [
-    LogicalLevelTechnique.NONE,
-    LogicalLevelTechnique.DELTA,
-    LogicalLevelTechnique.COMPONENTWISE_DELTA,
-    LogicalLevelTechnique.RLE,
-    LogicalLevelTechnique.MORTON,
-    LogicalLevelTechnique.PDE,
-];
-const PHYSICAL_LEVEL_TECHNIQUE_BY_ID = [
-    PhysicalLevelTechnique.NONE,
-    PhysicalLevelTechnique.FAST_PFOR,
-    PhysicalLevelTechnique.VARINT,
-];
-const DICTIONARY_TYPE_BY_ID = [
-    DictionaryType.NONE,
-    DictionaryType.SINGLE,
-    DictionaryType.SHARED,
-    DictionaryType.VERTEX,
-    DictionaryType.MORTON,
-    DictionaryType.FSST,
-];
-const OFFSET_TYPE_BY_ID = [
-    OffsetType.VERTEX,
-    OffsetType.INDEX,
-    OffsetType.STRING,
-    OffsetType.KEY,
-];
-const LENGTH_TYPE_BY_ID = [
-    LengthType.VAR_BINARY,
-    LengthType.GEOMETRIES,
-    LengthType.PARTS,
-    LengthType.RINGS,
-    LengthType.TRIANGLES,
-    LengthType.SYMBOL,
-    LengthType.DICTIONARY,
-];
-function decodeStreamMetadata(tile, offset) {
-    const streamMetadata = decodeStreamMetadataInternal(tile, offset);
-    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.MORTON) {
-        return decodePartialMortonEncodedStreamMetadata(streamMetadata, tile, offset);
-    }
-    if ((LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique1 ||
-        LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique2) &&
-        PhysicalLevelTechnique.NONE !== streamMetadata.physicalLevelTechnique) {
-        return decodePartialRleEncodedStreamMetadata(streamMetadata, tile, offset);
-    }
-    return streamMetadata;
-}
-function decodePartialMortonEncodedStreamMetadata(streamMetadata, tile, offset) {
-    const mortonInfo = decodeVarintInt32(tile, offset, 2);
-    return {
-        physicalStreamType: streamMetadata.physicalStreamType,
-        logicalStreamType: streamMetadata.logicalStreamType,
-        logicalLevelTechnique1: streamMetadata.logicalLevelTechnique1,
-        logicalLevelTechnique2: streamMetadata.logicalLevelTechnique2,
-        physicalLevelTechnique: streamMetadata.physicalLevelTechnique,
-        numValues: streamMetadata.numValues,
-        byteLength: streamMetadata.byteLength,
-        decompressedCount: streamMetadata.decompressedCount,
-        numBits: mortonInfo[0],
-        coordinateShift: mortonInfo[1],
-    };
-}
-function decodePartialRleEncodedStreamMetadata(streamMetadata, tile, offset) {
-    const rleInfo = decodeVarintInt32(tile, offset, 2);
-    return {
-        physicalStreamType: streamMetadata.physicalStreamType,
-        logicalStreamType: streamMetadata.logicalStreamType,
-        logicalLevelTechnique1: streamMetadata.logicalLevelTechnique1,
-        logicalLevelTechnique2: streamMetadata.logicalLevelTechnique2,
-        physicalLevelTechnique: streamMetadata.physicalLevelTechnique,
-        numValues: streamMetadata.numValues,
-        byteLength: streamMetadata.byteLength,
-        decompressedCount: rleInfo[1],
-        runs: rleInfo[0],
-        numRleValues: rleInfo[1],
-    };
-}
-function decodeStreamMetadataInternal(tile, offset) {
-    const stream_type = tile[offset.get()];
-    const physicalStreamType = PHYSICAL_STREAM_TYPE_BY_ID[stream_type >> 4];
-    let logicalStreamType = {};
-    switch (physicalStreamType) {
-        case PhysicalStreamType.DATA:
-            logicalStreamType = {
-                dictionaryType: DICTIONARY_TYPE_BY_ID[stream_type & 0xf],
-            };
-            break;
-        case PhysicalStreamType.OFFSET:
-            logicalStreamType = {
-                offsetType: OFFSET_TYPE_BY_ID[stream_type & 0xf],
-            };
-            break;
-        case PhysicalStreamType.LENGTH:
-            logicalStreamType = {
-                lengthType: LENGTH_TYPE_BY_ID[stream_type & 0xf],
-            };
-            break;
-    }
-    offset.increment();
-    const encodings_header = tile[offset.get()];
-    const llt1 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header >> 5];
-    const llt2 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[(encodings_header >> 2) & 0x7];
-    const plt = PHYSICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header & 0x3];
-    offset.increment();
-    const sizeInfo = decodeVarintInt32(tile, offset, 2);
-    const numValues = sizeInfo[0];
-    const byteLength = sizeInfo[1];
-    return {
-        physicalStreamType,
-        logicalStreamType,
-        logicalLevelTechnique1: llt1,
-        logicalLevelTechnique2: llt2,
-        physicalLevelTechnique: plt,
-        numValues,
-        byteLength,
-        decompressedCount: numValues,
-    };
-}
-
-var VectorType;
-(function (VectorType) {
-    VectorType[VectorType["FLAT"] = 0] = "FLAT";
-    VectorType[VectorType["CONST"] = 1] = "CONST";
-    VectorType[VectorType["SEQUENCE"] = 2] = "SEQUENCE";
-    VectorType[VectorType["DICTIONARY"] = 3] = "DICTIONARY";
-    VectorType[VectorType["FSST_DICTIONARY"] = 4] = "FSST_DICTIONARY";
-})(VectorType || (VectorType = {}));
-
-class BitVector {
-    /**
-     * @param values The byte buffer containing the bit values in least-significant bit (LSB)
-     *     numbering
-     */
-    constructor(values, size) {
-        this.values = values;
-        this._size = size;
-    }
-    get(index) {
-        const byteIndex = Math.floor(index / 8);
-        const bitIndex = index % 8;
-        const b = this.values[byteIndex];
-        return ((b >> bitIndex) & 1) === 1;
-    }
-    set(index, value) {
-        //TODO: refactor -> improve quick and dirty solution
-        const byteIndex = Math.floor(index / 8);
-        const bitIndex = index % 8;
-        this.values[byteIndex] = this.values[byteIndex] | ((value ? 1 : 0) << bitIndex);
-    }
-    getInt(index) {
-        const byteIndex = Math.floor(index / 8);
-        const bitIndex = index % 8;
-        const b = this.values[byteIndex];
-        return (b >> bitIndex) & 1;
-    }
-    size() {
-        return this._size;
-    }
-    getBuffer() {
-        return this.values;
-    }
-}
-
-/**
- * Generic unpacking function.
- * Reconstructs the full array by inserting default values at null positions.
- *
- * @param dataStream The compact data stream containing only non-null values
- * @param presentBits BitVector indicating which positions have values (null if non-nullable)
- * @param defaultValue The default value to insert at null positions (0, 0n, etc.)
- * @returns Full array with default values at null positions
- */
-function unpackNullable(dataStream, presentBits, defaultValue) {
-    // Non-nullable case: return data stream as-is
-    if (!presentBits) {
-        return dataStream;
-    }
-    const size = presentBits.size();
-    // Create new array of same type with full size
-    const constructor = dataStream.constructor;
-    const result = new constructor(size);
-    let counter = 0;
-    for (let i = 0; i < size; i++) {
-        // If position has a value, take from data stream; otherwise use default
-        result[i] = presentBits.get(i) ? dataStream[counter++] : defaultValue;
-    }
-    return result;
-}
-/**
- * Special case for boolean columns because BitVector is not directly compatible with TypedArray.
- *
- * @param dataStream The compact BitVector data containing only non-null boolean values
- * @param dataStreamSize The number of actual values in dataStream
- * @param presentBits BitVector indicating which positions have values (null if non-nullable)
- * @returns Uint8Array buffer for BitVector with false at null positions
- */
-function unpackNullableBoolean(dataStream, dataStreamSize, presentBits) {
-    // Non-nullable case
-    if (!presentBits) {
-        return dataStream;
-    }
-    const numFeatures = presentBits.size();
-    const bitVector = new BitVector(dataStream, dataStreamSize);
-    const result = new BitVector(new Uint8Array(Math.ceil(numFeatures / 8)), numFeatures);
-    let counter = 0;
-    for (let i = 0; i < numFeatures; i++) {
-        // If position has a value, take from data stream; otherwise use false
-        const value = presentBits.get(i) ? bitVector.get(counter++) : false;
-        result.set(i, value);
-    }
-    return result.getBuffer();
-}
-
-function decodeSignedInt32Stream(data, offset, streamMetadata, scalingData, nullabilityBuffer) {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeSignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
-}
-function decodeUnsignedInt32Stream(data, offset, streamMetadata, scalingData, nullabilityBuffer) {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
-}
-function decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata) {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeLengthToOffsetBuffer(values, streamMetadata);
-}
-function decodePhysicalLevelTechnique(data, offset, streamMetadata) {
-    const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
-    switch (physicalLevelTechnique) {
-        case PhysicalLevelTechnique.FAST_PFOR:
-            return decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
-        case PhysicalLevelTechnique.VARINT:
-            return decodeVarintInt32(data, offset, streamMetadata.numValues);
-        case PhysicalLevelTechnique.NONE: {
-            const dataOffset = offset.get();
-            const byteLength = streamMetadata.byteLength;
-            offset.add(byteLength);
-            const slice = data.subarray(dataOffset, offset.get());
-            return new Uint32Array(slice);
-        }
-        default:
-            throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
-    }
-}
-function decodeSignedConstInt32Stream(data, offset, streamMetadata) {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    if (values.length === 1) {
-        return decodeZigZagInt32Value(values[0]);
-    }
-    return decodeZigZagConstRleInt32(values);
-}
-function decodeUnsignedConstInt32Stream(data, offset, streamMetadata) {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    if (values.length === 1) {
-        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA) {
-            return decodeZigZagInt32Value(values[0]);
-        }
-        return values[0];
-    }
-    return decodeUnsignedConstRleInt32(values);
-}
-function decodeSequenceInt32Stream(data, offset, streamMetadata) {
-    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeZigZagSequenceRleInt32(values);
-}
-function decodeSequenceInt64Stream(data, offset, streamMetadata) {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeZigZagSequenceRleInt64(values);
-}
-function decodeSignedInt64Stream(data, offset, streamMetadata, nullabilityBuffer) {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeSignedInt64(values, streamMetadata, nullabilityBuffer);
-}
-function decodeUnsignedInt64Stream(data, offset, streamMetadata, nullabilityBuffer) {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer);
-}
-function decodeSignedInt64AsFloat64Stream(data, offset, streamMetadata) {
-    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Values(values, streamMetadata, true);
-}
-function decodeUnsignedInt64AsFloat64Stream(data, offset, streamMetadata) {
-    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Values(values, streamMetadata, false);
-}
-function decodeSignedConstInt64Stream(data, offset, streamMetadata) {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    if (values.length === 1) {
-        return decodeZigZagInt64Value(values[0]);
-    }
-    return decodeZigZagConstRleInt64(values);
-}
-function decodeUnsignedConstInt64Stream(data, offset, streamMetadata) {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    if (values.length === 1) {
-        return values[0];
-    }
-    return decodeUnsignedConstRleInt64(values);
-}
-/**
- * This method decodes integer streams.
- * Currently the encoder uses only fixed combinations of encodings.
- * For performance reasons it is also uses a fixed combination of the encodings on the decoding side.
- * The following encodings and combinations are used:
- *   - Morton Delta -> always sorted so not ZigZag encoding needed
- *   - Delta -> currently always in combination with ZigZag encoding
- *   - Rle -> in combination with ZigZag encoding if data type is signed
- *   - Delta Rle
- *   - Componentwise Delta -> always ZigZag encoding is used
- */
-function decodeSignedInt32(values, streamMetadata, scalingData, nullabilityBuffer) {
-    let decodedValues;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata;
-                if (!nullabilityBuffer) {
-                    return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
-                values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeZigZagDeltaInt32(values);
-            }
-            else {
-                decodedValues = decodeZigZagDeltaInt32(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeZigZagRleInt32(values, streamMetadata.runs, streamMetadata.numRleValues);
-            break;
-        case LogicalLevelTechnique.MORTON:
-            fastInverseDelta(values);
-            decodedValues = new Int32Array(values);
-            break;
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !nullabilityBuffer) {
-                return decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
-            }
-            decodedValues = decodeComponentwiseDeltaVec2(values);
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = decodeZigZagInt32(values);
-            break;
-        default:
-            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
-    }
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0);
-    }
-    return decodedValues;
-}
-function decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer) {
-    let decodedValues;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata;
-                const deltaValues = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeUnsignedZigZagDeltaInt32(deltaValues);
-            }
-            else {
-                decodedValues = decodeUnsignedZigZagDeltaInt32(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeUnsignedRleInt32(values, streamMetadata.runs, streamMetadata.numRleValues);
-            break;
-        case LogicalLevelTechnique.MORTON:
-            fastInverseDelta(values);
-            decodedValues = values;
-            break;
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !nullabilityBuffer) {
-                decodedValues = decodeUnsignedComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
-            }
-            else {
-                decodedValues = decodeUnsignedComponentwiseDeltaVec2(values);
-            }
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = values;
-            break;
-        default:
-            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
-    }
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0);
-    }
-    return decodedValues;
-}
-function decodeSignedInt64(values, streamMetadata, nullabilityBuffer) {
-    let decodedValues;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata;
-                if (!nullabilityBuffer) {
-                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
-                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeZigZagDeltaInt64(values);
-            }
-            else {
-                decodedValues = decodeZigZagDeltaInt64(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeZigZagRleInt64(values, streamMetadata.runs, streamMetadata.numRleValues);
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = decodeZigZagInt64(values);
-            break;
-        default:
-            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
-    }
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
-    }
-    return decodedValues;
-}
-function decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer) {
-    let decodedValues;
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata;
-                const deltaValues = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                decodedValues = decodeUnsignedZigZagDeltaInt64(deltaValues);
-            }
-            else {
-                decodedValues = decodeUnsignedZigZagDeltaInt64(values);
-            }
-            break;
-        case LogicalLevelTechnique.RLE:
-            decodedValues = decodeUnsignedRleInt64(values, streamMetadata.runs, streamMetadata.numRleValues);
-            break;
-        case LogicalLevelTechnique.NONE:
-            decodedValues = values;
-            break;
-        default:
-            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
-    }
-    if (nullabilityBuffer) {
-        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
-    }
-    return decodedValues;
-}
-function decodeFloat64Values(values, streamMetadata, isSigned) {
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata;
-                values = decodeUnsignedRleFloat64(values, rleMetadata.runs, rleMetadata.numRleValues);
-            }
-            decodeZigZagDeltaFloat64(values);
-            return values;
-        case LogicalLevelTechnique.RLE:
-            return decodeRleFloat64(values, streamMetadata, isSigned);
-        case LogicalLevelTechnique.NONE:
-            if (isSigned) {
-                decodeZigZagFloat64(values);
-            }
-            return values;
-        default:
-            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
-    }
-}
-function decodeLengthToOffsetBuffer(values, streamMetadata) {
-    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
-        return decodeZigZagDeltaOfDeltaInt32(values);
-    }
-    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.RLE &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
-        const rleMetadata = streamMetadata;
-        return decodeRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-    }
-    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.NONE &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
-        //TODO: use fastInverseDelta again and check what are the performance problems in zoom 14
-        //fastInverseDelta(values);
-        inverseDelta(values);
-        const offsets = new Uint32Array(streamMetadata.numValues + 1);
-        offsets[0] = 0;
-        offsets.set(values, 1);
-        return offsets;
-    }
-    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-        const rleMetadata = streamMetadata;
-        const decodedValues = decodeZigZagRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-        fastInverseDelta(decodedValues);
-        return new Uint32Array(decodedValues);
-    }
-    throw new Error("Only delta encoding is supported for transforming length to offset streams yet.");
-}
-function getVectorType(streamMetadata, sizeOrNullabilityBuffer, data, offset, varintWidth = "int32") {
-    const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
-    if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
-        return streamMetadata.runs === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
-    if (logicalLevelTechnique1 !== LogicalLevelTechnique.DELTA ||
-        streamMetadata.logicalLevelTechnique2 !== LogicalLevelTechnique.RLE) {
-        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
-    const numFeatures = sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
-    const rleMetadata = streamMetadata;
-    if (rleMetadata.numRleValues !== numFeatures) {
-        return VectorType.FLAT;
-    }
-    // Single run is always a sequence
-    if (rleMetadata.runs === 1) {
-        return VectorType.SEQUENCE;
-    }
-    if (rleMetadata.runs !== 2) {
-        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
-    // Two runs can be a sequence if both deltas are equal to 1
-    const savedOffset = offset.get();
-    if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-        if (isDeltaRleSequenceVarintWidth(data, offset, varintWidth)) {
-            return VectorType.SEQUENCE;
-        }
-        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-    }
-    const byteOffset = offset.get();
-    const values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
-    offset.set(savedOffset);
-    // Check if both deltas are encoded 1
-    const zigZagOne = 2;
-    if (values[2] === zigZagOne && values[3] === zigZagOne) {
-        return VectorType.SEQUENCE;
-    }
-    return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
-}
-function isDeltaRleSequenceVarintWidth(data, offset, varintWidth) {
-    const peekOffset = new IntWrapper(offset.get());
-    if (varintWidth === "int64") {
-        const values = decodeVarintInt64(data, peekOffset, 4);
-        return values[2] === 2n && values[3] === 2n;
-    }
-    const values = decodeVarintInt32(data, peekOffset, 4);
-    return values[2] === 2 && values[3] === 2;
-}
-function decodeRleFloat64(data, streamMetadata, isSigned) {
-    return isSigned
-        ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
-}
-
-class Int64FlatVector extends FixedSizeVector {
-    getValueFromBuffer(index) {
-        return this.dataBuffer[index];
-    }
-}
-
-class Int64SequenceVector extends SequenceVector {
-    constructor(name, baseValue, delta, size) {
-        super(name, BigInt64Array.of(baseValue), delta, size);
-    }
-    getValueFromBuffer(index) {
-        return this.dataBuffer[0] + BigInt(index) * this.delta;
-    }
-}
-
-function decodeZOrderCurve(mortonCode, numBits, coordinateShift) {
-    const x = decodeMorton(mortonCode, numBits) - coordinateShift;
-    const y = decodeMorton(mortonCode >> 1, numBits) - coordinateShift;
-    return { x, y };
-}
-function decodeMorton(code, numBits) {
-    let coordinate = 0;
-    for (let i = 0; i < numBits; i++) {
-        coordinate |= (code & (1 << (2 * i))) >> i;
-    }
-    return coordinate;
-}
-
-var GEOMETRY_TYPE;
-(function (GEOMETRY_TYPE) {
-    GEOMETRY_TYPE[GEOMETRY_TYPE["POINT"] = 0] = "POINT";
-    GEOMETRY_TYPE[GEOMETRY_TYPE["LINESTRING"] = 1] = "LINESTRING";
-    GEOMETRY_TYPE[GEOMETRY_TYPE["POLYGON"] = 2] = "POLYGON";
-    GEOMETRY_TYPE[GEOMETRY_TYPE["MULTIPOINT"] = 3] = "MULTIPOINT";
-    GEOMETRY_TYPE[GEOMETRY_TYPE["MULTILINESTRING"] = 4] = "MULTILINESTRING";
-    GEOMETRY_TYPE[GEOMETRY_TYPE["MULTIPOLYGON"] = 5] = "MULTIPOLYGON";
-})(GEOMETRY_TYPE || (GEOMETRY_TYPE = {}));
-var SINGLE_PART_GEOMETRY_TYPE;
-(function (SINGLE_PART_GEOMETRY_TYPE) {
-    SINGLE_PART_GEOMETRY_TYPE[SINGLE_PART_GEOMETRY_TYPE["POINT"] = 0] = "POINT";
-    SINGLE_PART_GEOMETRY_TYPE[SINGLE_PART_GEOMETRY_TYPE["LINESTRING"] = 1] = "LINESTRING";
-    SINGLE_PART_GEOMETRY_TYPE[SINGLE_PART_GEOMETRY_TYPE["POLYGON"] = 2] = "POLYGON";
-})(SINGLE_PART_GEOMETRY_TYPE || (SINGLE_PART_GEOMETRY_TYPE = {}));
-
-var VertexBufferType;
-(function (VertexBufferType) {
-    VertexBufferType[VertexBufferType["MORTON"] = 0] = "MORTON";
-    VertexBufferType[VertexBufferType["VEC_2"] = 1] = "VEC_2";
-    VertexBufferType[VertexBufferType["VEC_3"] = 2] = "VEC_3";
-})(VertexBufferType || (VertexBufferType = {}));
-
-function convertGeometryVector(geometryVector) {
-    const geometries = new Array(geometryVector.numGeometries);
-    let partOffsetCounter = 1;
-    let ringOffsetsCounter = 1;
-    let geometryOffsetsCounter = 1;
-    let geometryCounter = 0;
-    let vertexBufferOffset = 0;
-    let vertexOffsetsOffset = 0;
-    const mortonSettings = geometryVector.mortonSettings;
-    const topologyVector = geometryVector.topologyVector;
-    const geometryOffsets = topologyVector.geometryOffsets;
-    const partOffsets = topologyVector.partOffsets;
-    const ringOffsets = topologyVector.ringOffsets;
-    const vertexOffsets = geometryVector.vertexOffsets;
-    const nonOffset = !vertexOffsets || vertexOffsets.length === 0;
-    const containsPolygon = geometryVector.containsPolygonGeometry();
-    const vertexBuffer = geometryVector.vertexBuffer;
-    for (let i = 0; i < geometryVector.numGeometries; i++) {
-        const geometryType = geometryVector.geometryType(i);
-        switch (geometryType) {
-            case GEOMETRY_TYPE.POINT:
-                {
-                    let x;
-                    let y;
-                    if (nonOffset) {
-                        x = vertexBuffer[vertexBufferOffset++];
-                        y = vertexBuffer[vertexBufferOffset++];
-                    }
-                    else if (geometryVector.vertexBufferType === VertexBufferType.MORTON) {
-                        const offset = vertexOffsets[vertexOffsetsOffset++];
-                        const mortonCode = vertexBuffer[offset];
-                        const vertex = decodeZOrderCurve(mortonCode, mortonSettings.numBits, mortonSettings.coordinateShift);
-                        x = vertex.x;
-                        y = vertex.y;
-                    }
-                    else {
-                        const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
-                        x = vertexBuffer[offset];
-                        y = vertexBuffer[offset + 1];
-                    }
-                    geometries[geometryCounter++] = [[new Point(x, y)]];
-                    if (geometryOffsets)
-                        geometryOffsetsCounter++;
-                    if (partOffsets)
-                        partOffsetCounter++;
-                    if (ringOffsets)
-                        ringOffsetsCounter++;
-                }
-                break;
-            case GEOMETRY_TYPE.MULTIPOINT:
-                {
-                    const numPoints = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                    geometryOffsetsCounter++;
-                    const points = new Array(numPoints);
-                    if (nonOffset) {
-                        for (let j = 0; j < numPoints; j++) {
-                            const x = vertexBuffer[vertexBufferOffset++];
-                            const y = vertexBuffer[vertexBufferOffset++];
-                            points[j] = new Point(x, y);
-                        }
-                    }
-                    else {
-                        for (let j = 0; j < numPoints; j++) {
-                            const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
-                            const x = vertexBuffer[offset];
-                            const y = vertexBuffer[offset + 1];
-                            points[j] = new Point(x, y);
-                        }
-                    }
-                    geometries[geometryCounter++] = points.map((point) => [point]);
-                    // MULTIPOINT must increment offset counters like POINT does
-                    partOffsetCounter += numPoints;
-                    ringOffsetsCounter += numPoints;
-                }
-                break;
-            case GEOMETRY_TYPE.LINESTRING:
-                {
-                    let numVertices;
-                    if (containsPolygon) {
-                        numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                        ringOffsetsCounter++;
-                    }
-                    else {
-                        numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                    }
-                    partOffsetCounter++;
-                    let vertices;
-                    if (nonOffset) {
-                        vertices = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, false);
-                        vertexBufferOffset += numVertices * 2;
-                    }
-                    else {
-                        vertices = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false, mortonSettings);
-                        vertexOffsetsOffset += numVertices;
-                    }
-                    geometries[geometryCounter++] = [vertices];
-                    if (geometryOffsets)
-                        geometryOffsetsCounter++;
-                }
-                break;
-            case GEOMETRY_TYPE.POLYGON:
-                {
-                    const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                    partOffsetCounter++;
-                    const rings = new Array(numRings - 1);
-                    let shell;
-                    let numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                    ringOffsetsCounter++;
-                    if (nonOffset) {
-                        shell = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, true);
-                        vertexBufferOffset += numVertices * 2;
-                        for (let j = 0; j < rings.length; j++) {
-                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            rings[j] = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, true);
-                            vertexBufferOffset += numVertices * 2;
-                        }
-                    }
-                    else {
-                        shell = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, true, mortonSettings);
-                        vertexOffsetsOffset += numVertices;
-                        for (let j = 0; j < rings.length; j++) {
-                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            rings[j] = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, true, mortonSettings);
-                            vertexOffsetsOffset += numVertices;
-                        }
-                    }
-                    geometries[geometryCounter++] = [shell].concat(rings);
-                    if (geometryOffsets)
-                        geometryOffsetsCounter++;
-                }
-                break;
-            case GEOMETRY_TYPE.MULTILINESTRING:
-                {
-                    const numLineStrings = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                    geometryOffsetsCounter++;
-                    const lineStrings = new Array(numLineStrings);
-                    for (let j = 0; j < numLineStrings; j++) {
-                        let numVertices;
-                        if (containsPolygon) {
-                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                        }
-                        else {
-                            numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                        }
-                        partOffsetCounter++;
-                        if (nonOffset) {
-                            lineStrings[j] = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, false);
-                            vertexBufferOffset += numVertices * 2;
-                        }
-                        else {
-                            const vertices = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false, mortonSettings);
-                            lineStrings[j] = vertices;
-                            vertexOffsetsOffset += numVertices;
-                        }
-                    }
-                    geometries[geometryCounter++] = lineStrings;
-                }
-                break;
-            case GEOMETRY_TYPE.MULTIPOLYGON:
-                {
-                    const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                    geometryOffsetsCounter++;
-                    const polygons = new Array(numPolygons);
-                    for (let j = 0; j < numPolygons; j++) {
-                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                        partOffsetCounter++;
-                        let shell;
-                        const rings = new Array(numRings - 1);
-                        const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                        ringOffsetsCounter++;
-                        if (nonOffset) {
-                            shell = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, true);
-                            vertexBufferOffset += numVertices * 2;
-                        }
-                        else {
-                            shell = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, true, mortonSettings);
-                            vertexOffsetsOffset += numVertices;
-                        }
-                        for (let k = 0; k < rings.length; k++) {
-                            const numRingVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            if (nonOffset) {
-                                rings[k] = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numRingVertices, true);
-                                vertexBufferOffset += numRingVertices * 2;
-                            }
-                            else {
-                                rings[k] = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numRingVertices, true, mortonSettings);
-                                vertexOffsetsOffset += numRingVertices;
-                            }
-                        }
-                        polygons[j] = [shell].concat(rings);
-                    }
-                    geometries[geometryCounter++] = polygons.flat();
-                }
-                break;
-            default:
-                throw new Error(`The specified geometry type (${geometryType}) is currently not supported.`);
-        }
-    }
-    return geometries;
-}
-function decodeDictionaryEncodedLineStringOrRing(vertexBufferType, vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString, mortonSettings) {
-    if (vertexBufferType === VertexBufferType.MORTON) {
-        return decodeMortonDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString, mortonSettings);
-    }
-    else {
-        return decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString);
-    }
-}
-function getLineStringOrRing(vertexBuffer, startIndex, numVertices, closeLineString) {
-    const vertices = new Array(closeLineString ? numVertices + 1 : numVertices);
-    for (let i = 0; i < numVertices * 2; i += 2) {
-        const x = vertexBuffer[startIndex + i];
-        const y = vertexBuffer[startIndex + i + 1];
-        vertices[i / 2] = new Point(x, y);
-    }
-    if (closeLineString) {
-        vertices[vertices.length - 1] = vertices[0];
-    }
-    return vertices;
-}
-function decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString) {
-    const vertices = new Array(closeLineString ? numVertices + 1 : numVertices);
-    for (let i = 0; i < numVertices * 2; i += 2) {
-        const offset = vertexOffsets[vertexOffset + i / 2] * 2;
-        const x = vertexBuffer[offset];
-        const y = vertexBuffer[offset + 1];
-        vertices[i / 2] = new Point(x, y);
-    }
-    if (closeLineString) {
-        vertices[vertices.length - 1] = vertices[0];
-    }
-    return vertices;
-}
-function decodeMortonDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString, mortonSettings) {
-    const vertices = new Array(closeLineString ? numVertices + 1 : numVertices);
-    for (let i = 0; i < numVertices; i++) {
-        const offset = vertexOffsets[vertexOffset + i];
-        const mortonEncodedVertex = vertexBuffer[offset];
-        const vertex = decodeZOrderCurve(mortonEncodedVertex, mortonSettings.numBits, mortonSettings.coordinateShift);
-        vertices[i] = new Point(vertex.x, vertex.y);
-    }
-    if (closeLineString) {
-        vertices[vertices.length - 1] = vertices[0];
-    }
-    return vertices;
-}
-
-class GeometryVector {
-    constructor(_vertexBufferType, _topologyVector, _vertexOffsets, _vertexBuffer, _mortonSettings) {
-        this._vertexBufferType = _vertexBufferType;
-        this._topologyVector = _topologyVector;
-        this._vertexOffsets = _vertexOffsets;
-        this._vertexBuffer = _vertexBuffer;
-        this._mortonSettings = _mortonSettings;
-    }
-    get vertexBufferType() {
-        return this._vertexBufferType;
-    }
-    get topologyVector() {
-        return this._topologyVector;
-    }
-    get vertexOffsets() {
-        return this._vertexOffsets;
-    }
-    get vertexBuffer() {
-        return this._vertexBuffer;
-    }
-    /* Allows faster access to the vertices since morton encoding is currently not used in the POC. Morton encoding
-       will be used after adapting the shader to decode the morton codes on the GPU. */
-    getSimpleEncodedVertex(index) {
-        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
-        const x = this.vertexBuffer[offset];
-        const y = this.vertexBuffer[offset + 1];
-        return [x, y];
-    }
-    //TODO: add scaling information to the constructor
-    getVertex(index) {
-        if (this.vertexOffsets && this.mortonSettings) {
-            //TODO: move decoding of the morton codes on the GPU in the vertex shader
-            const vertexOffset = this.vertexOffsets[index];
-            const mortonEncodedVertex = this.vertexBuffer[vertexOffset];
-            //TODO: improve performance -> inline calculation and move to decoding of VertexBuffer
-            const vertex = decodeZOrderCurve(mortonEncodedVertex, this.mortonSettings.numBits, this.mortonSettings.coordinateShift);
-            return [vertex.x, vertex.y];
-        }
-        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
-        const x = this.vertexBuffer[offset];
-        const y = this.vertexBuffer[offset + 1];
-        return [x, y];
-    }
-    getGeometries() {
-        return convertGeometryVector(this);
-    }
-    get mortonSettings() {
-        return this._mortonSettings;
-    }
-}
-
-function createConstGeometryVector(numGeometries, geometryType, topologyVector, vertexOffsets, vertexBuffer) {
-    return new ConstGeometryVector(numGeometries, geometryType, VertexBufferType.VEC_2, topologyVector, vertexOffsets, vertexBuffer);
-}
-function createMortonEncodedConstGeometryVector(numGeometries, geometryType, topologyVector, vertexOffsets, vertexBuffer, mortonInfo) {
-    return new ConstGeometryVector(numGeometries, geometryType, VertexBufferType.MORTON, topologyVector, vertexOffsets, vertexBuffer, mortonInfo);
-}
-class ConstGeometryVector extends GeometryVector {
-    constructor(_numGeometries, _geometryType, vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings) {
-        super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
-        this._numGeometries = _numGeometries;
-        this._geometryType = _geometryType;
-    }
-    geometryType(_index) {
-        return this._geometryType;
-    }
-    get numGeometries() {
-        return this._numGeometries;
-    }
-    containsPolygonGeometry() {
-        return this._geometryType === GEOMETRY_TYPE.POLYGON || this._geometryType === GEOMETRY_TYPE.MULTIPOLYGON;
-    }
-    containsSingleGeometryType() {
-        return true;
-    }
-}
-
-function createFlatGeometryVector(geometryTypes, topologyVector, vertexOffsets, vertexBuffer) {
-    return new FlatGeometryVector(VertexBufferType.VEC_2, geometryTypes, topologyVector, vertexOffsets, vertexBuffer);
-}
-function createFlatGeometryVectorMortonEncoded(geometryTypes, topologyVector, vertexOffsets, vertexBuffer, mortonInfo) {
-    return new FlatGeometryVector(VertexBufferType.MORTON, geometryTypes, topologyVector, vertexOffsets, vertexBuffer, mortonInfo);
-}
-class FlatGeometryVector extends GeometryVector {
-    constructor(vertexBufferType, _geometryTypes, topologyVector, vertexOffsets, vertexBuffer, mortonSettings) {
-        super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
-        this._geometryTypes = _geometryTypes;
-    }
-    geometryType(index) {
-        return this._geometryTypes[index];
-    }
-    get numGeometries() {
-        return this._geometryTypes.length;
-    }
-    containsPolygonGeometry() {
-        for (let i = 0; i < this.numGeometries; i++) {
-            if (this.geometryType(i) === GEOMETRY_TYPE.POLYGON || this.geometryType(i) === GEOMETRY_TYPE.MULTIPOLYGON) {
-                return true;
-            }
-        }
-        return false;
-    }
-    containsSingleGeometryType() {
-        return false;
-    }
-}
-
-class GpuVector {
-    constructor(_triangleOffsets, _indexBuffer, _vertexBuffer, _topologyVector) {
-        this._triangleOffsets = _triangleOffsets;
-        this._indexBuffer = _indexBuffer;
-        this._vertexBuffer = _vertexBuffer;
-        this._topologyVector = _topologyVector;
-    }
-    get triangleOffsets() {
-        return this._triangleOffsets;
-    }
-    get indexBuffer() {
-        return this._indexBuffer;
-    }
-    get vertexBuffer() {
-        return this._vertexBuffer;
-    }
-    get topologyVector() {
-        return this._topologyVector;
-    }
-    /**
-     * Returns geometries as coordinate arrays by extracting polygon outlines from topology.
-     * The vertexBuffer contains the outline vertices, separate from the tessellated triangles.
-     */
-    getGeometries() {
-        if (!this._topologyVector) {
-            throw new Error("Cannot convert GpuVector to coordinates without topology information");
-        }
-        const geometries = new Array(this.numGeometries);
-        const topology = this._topologyVector;
-        const partOffsets = topology.partOffsets;
-        const ringOffsets = topology.ringOffsets;
-        const geometryOffsets = topology.geometryOffsets;
-        // Use counters to track position in offset arrays (like Java implementation)
-        let vertexBufferOffset = 0;
-        let partOffsetCounter = 1;
-        let ringOffsetsCounter = 1;
-        let geometryOffsetsCounter = 1;
-        for (let i = 0; i < this.numGeometries; i++) {
-            const geometryType = this.geometryType(i);
-            switch (geometryType) {
-                case GEOMETRY_TYPE.POLYGON:
-                    {
-                        // Get number of rings for this polygon
-                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                        partOffsetCounter++;
-                        const rings = [];
-                        for (let j = 0; j < numRings; j++) {
-                            // Get number of vertices in this ring
-                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            const ring = [];
-                            for (let k = 0; k < numVertices; k++) {
-                                const x = this._vertexBuffer[vertexBufferOffset++];
-                                const y = this._vertexBuffer[vertexBufferOffset++];
-                                ring.push(new Point(x, y));
-                            }
-                            // Close the ring by duplicating the first vertex (MVT format requirement)
-                            if (ring.length > 0) {
-                                ring.push(ring[0]);
-                            }
-                            rings.push(ring);
-                        }
-                        geometries[i] = rings;
-                        if (geometryOffsets)
-                            geometryOffsetsCounter++;
-                    }
-                    break;
-                case GEOMETRY_TYPE.MULTIPOLYGON:
-                    {
-                        // Get number of polygons in this multipolygon
-                        const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                        geometryOffsetsCounter++;
-                        const allRings = [];
-                        for (let p = 0; p < numPolygons; p++) {
-                            // Get number of rings in this polygon
-                            const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                            partOffsetCounter++;
-                            for (let j = 0; j < numRings; j++) {
-                                // Get number of vertices in this ring
-                                const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                                ringOffsetsCounter++;
-                                const ring = [];
-                                for (let k = 0; k < numVertices; k++) {
-                                    const x = this._vertexBuffer[vertexBufferOffset++];
-                                    const y = this._vertexBuffer[vertexBufferOffset++];
-                                    ring.push(new Point(x, y));
-                                }
-                                // Close the ring by duplicating the first vertex (MVT format requirement)
-                                if (ring.length > 0) {
-                                    ring.push(ring[0]);
-                                }
-                                allRings.push(ring);
-                            }
-                        }
-                        geometries[i] = allRings;
-                    }
-                    break;
-            }
-        }
-        return geometries;
-    }
-    [Symbol.iterator]() {
-        /*for(let i = 1; i < this.triangleOffsets.length; i++) {
-           const numTriangles = this.triangleOffsets[i] - this.triangleOffsets[i-1];
-           const startIndex = this.triangleOffsets[i-1] * 3;
-           const endIndex = this.triangleOffsets[i] * 3;
-       }
-
-        while (index < this.numGeometries) {
-            yield geometries[index++];
-        }*/
-        //throw new Error("Iterator on a GpuVector is not implemented yet.");
-        return null;
-    }
-}
-
-function createConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
-    return new ConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
-}
-//TODO: extend from GeometryVector -> make topology vector optional
-class ConstGpuVector extends GpuVector {
-    constructor(_numGeometries, _geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
-        super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
-        this._numGeometries = _numGeometries;
-        this._geometryType = _geometryType;
-    }
-    geometryType(_index) {
-        return this._geometryType;
-    }
-    get numGeometries() {
-        return this._numGeometries;
-    }
-    containsSingleGeometryType() {
-        return true;
-    }
-}
-
-function createFlatGpuVector(geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
-    return new FlatGpuVector(geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
-}
-//TODO: extend from GeometryVector -> make topology vector optional
-class FlatGpuVector extends GpuVector {
-    constructor(_geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
-        super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
-        this._geometryTypes = _geometryTypes;
-    }
-    geometryType(index) {
-        return this._geometryTypes[index];
-    }
-    get numGeometries() {
-        return this._geometryTypes.length;
-    }
-    containsSingleGeometryType() {
-        return false;
-    }
-}
-
-// TODO: get rid of numFeatures parameter
-function decodeGeometryColumn(tile, numStreams, offset, numFeatures, scalingData) {
-    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
-    const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
-    let vertexOffsets;
-    let vertexBuffer;
-    let mortonSettings;
-    let indexBuffer;
-    if (geometryTypesVectorType === VectorType.CONST) {
-        /* All geometries in the column have the same geometry type */
-        const geometryType = decodeUnsignedConstInt32Stream(tile, offset, geometryTypeMetadata);
-        // Variables for const geometry path (directly decoded as offsets)
-        let geometryOffsets;
-        let partOffsets;
-        let ringOffsets;
-        //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
-        // in one FeatureTable?
-        let triangleOffsets;
-        for (let i = 0; i < numStreams - 1; i++) {
-            const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
-            switch (geometryStreamMetadata.physicalStreamType) {
-                case PhysicalStreamType.LENGTH:
-                    switch (geometryStreamMetadata.logicalStreamType.lengthType) {
-                        case LengthType.GEOMETRIES:
-                            geometryOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
-                            break;
-                        case LengthType.PARTS:
-                            partOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
-                            break;
-                        case LengthType.RINGS:
-                            ringOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
-                            break;
-                        case LengthType.TRIANGLES:
-                            triangleOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
-                    }
-                    break;
-                case PhysicalStreamType.OFFSET: {
-                    switch (geometryStreamMetadata.logicalStreamType.offsetType) {
-                        case OffsetType.VERTEX:
-                            vertexOffsets = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                            break;
-                        case OffsetType.INDEX:
-                            indexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                            break;
-                    }
-                    break;
-                }
-                case PhysicalStreamType.DATA: {
-                    if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
-                        vertexBuffer = decodeSignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
-                    }
-                    else {
-                        const mortonMetadata = geometryStreamMetadata;
-                        mortonSettings = {
-                            numBits: mortonMetadata.numBits,
-                            coordinateShift: mortonMetadata.coordinateShift,
-                        };
-                        vertexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
-                    }
-                    break;
-                }
-            }
-        }
-        if (indexBuffer) {
-            if (geometryOffsets !== undefined || partOffsets !== undefined) {
-                /* Case when the indices of a Polygon outline are encoded in the tile */
-                const topologyVector = { geometryOffsets, partOffsets, ringOffsets };
-                return createConstGpuVector(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
-            }
-            /* Case when the no Polygon outlines are encoded in the tile */
-            return createConstGpuVector(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer);
-        }
-        return mortonSettings === undefined
-            ? /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
-                createConstGeometryVector(numFeatures, geometryType, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer)
-            : createMortonEncodedConstGeometryVector(numFeatures, geometryType, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer, mortonSettings);
-    }
-    /* Different geometry types are mixed in the geometry column */
-    const geometryTypeVector = decodeUnsignedInt32Stream(tile, offset, geometryTypeMetadata);
-    // Variables for flat geometry path (decoded as lengths, then converted to offsets)
-    let geometryLengths;
-    let partLengths;
-    let ringLengths;
-    //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
-    // in one FeatureTable?
-    let triangleOffsets;
-    for (let i = 0; i < numStreams - 1; i++) {
-        const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
-        switch (geometryStreamMetadata.physicalStreamType) {
-            case PhysicalStreamType.LENGTH:
-                switch (geometryStreamMetadata.logicalStreamType.lengthType) {
-                    case LengthType.GEOMETRIES:
-                        geometryLengths = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                        break;
-                    case LengthType.PARTS:
-                        partLengths = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                        break;
-                    case LengthType.RINGS:
-                        ringLengths = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                        break;
-                    case LengthType.TRIANGLES:
-                        triangleOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
-                }
-                break;
-            case PhysicalStreamType.OFFSET:
-                switch (geometryStreamMetadata.logicalStreamType.offsetType) {
-                    case OffsetType.VERTEX:
-                        vertexOffsets = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                        break;
-                    case OffsetType.INDEX:
-                        indexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
-                        break;
-                }
-                break;
-            case PhysicalStreamType.DATA:
-                if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
-                    vertexBuffer = decodeSignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
-                }
-                else {
-                    const mortonMetadata = geometryStreamMetadata;
-                    mortonSettings = {
-                        numBits: mortonMetadata.numBits,
-                        coordinateShift: mortonMetadata.coordinateShift,
-                    };
-                    vertexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
-                }
-                break;
-        }
-    }
-    // TODO: refactor the following instructions -> decode in one pass for performance reasons
-    /* Calculate the offsets from the length buffer for util access */
-    let geometryOffsets;
-    let partOffsets;
-    let ringOffsets;
-    if (geometryLengths) {
-        geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryLengths, 2);
-        if (partLengths && ringLengths) {
-            partOffsets = decodeLevel1LengthStream(geometryTypeVector, geometryOffsets, partLengths, false);
-            ringOffsets = decodeLevel2LengthStream(geometryTypeVector, geometryOffsets, partOffsets, ringLengths);
-        }
-        else if (partLengths) {
-            partOffsets = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partLengths);
-        }
-    }
-    else if (partLengths && ringLengths) {
-        partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 1);
-        ringOffsets = decodeLevel1LengthStream(geometryTypeVector, partOffsets, ringLengths, true);
-    }
-    else if (partLengths) {
-        partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 0);
-    }
-    if (indexBuffer && !partOffsets) {
-        /* Case when the indices of a Polygon outline are not encoded in the data so no
-         *  topology data are present in the tile */
-        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
-    }
-    if (indexBuffer) {
-        /* Case when the indices of a Polygon outline are encoded in the tile */
-        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer, {
-            geometryOffsets,
-            partOffsets,
-            ringOffsets,
-        });
-    }
-    return mortonSettings === undefined /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
-        ? createFlatGeometryVector(geometryTypeVector, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer)
-        : createFlatGeometryVectorMortonEncoded(geometryTypeVector, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer, mortonSettings);
-}
-/*
- * Handle the parsing of the different topology length buffers separate not generic to reduce the
- * branching and improve the performance
- */
-function decodeRootLengthStream(geometryTypes, rootLengthStream, bufferId) {
-    const rootBufferOffsets = new Uint32Array(geometryTypes.length + 1);
-    let previousOffset = 0;
-    rootBufferOffsets[0] = previousOffset;
-    let rootLengthCounter = 0;
-    for (let i = 0; i < geometryTypes.length; i++) {
-        /* Test if the geometry has and entry in the root buffer
-         * BufferId: 2 GeometryOffsets -> MultiPolygon, MultiLineString, MultiPoint
-         * BufferId: 1 PartOffsets -> Polygon
-         * BufferId: 0 PartOffsets, RingOffsets -> LineString
-         * */
-        previousOffset = rootBufferOffsets[i + 1] =
-            previousOffset + (geometryTypes[i] > bufferId ? rootLengthStream[rootLengthCounter++] : 1);
-    }
-    return rootBufferOffsets;
-}
-function decodeLevel1LengthStream(geometryTypes, rootOffsetBuffer, level1LengthBuffer, isLineStringPresent) {
-    const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
-    let previousOffset = 0;
-    level1BufferOffsets[0] = previousOffset;
-    let level1BufferCounter = 1;
-    let level1LengthBufferCounter = 0;
-    for (let i = 0; i < geometryTypes.length; i++) {
-        const geometryType = geometryTypes[i];
-        const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
-        if (geometryType === 5 ||
-            geometryType === 2 ||
-            (isLineStringPresent && (geometryType === 4 || geometryType === 1))) {
-            /* For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
-             * a value in the level1LengthBuffer exists */
-            for (let j = 0; j < numGeometries; j++) {
-                previousOffset = level1BufferOffsets[level1BufferCounter++] =
-                    previousOffset + level1LengthBuffer[level1LengthBufferCounter++];
-            }
-        }
-        else {
-            /* For MultiPoint and Point and in some cases for MultiLineString and LineString no value in the
-             * level1LengthBuffer exists */
-            for (let j = 0; j < numGeometries; j++) {
-                level1BufferOffsets[level1BufferCounter++] = ++previousOffset;
-            }
-        }
-    }
-    return level1BufferOffsets;
-}
-/*
- * Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
- */
-function decodeLevel1WithoutRingBufferLengthStream(geometryTypes, rootOffsetBuffer, level1LengthBuffer) {
-    const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
-    let previousOffset = 0;
-    level1BufferOffsets[0] = previousOffset;
-    let level1OffsetBufferCounter = 1;
-    let level1LengthCounter = 0;
-    for (let i = 0; i < geometryTypes.length; i++) {
-        const geometryType = geometryTypes[i];
-        const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
-        if (geometryType === 4 || geometryType === 1) {
-            /* For MultiLineString and LineString a value in the level1LengthBuffer exists */
-            for (let j = 0; j < numGeometries; j++) {
-                previousOffset = level1BufferOffsets[level1OffsetBufferCounter++] =
-                    previousOffset + level1LengthBuffer[level1LengthCounter++];
-            }
-        }
-        else {
-            /* For MultiPoint and Point no value in level1LengthBuffer exists */
-            for (let j = 0; j < numGeometries; j++) {
-                level1BufferOffsets[level1OffsetBufferCounter++] = ++previousOffset;
-            }
-        }
-    }
-    return level1BufferOffsets;
-}
-function decodeLevel2LengthStream(geometryTypes, rootOffsetBuffer, level1OffsetBuffer, level2LengthBuffer) {
-    const level2BufferOffsets = new Uint32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
-    let previousOffset = 0;
-    level2BufferOffsets[0] = previousOffset;
-    let level1OffsetBufferCounter = 1;
-    let level2OffsetBufferCounter = 1;
-    let level2LengthBufferCounter = 0;
-    for (let i = 0; i < geometryTypes.length; i++) {
-        const geometryType = geometryTypes[i];
-        const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
-        if (geometryType !== 0 && geometryType !== 3) {
-            /* For MultiPolygon, MultiLineString, Polygon and LineString a value in level2LengthBuffer
-             * exists */
-            for (let j = 0; j < numGeometries; j++) {
-                const numParts = level1OffsetBuffer[level1OffsetBufferCounter] - level1OffsetBuffer[level1OffsetBufferCounter - 1];
-                level1OffsetBufferCounter++;
-                for (let k = 0; k < numParts; k++) {
-                    previousOffset = level2BufferOffsets[level2OffsetBufferCounter++] =
-                        previousOffset + level2LengthBuffer[level2LengthBufferCounter++];
-                }
-            }
-        }
-        else {
-            /* For MultiPoint and Point no value in level2LengthBuffer exists */
-            for (let j = 0; j < numGeometries; j++) {
-                level2BufferOffsets[level2OffsetBufferCounter++] = ++previousOffset;
-                level1OffsetBufferCounter++;
-            }
-        }
-    }
-    return level2BufferOffsets;
-}
-
-class BooleanFlatVector extends Vector {
-    constructor(name, dataVector, sizeOrNullabilityBuffer) {
-        super(name, dataVector.getBuffer(), sizeOrNullabilityBuffer);
-        this.dataVector = dataVector;
-    }
-    getValueFromBuffer(index) {
-        return this.dataVector.get(index);
-    }
-}
-
-class FloatFlatVector extends FixedSizeVector {
-    getValueFromBuffer(index) {
-        return this.dataBuffer[index];
-    }
-}
-
-class Int64ConstVector extends Vector {
-    constructor(name, value, sizeOrNullabilityBuffer, isSigned) {
-        super(name, isSigned ? BigInt64Array.of(value) : BigUint64Array.of(value), sizeOrNullabilityBuffer);
-    }
-    getValueFromBuffer(_index) {
-        return this.dataBuffer[0];
-    }
-}
-
-function skipColumn(numStreams, tile, offset) {
-    //TODO: add size of column in Mlt for fast skipping
-    for (let i = 0; i < numStreams; i++) {
-        const streamMetadata = decodeStreamMetadata(tile, offset);
-        offset.add(streamMetadata.byteLength);
-    }
-}
-function decodeBooleanRle(buffer, numBooleans, byteLength, pos, nullabilityBuffer) {
-    const numBytes = Math.ceil(numBooleans / 8.0);
-    const values = decodeByteRle(buffer, numBytes, byteLength, pos);
-    if (nullabilityBuffer) {
-        return unpackNullableBoolean(values, numBooleans, nullabilityBuffer);
-    }
-    return values;
-}
-function decodeByteRle(buffer, numBytes, byteLength, pos) {
-    const values = new Uint8Array(numBytes);
-    let valueOffset = 0;
-    const streamEndPos = pos.get() + byteLength;
-    while (valueOffset < numBytes) {
-        if (pos.get() >= streamEndPos) {
-            break;
-        }
-        const header = buffer[pos.increment()];
-        /* Runs */
-        if (header <= 0x7f) {
-            const numRuns = header + 3;
-            const value = buffer[pos.increment()];
-            const endValueOffset = Math.min(valueOffset + numRuns, numBytes);
-            values.fill(value, valueOffset, endValueOffset);
-            valueOffset = endValueOffset;
-        }
-        else {
-            /* Literals */
-            const numLiterals = 256 - header;
-            for (let i = 0; i < numLiterals && valueOffset < numBytes; i++) {
-                values[valueOffset++] = buffer[pos.increment()];
-            }
-        }
-    }
-    pos.set(streamEndPos);
-    return values;
-}
-function decodeFloatsLE(encodedValues, pos, numValues, nullabilityBuffer) {
-    const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float32Array(newBuf);
-    pos.set(newOffset);
-    if (nullabilityBuffer) {
-        return unpackNullable(fb, nullabilityBuffer, 0);
-    }
-    return fb;
-}
-function decodeDoublesLE(encodedValues, pos, numValues, nullabilityBuffer) {
-    const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float64Array(newBuf);
-    pos.set(newOffset);
-    if (nullabilityBuffer) {
-        return unpackNullable(fb, nullabilityBuffer, 0);
-    }
-    return fb;
-}
-const TEXT_DECODER_MIN_LENGTH$1 = 12;
-const utf8TextDecoder$1 = new TextDecoder();
-// Source: https://github.com/mapbox/pbf/issues/106
-function decodeString$2(buf, pos, end) {
-    if (end - pos >= TEXT_DECODER_MIN_LENGTH$1) {
-        // longer strings are fast with the built-in browser TextDecoder API
-        return utf8TextDecoder$1.decode(buf.subarray(pos, end));
-    }
-    // short strings are fast with custom implementation
-    return readUtf8$1(buf, pos, end);
-}
-function readUtf8$1(buf, pos, end) {
-    let str = "";
-    let i = pos;
-    while (i < end) {
-        const b0 = buf[i];
-        let c = null; // codepoint
-        let bytesPerSequence = b0 > 0xef ? 4 : b0 > 0xdf ? 3 : b0 > 0xbf ? 2 : 1;
-        if (i + bytesPerSequence > end)
-            break;
-        let b1;
-        let b2;
-        let b3;
-        if (bytesPerSequence === 1) {
-            if (b0 < 0x80) {
-                c = b0;
-            }
-        }
-        else if (bytesPerSequence === 2) {
-            b1 = buf[i + 1];
-            if ((b1 & 0xc0) === 0x80) {
-                c = ((b0 & 0x1f) << 0x6) | (b1 & 0x3f);
-                if (c <= 0x7f) {
-                    c = null;
-                }
-            }
-        }
-        else if (bytesPerSequence === 3) {
-            b1 = buf[i + 1];
-            b2 = buf[i + 2];
-            if ((b1 & 0xc0) === 0x80 && (b2 & 0xc0) === 0x80) {
-                c = ((b0 & 0xf) << 0xc) | ((b1 & 0x3f) << 0x6) | (b2 & 0x3f);
-                if (c <= 0x7ff || (c >= 0xd800 && c <= 0xdfff)) {
-                    c = null;
-                }
-            }
-        }
-        else if (bytesPerSequence === 4) {
-            b1 = buf[i + 1];
-            b2 = buf[i + 2];
-            b3 = buf[i + 3];
-            if ((b1 & 0xc0) === 0x80 && (b2 & 0xc0) === 0x80 && (b3 & 0xc0) === 0x80) {
-                c = ((b0 & 0xf) << 0x12) | ((b1 & 0x3f) << 0xc) | ((b2 & 0x3f) << 0x6) | (b3 & 0x3f);
-                if (c <= 0xffff || c >= 0x110000) {
-                    c = null;
-                }
-            }
-        }
-        if (c === null) {
-            c = 0xfffd;
-            bytesPerSequence = 1;
-        }
-        else if (c > 0xffff) {
-            c -= 0x10000;
-            str += String.fromCharCode(((c >>> 10) & 0x3ff) | 0xd800);
-            c = 0xdc00 | (c & 0x3ff);
-        }
-        str += String.fromCharCode(c);
-        i += bytesPerSequence;
-    }
-    return str;
-}
-function getVectorTypeBooleanStream(numFeatures, byteLength, data, offset) {
-    const valuesPerRun = 0x83;
-    // TODO: use VectorType metadata field for to test which VectorType is used
-    return Math.ceil(numFeatures / valuesPerRun) * 2 === byteLength &&
-        /* Test the first value byte if all bits are set to true */
-        (data[offset.get() + 1] & 0xff) === (bitCount(numFeatures) << 2) - 1
-        ? VectorType.CONST
-        : VectorType.FLAT;
-}
-function bitCount(number) {
-    //TODO: refactor to get rid of special case handling
-    return number === 0 ? 1 : Math.floor(Math.log2(number) + 1);
-}
-
-class VariableSizeVector extends Vector {
-    constructor(name, offsetBuffer, dataBuffer, sizeOrNullabilityBuffer) {
-        super(name, dataBuffer, sizeOrNullabilityBuffer);
-        this.offsetBuffer = offsetBuffer;
-    }
-}
-
-class StringFlatVector extends VariableSizeVector {
-    constructor(name, offsetBuffer, dataBuffer, nullabilityBuffer) {
-        super(name, offsetBuffer, dataBuffer, nullabilityBuffer ?? offsetBuffer.length - 1);
-    }
-    getValueFromBuffer(index) {
-        const start = this.offsetBuffer[index];
-        const end = this.offsetBuffer[index + 1];
-        return decodeString$2(this.dataBuffer, start, end);
-    }
-}
-
-class StringDictionaryVector extends VariableSizeVector {
-    constructor(name, indexBuffer, offsetBuffer, dictionaryBuffer, nullabilityBuffer) {
-        super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
-        this.indexBuffer = indexBuffer;
-        this.indexBuffer = indexBuffer;
-    }
-    getValueFromBuffer(index) {
-        const offset = this.indexBuffer[index];
-        const start = this.offsetBuffer[offset];
-        const end = this.offsetBuffer[offset + 1];
-        return decodeString$2(this.dataBuffer, start, end);
-    }
-}
-
-/**
- * Decode FSST compressed data
- *
- * @param symbols           Array of symbols, where each symbol can be between 1 and 8 bytes
- * @param symbolLengths     Array of symbol lengths, length of each symbol in symbols array
- * @param compressedData    FSST Compressed data, where each entry is an index to the symbols array
- * @returns                 Decoded data as Uint8Array
- */
-//TODO: improve -> quick and dirty implementation
-function decodeFsst(symbols, symbolLengths, compressedData) {
-    //TODO: use typed array directly
-    const decodedData = [];
-    const symbolOffsets = new Array(symbolLengths.length).fill(0);
-    for (let i = 1; i < symbolLengths.length; i++) {
-        symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
-    }
-    for (let i = 0; i < compressedData.length; i++) {
-        if (compressedData[i] === 255) {
-            decodedData.push(compressedData[++i]);
-        }
-        else {
-            const symbolLength = symbolLengths[compressedData[i]];
-            const symbolOffset = symbolOffsets[compressedData[i]];
-            for (let j = 0; j < symbolLength; j++) {
-                decodedData.push(symbols[symbolOffset + j]);
-            }
-        }
-    }
-    return new Uint8Array(decodedData);
-}
-
-class StringFsstDictionaryVector extends VariableSizeVector {
-    constructor(name, indexBuffer, offsetBuffer, dictionaryBuffer, symbolOffsetBuffer, symbolTableBuffer, nullabilityBuffer) {
-        super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
-        this.indexBuffer = indexBuffer;
-        this.symbolOffsetBuffer = symbolOffsetBuffer;
-        this.symbolTableBuffer = symbolTableBuffer;
-    }
-    getValueFromBuffer(index) {
-        if (this.decodedDictionary == null) {
-            if (this.symbolLengthBuffer == null) {
-                // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
-                this.symbolLengthBuffer = this.offsetToLengthBuffer(this.symbolOffsetBuffer);
-            }
-            this.decodedDictionary = decodeFsst(this.symbolTableBuffer, this.symbolLengthBuffer, this.dataBuffer);
-        }
-        const offset = this.indexBuffer[index];
-        const start = this.offsetBuffer[offset];
-        const end = this.offsetBuffer[offset + 1];
-        return decodeString$2(this.decodedDictionary, start, end);
-    }
-    // TODO: get rid of that conversion
-    offsetToLengthBuffer(offsetBuffer) {
-        const lengthBuffer = new Uint32Array(offsetBuffer.length - 1);
-        let previousOffset = offsetBuffer[0];
-        for (let i = 1; i < offsetBuffer.length; i++) {
-            const offset = offsetBuffer[i];
-            lengthBuffer[i - 1] = offset - previousOffset;
-            previousOffset = offset;
-        }
-        return lengthBuffer;
-    }
-}
-
-function decodeString$1(name, data, offset, numStreams, bitVector) {
-    let dictionaryLengthStream = null;
-    let offsetStream = null;
-    let dictionaryStream = null;
-    let symbolLengthStream = null;
-    let symbolTableStream = null;
-    let nullabilityBuffer = bitVector ?? null;
-    let plainLengthStream = null;
-    let plainDataStream = null;
-    for (let i = 0; i < numStreams; i++) {
-        const streamMetadata = decodeStreamMetadata(data, offset);
-        switch (streamMetadata.physicalStreamType) {
-            case PhysicalStreamType.PRESENT: {
-                const presentData = decodeBooleanRle(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
-                const presentStream = new BitVector(presentData, streamMetadata.numValues);
-                nullabilityBuffer = bitVector ?? presentStream;
-                break;
-            }
-            case PhysicalStreamType.OFFSET: {
-                offsetStream = decodeUnsignedInt32Stream(data, offset, streamMetadata, undefined, nullabilityBuffer);
-                break;
-            }
-            case PhysicalStreamType.LENGTH: {
-                const lengthStream = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
-                if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
-                    dictionaryLengthStream = lengthStream;
-                }
-                else if (LengthType.SYMBOL === streamMetadata.logicalStreamType.lengthType) {
-                    symbolLengthStream = lengthStream;
-                }
-                else {
-                    // Plain string encoding uses VAR_BINARY length type
-                    plainLengthStream = lengthStream;
-                }
-                break;
-            }
-            case PhysicalStreamType.DATA: {
-                const dataStream = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
-                offset.add(streamMetadata.byteLength);
-                const dictType = streamMetadata.logicalStreamType.dictionaryType;
-                if (DictionaryType.FSST === dictType) {
-                    symbolTableStream = dataStream;
-                }
-                else if (DictionaryType.SINGLE === dictType || DictionaryType.SHARED === dictType) {
-                    dictionaryStream = dataStream;
-                }
-                else if (DictionaryType.NONE === dictType) {
-                    plainDataStream = dataStream;
-                }
-                break;
-            }
-        }
-    }
-    return (decodeFsstDictionaryVector(name, symbolTableStream, offsetStream, dictionaryLengthStream, dictionaryStream, symbolLengthStream, nullabilityBuffer) ??
-        decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
-        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer));
-}
-function decodeFsstDictionaryVector(name, symbolTableStream, offsetStream, dictionaryLengthStream, dictionaryStream, symbolLengthStream, nullabilityBuffer) {
-    if (!symbolTableStream) {
-        return null;
-    }
-    return new StringFsstDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, symbolLengthStream, symbolTableStream, nullabilityBuffer);
-}
-function decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) {
-    if (!dictionaryStream) {
-        return null;
-    }
-    return nullabilityBuffer
-        ? new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, nullabilityBuffer)
-        : new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream);
-}
-function decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer) {
-    if (!plainLengthStream || !plainDataStream) {
-        return null;
-    }
-    if (offsetStream) {
-        return nullabilityBuffer
-            ? new StringDictionaryVector(name, offsetStream, plainLengthStream, plainDataStream, nullabilityBuffer)
-            : new StringDictionaryVector(name, offsetStream, plainLengthStream, plainDataStream);
-    }
-    if (nullabilityBuffer && nullabilityBuffer.size() !== plainLengthStream.length - 1) {
-        const sparseOffsetStream = new Uint32Array(nullabilityBuffer.size());
-        let valueIndex = 0;
-        for (let i = 0; i < nullabilityBuffer.size(); i++) {
-            if (nullabilityBuffer.get(i)) {
-                sparseOffsetStream[i] = valueIndex++;
-            }
-            else {
-                sparseOffsetStream[i] = 0;
-            }
-        }
-        return new StringDictionaryVector(name, sparseOffsetStream, plainLengthStream, plainDataStream, nullabilityBuffer);
-    }
-    return nullabilityBuffer
-        ? new StringFlatVector(name, plainLengthStream, plainDataStream, nullabilityBuffer)
-        : new StringFlatVector(name, plainLengthStream, plainDataStream);
-}
-function decodeSharedDictionary(data, offset, column, propertyColumnNames) {
-    let dictionaryOffsetBuffer = null;
-    let dictionaryBuffer = null;
-    let symbolOffsetBuffer = null;
-    let symbolTableBuffer = null;
-    let dictionaryStreamDecoded = false;
-    while (!dictionaryStreamDecoded) {
-        const streamMetadata = decodeStreamMetadata(data, offset);
-        switch (streamMetadata.physicalStreamType) {
-            case PhysicalStreamType.LENGTH:
-                if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
-                    dictionaryOffsetBuffer = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
-                }
-                else {
-                    symbolOffsetBuffer = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
-                }
-                break;
-            case PhysicalStreamType.DATA:
-                if (DictionaryType.SINGLE === streamMetadata.logicalStreamType.dictionaryType ||
-                    DictionaryType.SHARED === streamMetadata.logicalStreamType.dictionaryType) {
-                    dictionaryBuffer = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
-                    dictionaryStreamDecoded = true;
-                }
-                else {
-                    symbolTableBuffer = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
-                }
-                offset.add(streamMetadata.byteLength);
-                break;
-        }
-    }
-    const childFields = column.complexType.children;
-    const stringDictionaryVectors = [];
-    let i = 0;
-    for (const childField of childFields) {
-        const numStreams = decodeVarintInt32(data, offset, 1)[0];
-        if (numStreams === 0) {
-            /* Column is not present in the tile */
-            continue;
-        }
-        const columnName = childField.name ? `${column.name}${childField.name}` : column.name;
-        if (propertyColumnNames) {
-            if (!propertyColumnNames.has(columnName)) {
-                //TODO: add size of sub column to Mlt for faster skipping
-                skipColumn(numStreams, data, offset);
-                continue;
-            }
-        }
-        if (childField.type !== "scalarField" || childField.scalarField.physicalType !== ScalarType.STRING) {
-            throw new Error("Currently only scalar string fields are implemented for a struct.");
-        }
-        if ((numStreams > 1 && !childField.nullable) || (numStreams === 1 && childField.nullable)) {
-            throw new Error(`The number of streams for the child field ${childField.name} does not match its nullability. nullibilty: ${childField.nullable}, numStreams: ${numStreams}`);
-        }
-        let presentStreamBitVector;
-        if (childField.nullable) {
-            const presentStreamMetadata = decodeStreamMetadata(data, offset);
-            const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
-            presentStreamBitVector = new BitVector(presentStream, presentStreamMetadata.numValues);
-        }
-        const offsetStreamMetadata = decodeStreamMetadata(data, offset);
-        const offsetStream = decodeUnsignedInt32Stream(data, offset, offsetStreamMetadata, undefined, presentStreamBitVector);
-        stringDictionaryVectors[i++] = symbolTableBuffer
-            ? new StringFsstDictionaryVector(columnName, offsetStream, dictionaryOffsetBuffer, dictionaryBuffer, symbolOffsetBuffer, symbolTableBuffer, presentStreamBitVector)
-            : new StringDictionaryVector(columnName, offsetStream, dictionaryOffsetBuffer, dictionaryBuffer, presentStreamBitVector);
-    }
-    return stringDictionaryVectors;
-}
-
-function decodePropertyColumn(data, offset, columnMetadata, numStreams, numFeatures, propertyColumnNames) {
-    if (columnMetadata.type === "scalarType") {
-        if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
-            skipColumn(numStreams, data, offset);
-            return null;
-        }
-        return decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, columnMetadata.scalarType, columnMetadata);
-    }
-    if (numStreams === 0) {
-        return null;
-    }
-    return decodeSharedDictionary(data, offset, columnMetadata, propertyColumnNames);
-}
-function decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, column, columnMetadata) {
-    let nullabilityBuffer = null;
-    if (numStreams === 0) {
-        return null;
-    }
-    if (columnMetadata.nullable) {
-        const presentStreamMetadata = decodeStreamMetadata(data, offset);
-        const numValues = presentStreamMetadata.numValues;
-        const streamDataStart = offset.get();
-        const presentVector = decodeBooleanRle(data, numValues, presentStreamMetadata.byteLength, offset);
-        offset.set(streamDataStart + presentStreamMetadata.byteLength);
-        nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues);
-    }
-    const sizeOrNullabilityBuffer = nullabilityBuffer ?? numFeatures;
-    const scalarType = column.physicalType;
-    switch (scalarType) {
-        case ScalarType.UINT_32:
-        case ScalarType.INT_32:
-            return decodeInt32Column(data, offset, columnMetadata, column, sizeOrNullabilityBuffer);
-        case ScalarType.STRING: {
-            // In embedded format: numStreams includes nullability stream if column is nullable
-            const stringDataStreams = columnMetadata.nullable ? numStreams - 1 : numStreams;
-            return decodeString$1(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer);
-        }
-        case ScalarType.BOOLEAN:
-            return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, sizeOrNullabilityBuffer);
-        case ScalarType.UINT_64:
-        case ScalarType.INT_64:
-            return decodeInt64Column(data, offset, columnMetadata, sizeOrNullabilityBuffer, column);
-        case ScalarType.FLOAT:
-            return decodeFloatColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
-        case ScalarType.DOUBLE:
-            return decodeDoubleColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
-        default:
-            throw new Error(`The specified data type for the field is currently not supported: ${column}`);
-    }
-}
-function decodeBooleanColumn(data, offset, column, _numFeatures, sizeOrNullabilityBuffer) {
-    const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const numValues = dataStreamMetadata.numValues;
-    const streamDataStart = offset.get();
-    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-    const dataStream = decodeBooleanRle(data, numValues, dataStreamMetadata.byteLength, offset, nullabilityBuffer);
-    offset.set(streamDataStart + dataStreamMetadata.byteLength);
-    const dataVector = new BitVector(dataStream, numValues);
-    return new BooleanFlatVector(column.name, dataVector, sizeOrNullabilityBuffer);
-}
-function decodeFloatColumn(data, offset, column, sizeOrNullabilityBuffer) {
-    const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-    const dataStream = decodeFloatsLE(data, offset, dataStreamMetadata.numValues, nullabilityBuffer);
-    return new FloatFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
-}
-function decodeDoubleColumn(data, offset, column, sizeOrNullabilityBuffer) {
-    const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-    const dataStream = decodeDoublesLE(data, offset, dataStreamMetadata.numValues, nullabilityBuffer);
-    return new DoubleFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
-}
-function decodeInt64Column(data, offset, column, sizeOrNullabilityBuffer, scalarColumn) {
-    const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset, "int64");
-    const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
-    if (vectorType === VectorType.FLAT) {
-        const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-        const dataStream = isSigned
-            ? decodeSignedInt64Stream(data, offset, dataStreamMetadata, nullabilityBuffer)
-            : decodeUnsignedInt64Stream(data, offset, dataStreamMetadata, nullabilityBuffer);
-        return new Int64FlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
-    }
-    if (vectorType === VectorType.SEQUENCE) {
-        const id = decodeSequenceInt64Stream(data, offset, dataStreamMetadata);
-        return new Int64SequenceVector(column.name, id[0], id[1], dataStreamMetadata.numRleValues);
-    }
-    const constValue = isSigned
-        ? decodeSignedConstInt64Stream(data, offset, dataStreamMetadata)
-        : decodeUnsignedConstInt64Stream(data, offset, dataStreamMetadata);
-    return new Int64ConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
-}
-function decodeInt32Column(data, offset, column, scalarColumn, sizeOrNullabilityBuffer) {
-    const dataStreamMetadata = decodeStreamMetadata(data, offset);
-    const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
-    const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
-    if (vectorType === VectorType.FLAT) {
-        const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
-        const dataStream = isSigned
-            ? decodeSignedInt32Stream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer)
-            : decodeUnsignedInt32Stream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer);
-        return new Int32FlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
-    }
-    if (vectorType === VectorType.SEQUENCE) {
-        const id = decodeSequenceInt32Stream(data, offset, dataStreamMetadata);
-        return new Int32SequenceVector(column.name, id[0], id[1], dataStreamMetadata.numRleValues);
-    }
-    const constValue = isSigned
-        ? decodeSignedConstInt32Stream(data, offset, dataStreamMetadata)
-        : decodeUnsignedConstInt32Stream(data, offset, dataStreamMetadata);
-    return new Int32ConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
-}
-function isNullabilityBuffer(sizeOrNullabilityBuffer) {
-    return sizeOrNullabilityBuffer instanceof BitVector;
-}
-
-/**
- * The type code is a single varint32 that encodes:
- * - Physical or logical type
- * - Nullable flag
- * - Whether the column has a name (typeCode >= 10)
- * - Whether the column has children (typeCode == 30 for STRUCT)
- * - For ID types: whether it uses long (64-bit) IDs
- */
-/**
- * Decodes a type code into a Column structure.
- *
- * ID type codes (0..3):
- * - Bit 0: nullable
- * - Bit 1: longID (0/1 -> uint32 IDs, 2/3 -> uint64 IDs)
- *
- * ID columns are kept as logical types so they remain distinguishable
- * from feature properties that may also be named "id".
- */
-function decodeColumnType(typeCode) {
-    switch (typeCode) {
-        case 0:
-        case 1:
-        case 2:
-        case 3: {
-            const column = {};
-            column.nullable = (typeCode & 1) !== 0;
-            column.columnScope = ColumnScope.FEATURE;
-            const scalarCol = {};
-            scalarCol.type = "logicalType";
-            scalarCol.logicalType = LogicalScalarType.ID;
-            scalarCol.longID = (typeCode & 2) !== 0;
-            column.scalarType = scalarCol;
-            column.type = "scalarType";
-            return column;
-        }
-        case 4: {
-            // GEOMETRY (non-nullable, no children)
-            const column = {};
-            column.nullable = false;
-            column.columnScope = ColumnScope.FEATURE;
-            const complexCol = {};
-            complexCol.type = "physicalType";
-            complexCol.physicalType = ComplexType.GEOMETRY;
-            column.type = "complexType";
-            column.complexType = complexCol;
-            return column;
-        }
-        case 30: {
-            // STRUCT (non-nullable with children)
-            const column = {};
-            column.nullable = false;
-            column.columnScope = ColumnScope.FEATURE;
-            const complexCol = {};
-            complexCol.type = "physicalType";
-            complexCol.physicalType = ComplexType.STRUCT;
-            column.type = "complexType";
-            column.complexType = complexCol;
-            return column;
-        }
-        default:
-            return mapScalarType(typeCode);
-    }
-}
-/**
- * Returns true if this type code requires a name to be stored.
- * ID (0-3) and GEOMETRY (4) columns have implicit names.
- * All other types (>= 10) require explicit names.
- */
-function columnTypeHasName(typeCode) {
-    return typeCode >= 10;
-}
-/**
- * Returns true if this type code has child fields.
- * Only STRUCT (typeCode 30) has children.
- */
-function columnTypeHasChildren(typeCode) {
-    return typeCode === 30;
-}
-/**
- * Determines if a stream count needs to be read for this column.
- * Mirrors the logic in cpp/include/mlt/metadata/type_map.hpp lines 85-122
- */
-function hasStreamCount(column) {
-    if (column.type === "scalarType") {
-        const scalarCol = column.scalarType;
-        if (scalarCol.type === "physicalType") {
-            const physicalType = scalarCol.physicalType;
-            switch (physicalType) {
-                case ScalarType.BOOLEAN:
-                case ScalarType.INT_8:
-                case ScalarType.UINT_8:
-                case ScalarType.INT_32:
-                case ScalarType.UINT_32:
-                case ScalarType.INT_64:
-                case ScalarType.UINT_64:
-                case ScalarType.FLOAT:
-                case ScalarType.DOUBLE:
-                    return false;
-                case ScalarType.STRING:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-        if (scalarCol.type === "logicalType") {
-            return false;
-        }
-    }
-    else if (column.type === "complexType") {
-        const complexCol = column.complexType;
-        if (complexCol.type === "physicalType") {
-            const physicalType = complexCol.physicalType;
-            switch (physicalType) {
-                case ComplexType.GEOMETRY:
-                case ComplexType.STRUCT:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-    }
-    console.warn("Unexpected column type in hasStreamCount", column);
-    return false;
-}
-function isLogicalIdColumn(column) {
-    return (column.type === "scalarType" &&
-        column.scalarType?.type === "logicalType" &&
-        column.scalarType.logicalType === LogicalScalarType.ID);
-}
-function isGeometryColumn(column) {
-    return (column.type === "complexType" &&
-        column.complexType?.type === "physicalType" &&
-        column.complexType.physicalType === ComplexType.GEOMETRY);
-}
-/**
- * Maps a scalar type code to a Column with ScalarType.
- * Type codes 10-29 encode scalar types with nullable flag.
- * Even codes are non-nullable, odd codes are nullable.
- */
-function mapScalarType(typeCode) {
-    let scalarType;
-    switch (typeCode) {
-        case 10:
-        case 11:
-            scalarType = ScalarType.BOOLEAN;
-            break;
-        case 12:
-        case 13:
-            scalarType = ScalarType.INT_8;
-            break;
-        case 14:
-        case 15:
-            scalarType = ScalarType.UINT_8;
-            break;
-        case 16:
-        case 17:
-            scalarType = ScalarType.INT_32;
-            break;
-        case 18:
-        case 19:
-            scalarType = ScalarType.UINT_32;
-            break;
-        case 20:
-        case 21:
-            scalarType = ScalarType.INT_64;
-            break;
-        case 22:
-        case 23:
-            scalarType = ScalarType.UINT_64;
-            break;
-        case 24:
-        case 25:
-            scalarType = ScalarType.FLOAT;
-            break;
-        case 26:
-        case 27:
-            scalarType = ScalarType.DOUBLE;
-            break;
-        case 28:
-        case 29:
-            scalarType = ScalarType.STRING;
-            break;
-        default:
-            return null;
-    }
-    const column = {};
-    column.nullable = (typeCode & 1) !== 0;
-    column.columnScope = ColumnScope.FEATURE;
-    const scalarCol = {};
-    scalarCol.type = "physicalType";
-    scalarCol.physicalType = scalarType;
-    column.type = "scalarType";
-    column.scalarType = scalarCol;
-    return column;
-}
-
-const textDecoder = new TextDecoder();
-const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT)";
-const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
-/**
- * Decodes a length-prefixed UTF-8 string.
- * Layout: [len: varint32][bytes: len]
- */
-function decodeString(src, offset) {
-    const length = decodeVarintInt32(src, offset, 1)[0];
-    if (length === 0) {
-        return "";
-    }
-    const start = offset.get();
-    const end = start + length;
-    const view = src.subarray(start, end);
-    offset.add(length);
-    return textDecoder.decode(view);
-}
-/**
- * Converts a Column to a Field.
- * Used when decoding Field metadata which has the same format as Column.
- */
-function columnToField(column) {
-    return {
-        name: column.name,
-        nullable: column.nullable,
-        scalarField: column.scalarType,
-        complexField: column.complexType,
-        type: column.type === "scalarType" ? "scalarField" : "complexField",
-    };
-}
-/**
- * Decodes a Field used as part of complex types (STRUCT children).
- */
-function decodeField(src, offset) {
-    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    if (typeCode < 10 || typeCode > 30) {
-        throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
-    }
-    const column = decodeColumnType(typeCode);
-    if (columnTypeHasName(typeCode)) {
-        column.name = decodeString(src, offset);
-    }
-    if (columnTypeHasChildren(typeCode)) {
-        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        column.complexType.children = new Array(childCount);
-        for (let i = 0; i < childCount; i++) {
-            column.complexType.children[i] = decodeField(src, offset);
-        }
-    }
-    return columnToField(column);
-}
-/**
- * The typeCode encodes the column type, nullable flag, and whether it has name/children.
- */
-function decodeColumn(src, offset) {
-    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    const column = decodeColumnType(typeCode);
-    if (!column) {
-        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
-    }
-    if (columnTypeHasName(typeCode)) {
-        column.name = decodeString(src, offset);
-    }
-    else {
-        // ID and GEOMETRY columns have implicit names
-        if (typeCode >= 0 && typeCode <= 3) {
-            column.name = "id";
-        }
-        else if (typeCode === 4) {
-            column.name = "geometry";
-        }
-    }
-    if (columnTypeHasChildren(typeCode)) {
-        // Only STRUCT (typeCode 30) has children
-        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        const complexCol = column.complexType;
-        complexCol.children = new Array(childCount);
-        for (let i = 0; i < childCount; i++) {
-            complexCol.children[i] = decodeField(src, offset);
-        }
-    }
-    return column;
-}
-/**
- * Top-level decoder for embedded tileset metadata.
- * Reads exactly ONE FeatureTableSchema from the stream.
- *
- * @param bytes The byte array containing the metadata
- * @param offset The current offset in the byte array (will be advanced)
- */
-function decodeEmbeddedTileSetMetadata(bytes, offset) {
-    const meta = {};
-    meta.featureTables = [];
-    const table = {};
-    table.name = decodeString(bytes, offset);
-    const extent = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
-    const columnCount = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
-    table.columns = new Array(columnCount);
-    for (let j = 0; j < columnCount; j++) {
-        table.columns[j] = decodeColumn(bytes, offset);
-    }
-    meta.featureTables.push(table);
-    return [meta, extent];
-}
-
-/**
- * Decodes a tile with embedded metadata (Tag 0x01 format).
- * This is the primary decoder function for MLT tiles.
- *
- * @param tile The tile data to decode (will be decompressed if gzip-compressed)
- * @param geometryScaling Optional geometry scaling parameters
- * @param idWithinMaxSafeInteger If true, limits ID values to JavaScript safe integer range (53 bits)
- */
-function decodeTile(tile, geometryScaling, idWithinMaxSafeInteger = true) {
-    const offset = new IntWrapper(0);
-    const featureTables = [];
-    while (offset.get() < tile.length) {
-        const blockLength = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
-        const blockStart = offset.get();
-        const blockEnd = blockStart + blockLength;
-        if (blockEnd > tile.length) {
-            throw new Error(`Block overruns tile: ${blockEnd} > ${tile.length}`);
-        }
-        const tag = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
-        if (tag !== 1) {
-            // Skip unknown block types
-            offset.set(blockEnd);
-            continue;
-        }
-        const [metadata, extent] = decodeEmbeddedTileSetMetadata(tile, offset);
-        const featureTableMetadata = metadata.featureTables[0];
-        let idVector = null;
-        let geometryVector = null;
-        const propertyVectors = [];
-        let numFeatures = 0;
-        for (const columnMetadata of featureTableMetadata.columns) {
-            const columnName = columnMetadata.name;
-            if (isLogicalIdColumn(columnMetadata)) {
-                let nullabilityBuffer = null;
-                // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
-                if (columnMetadata.nullable) {
-                    const presentStreamMetadata = decodeStreamMetadata(tile, offset);
-                    const streamDataStart = offset.get();
-                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
-                    offset.set(streamDataStart + presentStreamMetadata.byteLength);
-                    nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
-                }
-                const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
-                // decompressedCount is the count WITHOUT nulls, but we may have nulls
-                numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
-                idVector = decodeIdColumn(tile, columnMetadata, offset, columnName, idDataStreamMetadata, nullabilityBuffer ?? numFeatures, idWithinMaxSafeInteger);
-            }
-            else if (isGeometryColumn(columnMetadata)) {
-                const numStreams = decodeVarintInt32(tile, offset, 1)[0];
-                // If no ID column, get numFeatures from geometry type stream metadata
-                if (numFeatures === 0) {
-                    const savedOffset = offset.get();
-                    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
-                    numFeatures = geometryTypeMetadata.decompressedCount;
-                    offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
-                }
-                if (geometryScaling) {
-                    geometryScaling.scale = geometryScaling.extent / extent;
-                }
-                geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
-            }
-            else {
-                const columnHasStreamCount = hasStreamCount(columnMetadata);
-                const numStreams = columnHasStreamCount ? decodeVarintInt32(tile, offset, 1)[0] : 1;
-                if (numStreams === 0) {
-                    continue;
-                }
-                const propertyVector = decodePropertyColumn(tile, offset, columnMetadata, numStreams, numFeatures, undefined);
-                if (propertyVector) {
-                    if (Array.isArray(propertyVector)) {
-                        for (const property of propertyVector) {
-                            propertyVectors.push(property);
-                        }
-                    }
-                    else {
-                        propertyVectors.push(propertyVector);
-                    }
-                }
-            }
-        }
-        const featureTable = new FeatureTable(featureTableMetadata.name, geometryVector, idVector, propertyVectors, extent);
-        featureTables.push(featureTable);
-        offset.set(blockEnd);
-    }
-    return featureTables;
-}
-function decodeIdColumn(tile, columnMetadata, offset, columnName, idDataStreamMetadata, sizeOrNullabilityBuffer, idWithinMaxSafeInteger = false) {
-    const scalarTypeMetadata = columnMetadata.scalarType;
-    if (!scalarTypeMetadata ||
-        scalarTypeMetadata.type !== "logicalType" ||
-        scalarTypeMetadata.logicalType !== LogicalScalarType.ID) {
-        throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
-    }
-    const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
-    const nullabilityBuffer = typeof sizeOrNullabilityBuffer === "number" ? undefined : sizeOrNullabilityBuffer;
-    const vectorType = getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset, idDataType === ScalarType.UINT_64 ? "int64" : "int32");
-    if (idDataType === ScalarType.UINT_32) {
-        switch (vectorType) {
-            case VectorType.FLAT: {
-                const id = decodeUnsignedInt32Stream(tile, offset, idDataStreamMetadata, undefined, nullabilityBuffer);
-                return new Int32FlatVector(columnName, id, sizeOrNullabilityBuffer);
-            }
-            case VectorType.SEQUENCE: {
-                const id = decodeSequenceInt32Stream(tile, offset, idDataStreamMetadata);
-                return new Int32SequenceVector(columnName, id[0], id[1], idDataStreamMetadata.numRleValues);
-            }
-            case VectorType.CONST: {
-                const id = decodeUnsignedConstInt32Stream(tile, offset, idDataStreamMetadata);
-                return new Int32ConstVector(columnName, id, sizeOrNullabilityBuffer, false);
-            }
-        }
-    }
-    switch (vectorType) {
-        case VectorType.FLAT: {
-            if (idWithinMaxSafeInteger) {
-                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata);
-                return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
-            }
-            const id = decodeUnsignedInt64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);
-            return new Int64FlatVector(columnName, id, sizeOrNullabilityBuffer);
-        }
-        case VectorType.SEQUENCE: {
-            const id = decodeSequenceInt64Stream(tile, offset, idDataStreamMetadata);
-            return new Int64SequenceVector(columnName, id[0], id[1], idDataStreamMetadata.numRleValues);
-        }
-        case VectorType.CONST: {
-            const id = decodeUnsignedConstInt64Stream(tile, offset, idDataStreamMetadata);
-            return new Int64ConstVector(columnName, id, sizeOrNullabilityBuffer, false);
-        }
-    }
-    throw new Error("Vector type not supported for id column.");
-}
-
-class MLTVectorTileFeature {
-    constructor(feature, extent) {
-        var _a;
-        this._featureData = feature;
-        this.properties = this._featureData.properties || {};
-        switch ((_a = this._featureData.geometry) === null || _a === void 0 ? void 0 : _a.type) {
-            case GEOMETRY_TYPE.POINT:
-            case GEOMETRY_TYPE.MULTIPOINT:
-                this.type = 1;
-                break;
-            case GEOMETRY_TYPE.LINESTRING:
-            case GEOMETRY_TYPE.MULTILINESTRING:
-                this.type = 2;
-                break;
-            case GEOMETRY_TYPE.POLYGON:
-            case GEOMETRY_TYPE.MULTIPOLYGON:
-                this.type = 3;
-                break;
-            default:
-                this.type = 0;
-        }
-        ;
-        this.extent = extent;
-        this.id = Number(this._featureData.id);
-    }
-    loadGeometry() {
-        const points = [];
-        for (const ring of this._featureData.geometry.coordinates) {
-            const pointRing = [];
-            for (const coord of ring) {
-                pointRing.push(new Point(coord.x, coord.y));
-            }
-            points.push(pointRing);
-        }
-        return points;
-    }
-}
-class MLTVectorTileLayer {
-    constructor(featureTable) {
-        this.features = [];
-        this.featureTable = featureTable;
-        this.name = featureTable.name;
-        this.extent = featureTable.extent;
-        this.version = 2;
-        this.features = featureTable.getFeatures();
-        this.length = this.features.length;
-    }
-    feature(i) {
-        return new MLTVectorTileFeature(this.features[i], this.extent);
-    }
-}
-class MLTVectorTile {
-    constructor(buffer) {
-        this.layers = {};
-        const features = decodeTile(new Uint8Array(buffer));
-        this.layers = features.reduce((acc, f) => (Object.assign(Object.assign({}, acc), { [f.name]: new MLTVectorTileLayer(f) })), {});
-    }
+function decodeTile$1(encoding, rawData) {
+    const Decoder = registry$1.tileDecoder[encoding];
+    if (!Decoder) {
+        throw new Error(`No tile decoder is registered for the "${encoding}" encoding.`);
+    }
+    return new Decoder(rawData);
 }
 
 /** A 2-d bounding box covering an X and Y range. */
@@ -32854,8 +28119,8 @@ const SHIFT_RIGHT_32 = 1 / SHIFT_LEFT_32;
 
 // Threshold chosen based on both benchmarking and knowledge about browser string
 // data structures (which currently switch structure types at 12 bytes or more)
-const TEXT_DECODER_MIN_LENGTH = 12;
-const utf8TextDecoder = typeof TextDecoder === 'undefined' ? null : new TextDecoder('utf-8');
+const TEXT_DECODER_MIN_LENGTH$1 = 12;
+const utf8TextDecoder$1 = typeof TextDecoder === 'undefined' ? null : new TextDecoder('utf-8');
 
 const PBF_VARINT  = 0; // varint: int32, int64, uint32, uint64, sint32, sint64, bool, enum
 const PBF_FIXED64 = 1; // 64-bit: double, fixed64, sfixed64
@@ -32967,12 +28232,12 @@ class PbfReader {
         const pos = this.pos;
         this.pos = end;
 
-        if (end - pos >= TEXT_DECODER_MIN_LENGTH && utf8TextDecoder) {
+        if (end - pos >= TEXT_DECODER_MIN_LENGTH$1 && utf8TextDecoder$1) {
             // longer strings are fast with the built-in browser TextDecoder API
-            return utf8TextDecoder.decode(this.buf.subarray(pos, end));
+            return utf8TextDecoder$1.decode(this.buf.subarray(pos, end));
         }
         // short strings are fast with our custom implementation
-        return readUtf8(this.buf, pos, end);
+        return readUtf8$1(this.buf, pos, end);
     }
 
     readBytes() {
@@ -33575,7 +28840,7 @@ function writePackedSFixed64(arr, pbf) {
  * @param {number} pos
  * @param {number} end
  */
-function readUtf8(buf, pos, end) {
+function readUtf8$1(buf, pos, end) {
     let str = '';
     let i = pos;
 
@@ -33895,7 +29160,7 @@ class FeatureIndex {
         if (!this.vtLayers) {
             this.vtLayers = this.encoding !== 'mlt'
                 ? new VectorTile(new Pbf(this.rawTileData)).layers
-                : new MLTVectorTile(this.rawTileData).layers;
+                : decodeTile$1(this.encoding, this.rawTileData).layers;
             this.sourceLayerCoder = new DictionaryCoder(this.vtLayers ? Object.keys(this.vtLayers).sort() : [GEOJSON_TILE_LAYER_NAME]);
         }
         return this.vtLayers;
@@ -42168,6 +37433,4762 @@ class VideoSource extends ImageSource {
     }
     hasTransition() {
         return this.video && !this.video.paused;
+    }
+}
+
+class Vector {
+    constructor(_name, dataBuffer, sizeOrNullabilityBuffer) {
+        this._name = _name;
+        this.dataBuffer = dataBuffer;
+        if (typeof sizeOrNullabilityBuffer === "number") {
+            this._size = sizeOrNullabilityBuffer;
+        }
+        else {
+            this.nullabilityBuffer = sizeOrNullabilityBuffer;
+            this._size = sizeOrNullabilityBuffer.size();
+        }
+    }
+    getValue(index) {
+        return this.nullabilityBuffer && !this.nullabilityBuffer.get(index) ? null : this.getValueFromBuffer(index);
+    }
+    has(index) {
+        return this.nullabilityBuffer?.get(index) || !this.nullabilityBuffer;
+    }
+    get name() {
+        return this._name;
+    }
+    get size() {
+        return this._size;
+    }
+}
+
+class FixedSizeVector extends Vector {
+}
+
+class Int32FlatVector extends FixedSizeVector {
+    getValueFromBuffer(index) {
+        return this.dataBuffer[index];
+    }
+}
+
+class DoubleFlatVector extends FixedSizeVector {
+    getValueFromBuffer(index) {
+        return this.dataBuffer[index];
+    }
+}
+
+class SequenceVector extends Vector {
+    constructor(name, baseValueBuffer, delta, size) {
+        super(name, baseValueBuffer, size);
+        this.delta = delta;
+    }
+}
+
+class Int32SequenceVector extends SequenceVector {
+    constructor(name, baseValue, delta, size) {
+        super(name, Int32Array.of(baseValue), delta, size);
+    }
+    getValueFromBuffer(index) {
+        return this.dataBuffer[0] + index * this.delta;
+    }
+}
+
+class Int32ConstVector extends Vector {
+    constructor(name, value, sizeOrNullabilityBuffer, isSigned) {
+        super(name, isSigned ? Int32Array.of(value) : Uint32Array.of(value), sizeOrNullabilityBuffer);
+    }
+    getValueFromBuffer(_index) {
+        return this.dataBuffer[0];
+    }
+}
+
+class FeatureTable {
+    constructor(_name, _geometryVector, _idVector, _propertyVectors, _extent = 4096) {
+        this._name = _name;
+        this._geometryVector = _geometryVector;
+        this._idVector = _idVector;
+        this._propertyVectors = _propertyVectors;
+        this._extent = _extent;
+    }
+    get name() {
+        return this._name;
+    }
+    get idVector() {
+        return this._idVector;
+    }
+    get geometryVector() {
+        return this._geometryVector;
+    }
+    get propertyVectors() {
+        return this._propertyVectors;
+    }
+    getPropertyVector(name) {
+        if (!this.propertyVectorsMap) {
+            this.propertyVectorsMap = new Map(this._propertyVectors.map((vector) => [vector.name, vector]));
+        }
+        return this.propertyVectorsMap.get(name);
+    }
+    get numFeatures() {
+        return this.geometryVector.numGeometries;
+    }
+    get extent() {
+        return this._extent;
+    }
+    /**
+     * Returns all features as an array
+     */
+    getFeatures() {
+        const features = [];
+        const geometries = this.geometryVector.getGeometries();
+        for (let i = 0; i < this.numFeatures; i++) {
+            let id;
+            if (this.idVector) {
+                const idValue = this.idVector.getValue(i);
+                id = this.containsMaxSafeIntegerValues(this.idVector) && idValue !== null ? Number(idValue) : idValue;
+            }
+            const geometry = {
+                coordinates: geometries[i],
+                type: this.geometryVector.geometryType(i),
+            };
+            const properties = {};
+            for (const propertyColumn of this.propertyVectors) {
+                if (!propertyColumn)
+                    continue;
+                const columnName = propertyColumn.name;
+                const propertyValue = propertyColumn.getValue(i);
+                if (propertyValue !== null) {
+                    properties[columnName] = propertyValue;
+                }
+            }
+            features.push({ id, geometry, properties });
+        }
+        return features;
+    }
+    containsMaxSafeIntegerValues(idVector) {
+        return (idVector instanceof Int32FlatVector ||
+            idVector instanceof Int32ConstVector ||
+            idVector instanceof Int32SequenceVector ||
+            idVector instanceof DoubleFlatVector);
+    }
+}
+
+// based on ../spec/schema/mlt_tileset_metadata.proto
+const ColumnScope = {
+    FEATURE: 0,
+    VERTEX: 1,
+};
+const ScalarType = {
+    BOOLEAN: 0,
+    INT_8: 1,
+    UINT_8: 2,
+    INT_32: 3,
+    UINT_32: 4,
+    INT_64: 5,
+    UINT_64: 6,
+    FLOAT: 7,
+    DOUBLE: 8,
+    STRING: 9,
+};
+const ComplexType = {
+    GEOMETRY: 0,
+    STRUCT: 1,
+};
+const LogicalScalarType = {
+    ID: 0,
+};
+const LogicalComplexType = {
+    BINARY: 0,
+    RANGE_MAP: 1,
+};
+
+// Ported from https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/IntWrapper.java
+class IntWrapper {
+    constructor(value) {
+        this.value = value;
+    }
+    get() {
+        return this.value;
+    }
+    set(v) {
+        this.value = v;
+    }
+    increment() {
+        return this.value++;
+    }
+    add(v) {
+        this.value += v;
+    }
+}
+
+var LogicalLevelTechnique;
+(function (LogicalLevelTechnique) {
+    LogicalLevelTechnique["NONE"] = "NONE";
+    LogicalLevelTechnique["DELTA"] = "DELTA";
+    LogicalLevelTechnique["COMPONENTWISE_DELTA"] = "COMPONENTWISE_DELTA";
+    LogicalLevelTechnique["RLE"] = "RLE";
+    LogicalLevelTechnique["MORTON"] = "MORTON";
+    // Pseudodecimal Encoding of floats -> only for the exponent integer part an additional logical level technique is used.
+    // Both exponent and significant parts are encoded with the same physical level technique
+    LogicalLevelTechnique["PDE"] = "PDE";
+})(LogicalLevelTechnique || (LogicalLevelTechnique = {}));
+
+var PhysicalLevelTechnique;
+(function (PhysicalLevelTechnique) {
+    PhysicalLevelTechnique["NONE"] = "NONE";
+    /**
+     * Preferred option, tends to produce the best compression ratio and decoding performance.
+     * But currently only limited to 32 bit integer.
+     */
+    PhysicalLevelTechnique["FAST_PFOR"] = "FAST_PFOR";
+    /**
+     * Can produce better results in combination with a heavyweight compression scheme like Gzip.
+     * Simple compression scheme where the decoder are easier to implement compared to FastPfor.
+     */
+    PhysicalLevelTechnique["VARINT"] = "VARINT";
+})(PhysicalLevelTechnique || (PhysicalLevelTechnique = {}));
+
+/**
+ * Bit masks for each bitwidth 0-32.
+ * DO NOT MUTATE - this is a shared constant.
+ */
+const masks = new Uint32Array(33);
+masks[0] = 0;
+for (let bitWidth = 1; bitWidth <= 32; bitWidth++) {
+    masks[bitWidth] = bitWidth === 32 ? 0xffffffff : 0xffffffff >>> (32 - bitWidth);
+}
+const MASKS = masks;
+const DEFAULT_PAGE_SIZE = 65536;
+const BLOCK_SIZE = 256;
+function greatestMultiple(value, factor) {
+    return value - (value % factor);
+}
+function roundUpToMultipleOf32(value) {
+    return greatestMultiple(value + 31, 32);
+}
+function normalizePageSize(pageSize) {
+    if (!Number.isFinite(pageSize) || pageSize <= 0)
+        return DEFAULT_PAGE_SIZE;
+    const aligned = greatestMultiple(Math.floor(pageSize), BLOCK_SIZE);
+    return aligned === 0 ? BLOCK_SIZE : aligned;
+}
+function bswap32(value) {
+    const x = value >>> 0;
+    return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
+}
+
+function fastUnpack32_1(inValues, inPos, out, outPos) {
+    const in0 = inValues[inPos] >>> 0;
+    for (let i = 0; i < 32; i++) {
+        out[outPos + i] = (in0 >>> i) & 1;
+    }
+}
+function fastUnpack32_2(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x3;
+    out[op++] = (in0 >>> 2) & 0x3;
+    out[op++] = (in0 >>> 4) & 0x3;
+    out[op++] = (in0 >>> 6) & 0x3;
+    out[op++] = (in0 >>> 8) & 0x3;
+    out[op++] = (in0 >>> 10) & 0x3;
+    out[op++] = (in0 >>> 12) & 0x3;
+    out[op++] = (in0 >>> 14) & 0x3;
+    out[op++] = (in0 >>> 16) & 0x3;
+    out[op++] = (in0 >>> 18) & 0x3;
+    out[op++] = (in0 >>> 20) & 0x3;
+    out[op++] = (in0 >>> 22) & 0x3;
+    out[op++] = (in0 >>> 24) & 0x3;
+    out[op++] = (in0 >>> 26) & 0x3;
+    out[op++] = (in0 >>> 28) & 0x3;
+    out[op++] = (in0 >>> 30) & 0x3;
+    out[op++] = (in1 >>> 0) & 0x3;
+    out[op++] = (in1 >>> 2) & 0x3;
+    out[op++] = (in1 >>> 4) & 0x3;
+    out[op++] = (in1 >>> 6) & 0x3;
+    out[op++] = (in1 >>> 8) & 0x3;
+    out[op++] = (in1 >>> 10) & 0x3;
+    out[op++] = (in1 >>> 12) & 0x3;
+    out[op++] = (in1 >>> 14) & 0x3;
+    out[op++] = (in1 >>> 16) & 0x3;
+    out[op++] = (in1 >>> 18) & 0x3;
+    out[op++] = (in1 >>> 20) & 0x3;
+    out[op++] = (in1 >>> 22) & 0x3;
+    out[op++] = (in1 >>> 24) & 0x3;
+    out[op++] = (in1 >>> 26) & 0x3;
+    out[op++] = (in1 >>> 28) & 0x3;
+    out[op] = (in1 >>> 30) & 0x3;
+}
+function fastUnpack32_3(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x7;
+    out[op++] = (in0 >>> 3) & 0x7;
+    out[op++] = (in0 >>> 6) & 0x7;
+    out[op++] = (in0 >>> 9) & 0x7;
+    out[op++] = (in0 >>> 12) & 0x7;
+    out[op++] = (in0 >>> 15) & 0x7;
+    out[op++] = (in0 >>> 18) & 0x7;
+    out[op++] = (in0 >>> 21) & 0x7;
+    out[op++] = (in0 >>> 24) & 0x7;
+    out[op++] = (in0 >>> 27) & 0x7;
+    out[op++] = ((in0 >>> 30) | ((in1 & 0x1) << 2)) & 0x7;
+    out[op++] = (in1 >>> 1) & 0x7;
+    out[op++] = (in1 >>> 4) & 0x7;
+    out[op++] = (in1 >>> 7) & 0x7;
+    out[op++] = (in1 >>> 10) & 0x7;
+    out[op++] = (in1 >>> 13) & 0x7;
+    out[op++] = (in1 >>> 16) & 0x7;
+    out[op++] = (in1 >>> 19) & 0x7;
+    out[op++] = (in1 >>> 22) & 0x7;
+    out[op++] = (in1 >>> 25) & 0x7;
+    out[op++] = (in1 >>> 28) & 0x7;
+    out[op++] = ((in1 >>> 31) | ((in2 & 0x3) << 1)) & 0x7;
+    out[op++] = (in2 >>> 2) & 0x7;
+    out[op++] = (in2 >>> 5) & 0x7;
+    out[op++] = (in2 >>> 8) & 0x7;
+    out[op++] = (in2 >>> 11) & 0x7;
+    out[op++] = (in2 >>> 14) & 0x7;
+    out[op++] = (in2 >>> 17) & 0x7;
+    out[op++] = (in2 >>> 20) & 0x7;
+    out[op++] = (in2 >>> 23) & 0x7;
+    out[op++] = (in2 >>> 26) & 0x7;
+    out[op] = (in2 >>> 29) & 0x7;
+}
+function fastUnpack32_4(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    out[op++] = (in0 >>> 0) & 0xf;
+    out[op++] = (in0 >>> 4) & 0xf;
+    out[op++] = (in0 >>> 8) & 0xf;
+    out[op++] = (in0 >>> 12) & 0xf;
+    out[op++] = (in0 >>> 16) & 0xf;
+    out[op++] = (in0 >>> 20) & 0xf;
+    out[op++] = (in0 >>> 24) & 0xf;
+    out[op++] = (in0 >>> 28) & 0xf;
+    out[op++] = (in1 >>> 0) & 0xf;
+    out[op++] = (in1 >>> 4) & 0xf;
+    out[op++] = (in1 >>> 8) & 0xf;
+    out[op++] = (in1 >>> 12) & 0xf;
+    out[op++] = (in1 >>> 16) & 0xf;
+    out[op++] = (in1 >>> 20) & 0xf;
+    out[op++] = (in1 >>> 24) & 0xf;
+    out[op++] = (in1 >>> 28) & 0xf;
+    out[op++] = (in2 >>> 0) & 0xf;
+    out[op++] = (in2 >>> 4) & 0xf;
+    out[op++] = (in2 >>> 8) & 0xf;
+    out[op++] = (in2 >>> 12) & 0xf;
+    out[op++] = (in2 >>> 16) & 0xf;
+    out[op++] = (in2 >>> 20) & 0xf;
+    out[op++] = (in2 >>> 24) & 0xf;
+    out[op++] = (in2 >>> 28) & 0xf;
+    out[op++] = (in3 >>> 0) & 0xf;
+    out[op++] = (in3 >>> 4) & 0xf;
+    out[op++] = (in3 >>> 8) & 0xf;
+    out[op++] = (in3 >>> 12) & 0xf;
+    out[op++] = (in3 >>> 16) & 0xf;
+    out[op++] = (in3 >>> 20) & 0xf;
+    out[op++] = (in3 >>> 24) & 0xf;
+    out[op] = (in3 >>> 28) & 0xf;
+}
+function fastUnpack32_5(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x1f;
+    out[op++] = (in0 >>> 5) & 0x1f;
+    out[op++] = (in0 >>> 10) & 0x1f;
+    out[op++] = (in0 >>> 15) & 0x1f;
+    out[op++] = (in0 >>> 20) & 0x1f;
+    out[op++] = (in0 >>> 25) & 0x1f;
+    out[op++] = ((in0 >>> 30) | ((in1 & 0x7) << 2)) & 0x1f;
+    out[op++] = (in1 >>> 3) & 0x1f;
+    out[op++] = (in1 >>> 8) & 0x1f;
+    out[op++] = (in1 >>> 13) & 0x1f;
+    out[op++] = (in1 >>> 18) & 0x1f;
+    out[op++] = (in1 >>> 23) & 0x1f;
+    out[op++] = ((in1 >>> 28) | ((in2 & 0x1) << 4)) & 0x1f;
+    out[op++] = (in2 >>> 1) & 0x1f;
+    out[op++] = (in2 >>> 6) & 0x1f;
+    out[op++] = (in2 >>> 11) & 0x1f;
+    out[op++] = (in2 >>> 16) & 0x1f;
+    out[op++] = (in2 >>> 21) & 0x1f;
+    out[op++] = (in2 >>> 26) & 0x1f;
+    out[op++] = ((in2 >>> 31) | ((in3 & 0xf) << 1)) & 0x1f;
+    out[op++] = (in3 >>> 4) & 0x1f;
+    out[op++] = (in3 >>> 9) & 0x1f;
+    out[op++] = (in3 >>> 14) & 0x1f;
+    out[op++] = (in3 >>> 19) & 0x1f;
+    out[op++] = (in3 >>> 24) & 0x1f;
+    out[op++] = ((in3 >>> 29) | ((in4 & 0x3) << 3)) & 0x1f;
+    out[op++] = (in4 >>> 2) & 0x1f;
+    out[op++] = (in4 >>> 7) & 0x1f;
+    out[op++] = (in4 >>> 12) & 0x1f;
+    out[op++] = (in4 >>> 17) & 0x1f;
+    out[op++] = (in4 >>> 22) & 0x1f;
+    out[op] = (in4 >>> 27) & 0x1f;
+}
+function fastUnpack32_6(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x3f;
+    out[op++] = (in0 >>> 6) & 0x3f;
+    out[op++] = (in0 >>> 12) & 0x3f;
+    out[op++] = (in0 >>> 18) & 0x3f;
+    out[op++] = (in0 >>> 24) & 0x3f;
+    out[op++] = ((in0 >>> 30) | ((in1 & 0xf) << 2)) & 0x3f;
+    out[op++] = (in1 >>> 4) & 0x3f;
+    out[op++] = (in1 >>> 10) & 0x3f;
+    out[op++] = (in1 >>> 16) & 0x3f;
+    out[op++] = (in1 >>> 22) & 0x3f;
+    out[op++] = ((in1 >>> 28) | ((in2 & 0x3) << 4)) & 0x3f;
+    out[op++] = (in2 >>> 2) & 0x3f;
+    out[op++] = (in2 >>> 8) & 0x3f;
+    out[op++] = (in2 >>> 14) & 0x3f;
+    out[op++] = (in2 >>> 20) & 0x3f;
+    out[op++] = (in2 >>> 26) & 0x3f;
+    out[op++] = (in3 >>> 0) & 0x3f;
+    out[op++] = (in3 >>> 6) & 0x3f;
+    out[op++] = (in3 >>> 12) & 0x3f;
+    out[op++] = (in3 >>> 18) & 0x3f;
+    out[op++] = (in3 >>> 24) & 0x3f;
+    out[op++] = ((in3 >>> 30) | ((in4 & 0xf) << 2)) & 0x3f;
+    out[op++] = (in4 >>> 4) & 0x3f;
+    out[op++] = (in4 >>> 10) & 0x3f;
+    out[op++] = (in4 >>> 16) & 0x3f;
+    out[op++] = (in4 >>> 22) & 0x3f;
+    out[op++] = ((in4 >>> 28) | ((in5 & 0x3) << 4)) & 0x3f;
+    out[op++] = (in5 >>> 2) & 0x3f;
+    out[op++] = (in5 >>> 8) & 0x3f;
+    out[op++] = (in5 >>> 14) & 0x3f;
+    out[op++] = (in5 >>> 20) & 0x3f;
+    out[op] = (in5 >>> 26) & 0x3f;
+}
+function fastUnpack32_7(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x7f;
+    out[op++] = (in0 >>> 7) & 0x7f;
+    out[op++] = (in0 >>> 14) & 0x7f;
+    out[op++] = (in0 >>> 21) & 0x7f;
+    out[op++] = ((in0 >>> 28) | ((in1 & 0x7) << 4)) & 0x7f;
+    out[op++] = (in1 >>> 3) & 0x7f;
+    out[op++] = (in1 >>> 10) & 0x7f;
+    out[op++] = (in1 >>> 17) & 0x7f;
+    out[op++] = (in1 >>> 24) & 0x7f;
+    out[op++] = ((in1 >>> 31) | ((in2 & 0x3f) << 1)) & 0x7f;
+    out[op++] = (in2 >>> 6) & 0x7f;
+    out[op++] = (in2 >>> 13) & 0x7f;
+    out[op++] = (in2 >>> 20) & 0x7f;
+    out[op++] = ((in2 >>> 27) | ((in3 & 0x3) << 5)) & 0x7f;
+    out[op++] = (in3 >>> 2) & 0x7f;
+    out[op++] = (in3 >>> 9) & 0x7f;
+    out[op++] = (in3 >>> 16) & 0x7f;
+    out[op++] = (in3 >>> 23) & 0x7f;
+    out[op++] = ((in3 >>> 30) | ((in4 & 0x1f) << 2)) & 0x7f;
+    out[op++] = (in4 >>> 5) & 0x7f;
+    out[op++] = (in4 >>> 12) & 0x7f;
+    out[op++] = (in4 >>> 19) & 0x7f;
+    out[op++] = ((in4 >>> 26) | ((in5 & 0x1) << 6)) & 0x7f;
+    out[op++] = (in5 >>> 1) & 0x7f;
+    out[op++] = (in5 >>> 8) & 0x7f;
+    out[op++] = (in5 >>> 15) & 0x7f;
+    out[op++] = (in5 >>> 22) & 0x7f;
+    out[op++] = ((in5 >>> 29) | ((in6 & 0xf) << 3)) & 0x7f;
+    out[op++] = (in6 >>> 4) & 0x7f;
+    out[op++] = (in6 >>> 11) & 0x7f;
+    out[op++] = (in6 >>> 18) & 0x7f;
+    out[op] = (in6 >>> 25) & 0x7f;
+}
+function fastUnpack32_8(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    out[op++] = (in0 >>> 0) & 0xff;
+    out[op++] = (in0 >>> 8) & 0xff;
+    out[op++] = (in0 >>> 16) & 0xff;
+    out[op++] = (in0 >>> 24) & 0xff;
+    out[op++] = (in1 >>> 0) & 0xff;
+    out[op++] = (in1 >>> 8) & 0xff;
+    out[op++] = (in1 >>> 16) & 0xff;
+    out[op++] = (in1 >>> 24) & 0xff;
+    out[op++] = (in2 >>> 0) & 0xff;
+    out[op++] = (in2 >>> 8) & 0xff;
+    out[op++] = (in2 >>> 16) & 0xff;
+    out[op++] = (in2 >>> 24) & 0xff;
+    out[op++] = (in3 >>> 0) & 0xff;
+    out[op++] = (in3 >>> 8) & 0xff;
+    out[op++] = (in3 >>> 16) & 0xff;
+    out[op++] = (in3 >>> 24) & 0xff;
+    out[op++] = (in4 >>> 0) & 0xff;
+    out[op++] = (in4 >>> 8) & 0xff;
+    out[op++] = (in4 >>> 16) & 0xff;
+    out[op++] = (in4 >>> 24) & 0xff;
+    out[op++] = (in5 >>> 0) & 0xff;
+    out[op++] = (in5 >>> 8) & 0xff;
+    out[op++] = (in5 >>> 16) & 0xff;
+    out[op++] = (in5 >>> 24) & 0xff;
+    out[op++] = (in6 >>> 0) & 0xff;
+    out[op++] = (in6 >>> 8) & 0xff;
+    out[op++] = (in6 >>> 16) & 0xff;
+    out[op++] = (in6 >>> 24) & 0xff;
+    out[op++] = (in7 >>> 0) & 0xff;
+    out[op++] = (in7 >>> 8) & 0xff;
+    out[op++] = (in7 >>> 16) & 0xff;
+    out[op] = (in7 >>> 24) & 0xff;
+}
+function fastUnpack32_9(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x1ff;
+    out[op++] = (in0 >>> 9) & 0x1ff;
+    out[op++] = (in0 >>> 18) & 0x1ff;
+    out[op++] = ((in0 >>> 27) | ((in1 & 0xf) << 5)) & 0x1ff;
+    out[op++] = (in1 >>> 4) & 0x1ff;
+    out[op++] = (in1 >>> 13) & 0x1ff;
+    out[op++] = (in1 >>> 22) & 0x1ff;
+    out[op++] = ((in1 >>> 31) | ((in2 & 0xff) << 1)) & 0x1ff;
+    out[op++] = (in2 >>> 8) & 0x1ff;
+    out[op++] = (in2 >>> 17) & 0x1ff;
+    out[op++] = ((in2 >>> 26) | ((in3 & 0x7) << 6)) & 0x1ff;
+    out[op++] = (in3 >>> 3) & 0x1ff;
+    out[op++] = (in3 >>> 12) & 0x1ff;
+    out[op++] = (in3 >>> 21) & 0x1ff;
+    out[op++] = ((in3 >>> 30) | ((in4 & 0x7f) << 2)) & 0x1ff;
+    out[op++] = (in4 >>> 7) & 0x1ff;
+    out[op++] = (in4 >>> 16) & 0x1ff;
+    out[op++] = ((in4 >>> 25) | ((in5 & 0x3) << 7)) & 0x1ff;
+    out[op++] = (in5 >>> 2) & 0x1ff;
+    out[op++] = (in5 >>> 11) & 0x1ff;
+    out[op++] = (in5 >>> 20) & 0x1ff;
+    out[op++] = ((in5 >>> 29) | ((in6 & 0x3f) << 3)) & 0x1ff;
+    out[op++] = (in6 >>> 6) & 0x1ff;
+    out[op++] = (in6 >>> 15) & 0x1ff;
+    out[op++] = ((in6 >>> 24) | ((in7 & 0x1) << 8)) & 0x1ff;
+    out[op++] = (in7 >>> 1) & 0x1ff;
+    out[op++] = (in7 >>> 10) & 0x1ff;
+    out[op++] = (in7 >>> 19) & 0x1ff;
+    out[op++] = ((in7 >>> 28) | ((in8 & 0x1f) << 4)) & 0x1ff;
+    out[op++] = (in8 >>> 5) & 0x1ff;
+    out[op++] = (in8 >>> 14) & 0x1ff;
+    out[op] = (in8 >>> 23) & 0x1ff;
+}
+function fastUnpack32_10(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x3ff;
+    out[op++] = (in0 >>> 10) & 0x3ff;
+    out[op++] = (in0 >>> 20) & 0x3ff;
+    out[op++] = ((in0 >>> 30) | ((in1 & 0xff) << 2)) & 0x3ff;
+    out[op++] = (in1 >>> 8) & 0x3ff;
+    out[op++] = (in1 >>> 18) & 0x3ff;
+    out[op++] = ((in1 >>> 28) | ((in2 & 0x3f) << 4)) & 0x3ff;
+    out[op++] = (in2 >>> 6) & 0x3ff;
+    out[op++] = (in2 >>> 16) & 0x3ff;
+    out[op++] = ((in2 >>> 26) | ((in3 & 0xf) << 6)) & 0x3ff;
+    out[op++] = (in3 >>> 4) & 0x3ff;
+    out[op++] = (in3 >>> 14) & 0x3ff;
+    out[op++] = ((in3 >>> 24) | ((in4 & 0x3) << 8)) & 0x3ff;
+    out[op++] = (in4 >>> 2) & 0x3ff;
+    out[op++] = (in4 >>> 12) & 0x3ff;
+    out[op++] = (in4 >>> 22) & 0x3ff;
+    out[op++] = (in5 >>> 0) & 0x3ff;
+    out[op++] = (in5 >>> 10) & 0x3ff;
+    out[op++] = (in5 >>> 20) & 0x3ff;
+    out[op++] = ((in5 >>> 30) | ((in6 & 0xff) << 2)) & 0x3ff;
+    out[op++] = (in6 >>> 8) & 0x3ff;
+    out[op++] = (in6 >>> 18) & 0x3ff;
+    out[op++] = ((in6 >>> 28) | ((in7 & 0x3f) << 4)) & 0x3ff;
+    out[op++] = (in7 >>> 6) & 0x3ff;
+    out[op++] = (in7 >>> 16) & 0x3ff;
+    out[op++] = ((in7 >>> 26) | ((in8 & 0xf) << 6)) & 0x3ff;
+    out[op++] = (in8 >>> 4) & 0x3ff;
+    out[op++] = (in8 >>> 14) & 0x3ff;
+    out[op++] = ((in8 >>> 24) | ((in9 & 0x3) << 8)) & 0x3ff;
+    out[op++] = (in9 >>> 2) & 0x3ff;
+    out[op++] = (in9 >>> 12) & 0x3ff;
+    out[op] = (in9 >>> 22) & 0x3ff;
+}
+function fastUnpack32_11(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    out[op++] = (in0 >>> 0) & 0x7ff;
+    out[op++] = (in0 >>> 11) & 0x7ff;
+    out[op++] = ((in0 >>> 22) | ((in1 & 0x1) << 10)) & 0x7ff;
+    out[op++] = (in1 >>> 1) & 0x7ff;
+    out[op++] = (in1 >>> 12) & 0x7ff;
+    out[op++] = ((in1 >>> 23) | ((in2 & 0x3) << 9)) & 0x7ff;
+    out[op++] = (in2 >>> 2) & 0x7ff;
+    out[op++] = (in2 >>> 13) & 0x7ff;
+    out[op++] = ((in2 >>> 24) | ((in3 & 0x7) << 8)) & 0x7ff;
+    out[op++] = (in3 >>> 3) & 0x7ff;
+    out[op++] = (in3 >>> 14) & 0x7ff;
+    out[op++] = ((in3 >>> 25) | ((in4 & 0xf) << 7)) & 0x7ff;
+    out[op++] = (in4 >>> 4) & 0x7ff;
+    out[op++] = (in4 >>> 15) & 0x7ff;
+    out[op++] = ((in4 >>> 26) | ((in5 & 0x1f) << 6)) & 0x7ff;
+    out[op++] = (in5 >>> 5) & 0x7ff;
+    out[op++] = (in5 >>> 16) & 0x7ff;
+    out[op++] = ((in5 >>> 27) | ((in6 & 0x3f) << 5)) & 0x7ff;
+    out[op++] = (in6 >>> 6) & 0x7ff;
+    out[op++] = (in6 >>> 17) & 0x7ff;
+    out[op++] = ((in6 >>> 28) | ((in7 & 0x7f) << 4)) & 0x7ff;
+    out[op++] = (in7 >>> 7) & 0x7ff;
+    out[op++] = (in7 >>> 18) & 0x7ff;
+    out[op++] = ((in7 >>> 29) | ((in8 & 0xff) << 3)) & 0x7ff;
+    out[op++] = (in8 >>> 8) & 0x7ff;
+    out[op++] = (in8 >>> 19) & 0x7ff;
+    out[op++] = ((in8 >>> 30) | ((in9 & 0x1ff) << 2)) & 0x7ff;
+    out[op++] = (in9 >>> 9) & 0x7ff;
+    out[op++] = (in9 >>> 20) & 0x7ff;
+    out[op++] = ((in9 >>> 31) | ((in10 & 0x3ff) << 1)) & 0x7ff;
+    out[op++] = (in10 >>> 10) & 0x7ff;
+    out[op] = (in10 >>> 21) & 0x7ff;
+}
+function fastUnpack32_12(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    out[op++] = (in0 >>> 0) & 0xfff;
+    out[op++] = (in0 >>> 12) & 0xfff;
+    out[op++] = ((in0 >>> 24) | ((in1 & 0xf) << 8)) & 0xfff;
+    out[op++] = (in1 >>> 4) & 0xfff;
+    out[op++] = (in1 >>> 16) & 0xfff;
+    out[op++] = ((in1 >>> 28) | ((in2 & 0xff) << 4)) & 0xfff;
+    out[op++] = (in2 >>> 8) & 0xfff;
+    out[op++] = (in2 >>> 20) & 0xfff;
+    out[op++] = (in3 >>> 0) & 0xfff;
+    out[op++] = (in3 >>> 12) & 0xfff;
+    out[op++] = ((in3 >>> 24) | ((in4 & 0xf) << 8)) & 0xfff;
+    out[op++] = (in4 >>> 4) & 0xfff;
+    out[op++] = (in4 >>> 16) & 0xfff;
+    out[op++] = ((in4 >>> 28) | ((in5 & 0xff) << 4)) & 0xfff;
+    out[op++] = (in5 >>> 8) & 0xfff;
+    out[op++] = (in5 >>> 20) & 0xfff;
+    out[op++] = (in6 >>> 0) & 0xfff;
+    out[op++] = (in6 >>> 12) & 0xfff;
+    out[op++] = ((in6 >>> 24) | ((in7 & 0xf) << 8)) & 0xfff;
+    out[op++] = (in7 >>> 4) & 0xfff;
+    out[op++] = (in7 >>> 16) & 0xfff;
+    out[op++] = ((in7 >>> 28) | ((in8 & 0xff) << 4)) & 0xfff;
+    out[op++] = (in8 >>> 8) & 0xfff;
+    out[op++] = (in8 >>> 20) & 0xfff;
+    out[op++] = (in9 >>> 0) & 0xfff;
+    out[op++] = (in9 >>> 12) & 0xfff;
+    out[op++] = ((in9 >>> 24) | ((in10 & 0xf) << 8)) & 0xfff;
+    out[op++] = (in10 >>> 4) & 0xfff;
+    out[op++] = (in10 >>> 16) & 0xfff;
+    out[op++] = ((in10 >>> 28) | ((in11 & 0xff) << 4)) & 0xfff;
+    out[op++] = (in11 >>> 8) & 0xfff;
+    out[op] = (in11 >>> 20) & 0xfff;
+}
+function fastUnpack32_16(inValues, inPos, out, outPos) {
+    let op = outPos;
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    const in12 = inValues[inPos + 12] >>> 0;
+    const in13 = inValues[inPos + 13] >>> 0;
+    const in14 = inValues[inPos + 14] >>> 0;
+    const in15 = inValues[inPos + 15] >>> 0;
+    out[op++] = (in0 >>> 0) & 0xffff;
+    out[op++] = (in0 >>> 16) & 0xffff;
+    out[op++] = (in1 >>> 0) & 0xffff;
+    out[op++] = (in1 >>> 16) & 0xffff;
+    out[op++] = (in2 >>> 0) & 0xffff;
+    out[op++] = (in2 >>> 16) & 0xffff;
+    out[op++] = (in3 >>> 0) & 0xffff;
+    out[op++] = (in3 >>> 16) & 0xffff;
+    out[op++] = (in4 >>> 0) & 0xffff;
+    out[op++] = (in4 >>> 16) & 0xffff;
+    out[op++] = (in5 >>> 0) & 0xffff;
+    out[op++] = (in5 >>> 16) & 0xffff;
+    out[op++] = (in6 >>> 0) & 0xffff;
+    out[op++] = (in6 >>> 16) & 0xffff;
+    out[op++] = (in7 >>> 0) & 0xffff;
+    out[op++] = (in7 >>> 16) & 0xffff;
+    out[op++] = (in8 >>> 0) & 0xffff;
+    out[op++] = (in8 >>> 16) & 0xffff;
+    out[op++] = (in9 >>> 0) & 0xffff;
+    out[op++] = (in9 >>> 16) & 0xffff;
+    out[op++] = (in10 >>> 0) & 0xffff;
+    out[op++] = (in10 >>> 16) & 0xffff;
+    out[op++] = (in11 >>> 0) & 0xffff;
+    out[op++] = (in11 >>> 16) & 0xffff;
+    out[op++] = (in12 >>> 0) & 0xffff;
+    out[op++] = (in12 >>> 16) & 0xffff;
+    out[op++] = (in13 >>> 0) & 0xffff;
+    out[op++] = (in13 >>> 16) & 0xffff;
+    out[op++] = (in14 >>> 0) & 0xffff;
+    out[op++] = (in14 >>> 16) & 0xffff;
+    out[op++] = (in15 >>> 0) & 0xffff;
+    out[op] = (in15 >>> 16) & 0xffff;
+}
+function fastUnpack256_1(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0x1;
+        out[op++] = (in0 >>> 1) & 0x1;
+        out[op++] = (in0 >>> 2) & 0x1;
+        out[op++] = (in0 >>> 3) & 0x1;
+        out[op++] = (in0 >>> 4) & 0x1;
+        out[op++] = (in0 >>> 5) & 0x1;
+        out[op++] = (in0 >>> 6) & 0x1;
+        out[op++] = (in0 >>> 7) & 0x1;
+        out[op++] = (in0 >>> 8) & 0x1;
+        out[op++] = (in0 >>> 9) & 0x1;
+        out[op++] = (in0 >>> 10) & 0x1;
+        out[op++] = (in0 >>> 11) & 0x1;
+        out[op++] = (in0 >>> 12) & 0x1;
+        out[op++] = (in0 >>> 13) & 0x1;
+        out[op++] = (in0 >>> 14) & 0x1;
+        out[op++] = (in0 >>> 15) & 0x1;
+        out[op++] = (in0 >>> 16) & 0x1;
+        out[op++] = (in0 >>> 17) & 0x1;
+        out[op++] = (in0 >>> 18) & 0x1;
+        out[op++] = (in0 >>> 19) & 0x1;
+        out[op++] = (in0 >>> 20) & 0x1;
+        out[op++] = (in0 >>> 21) & 0x1;
+        out[op++] = (in0 >>> 22) & 0x1;
+        out[op++] = (in0 >>> 23) & 0x1;
+        out[op++] = (in0 >>> 24) & 0x1;
+        out[op++] = (in0 >>> 25) & 0x1;
+        out[op++] = (in0 >>> 26) & 0x1;
+        out[op++] = (in0 >>> 27) & 0x1;
+        out[op++] = (in0 >>> 28) & 0x1;
+        out[op++] = (in0 >>> 29) & 0x1;
+        out[op++] = (in0 >>> 30) & 0x1;
+        out[op++] = (in0 >>> 31) & 0x1;
+    }
+}
+function fastUnpack256_2(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0x3;
+        out[op++] = (in0 >>> 2) & 0x3;
+        out[op++] = (in0 >>> 4) & 0x3;
+        out[op++] = (in0 >>> 6) & 0x3;
+        out[op++] = (in0 >>> 8) & 0x3;
+        out[op++] = (in0 >>> 10) & 0x3;
+        out[op++] = (in0 >>> 12) & 0x3;
+        out[op++] = (in0 >>> 14) & 0x3;
+        out[op++] = (in0 >>> 16) & 0x3;
+        out[op++] = (in0 >>> 18) & 0x3;
+        out[op++] = (in0 >>> 20) & 0x3;
+        out[op++] = (in0 >>> 22) & 0x3;
+        out[op++] = (in0 >>> 24) & 0x3;
+        out[op++] = (in0 >>> 26) & 0x3;
+        out[op++] = (in0 >>> 28) & 0x3;
+        out[op++] = (in0 >>> 30) & 0x3;
+        out[op++] = (in1 >>> 0) & 0x3;
+        out[op++] = (in1 >>> 2) & 0x3;
+        out[op++] = (in1 >>> 4) & 0x3;
+        out[op++] = (in1 >>> 6) & 0x3;
+        out[op++] = (in1 >>> 8) & 0x3;
+        out[op++] = (in1 >>> 10) & 0x3;
+        out[op++] = (in1 >>> 12) & 0x3;
+        out[op++] = (in1 >>> 14) & 0x3;
+        out[op++] = (in1 >>> 16) & 0x3;
+        out[op++] = (in1 >>> 18) & 0x3;
+        out[op++] = (in1 >>> 20) & 0x3;
+        out[op++] = (in1 >>> 22) & 0x3;
+        out[op++] = (in1 >>> 24) & 0x3;
+        out[op++] = (in1 >>> 26) & 0x3;
+        out[op++] = (in1 >>> 28) & 0x3;
+        out[op++] = (in1 >>> 30) & 0x3;
+    }
+}
+function fastUnpack256_3(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        const in2 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0x7;
+        out[op++] = (in0 >>> 3) & 0x7;
+        out[op++] = (in0 >>> 6) & 0x7;
+        out[op++] = (in0 >>> 9) & 0x7;
+        out[op++] = (in0 >>> 12) & 0x7;
+        out[op++] = (in0 >>> 15) & 0x7;
+        out[op++] = (in0 >>> 18) & 0x7;
+        out[op++] = (in0 >>> 21) & 0x7;
+        out[op++] = (in0 >>> 24) & 0x7;
+        out[op++] = (in0 >>> 27) & 0x7;
+        out[op++] = ((in0 >>> 30) | ((in1 & 0x1) << 2)) & 0x7;
+        out[op++] = (in1 >>> 1) & 0x7;
+        out[op++] = (in1 >>> 4) & 0x7;
+        out[op++] = (in1 >>> 7) & 0x7;
+        out[op++] = (in1 >>> 10) & 0x7;
+        out[op++] = (in1 >>> 13) & 0x7;
+        out[op++] = (in1 >>> 16) & 0x7;
+        out[op++] = (in1 >>> 19) & 0x7;
+        out[op++] = (in1 >>> 22) & 0x7;
+        out[op++] = (in1 >>> 25) & 0x7;
+        out[op++] = (in1 >>> 28) & 0x7;
+        out[op++] = ((in1 >>> 31) | ((in2 & 0x3) << 1)) & 0x7;
+        out[op++] = (in2 >>> 2) & 0x7;
+        out[op++] = (in2 >>> 5) & 0x7;
+        out[op++] = (in2 >>> 8) & 0x7;
+        out[op++] = (in2 >>> 11) & 0x7;
+        out[op++] = (in2 >>> 14) & 0x7;
+        out[op++] = (in2 >>> 17) & 0x7;
+        out[op++] = (in2 >>> 20) & 0x7;
+        out[op++] = (in2 >>> 23) & 0x7;
+        out[op++] = (in2 >>> 26) & 0x7;
+        out[op++] = (in2 >>> 29) & 0x7;
+    }
+}
+function fastUnpack256_4(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        const in2 = inValues[ip++] >>> 0;
+        const in3 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0xf;
+        out[op++] = (in0 >>> 4) & 0xf;
+        out[op++] = (in0 >>> 8) & 0xf;
+        out[op++] = (in0 >>> 12) & 0xf;
+        out[op++] = (in0 >>> 16) & 0xf;
+        out[op++] = (in0 >>> 20) & 0xf;
+        out[op++] = (in0 >>> 24) & 0xf;
+        out[op++] = (in0 >>> 28) & 0xf;
+        out[op++] = (in1 >>> 0) & 0xf;
+        out[op++] = (in1 >>> 4) & 0xf;
+        out[op++] = (in1 >>> 8) & 0xf;
+        out[op++] = (in1 >>> 12) & 0xf;
+        out[op++] = (in1 >>> 16) & 0xf;
+        out[op++] = (in1 >>> 20) & 0xf;
+        out[op++] = (in1 >>> 24) & 0xf;
+        out[op++] = (in1 >>> 28) & 0xf;
+        out[op++] = (in2 >>> 0) & 0xf;
+        out[op++] = (in2 >>> 4) & 0xf;
+        out[op++] = (in2 >>> 8) & 0xf;
+        out[op++] = (in2 >>> 12) & 0xf;
+        out[op++] = (in2 >>> 16) & 0xf;
+        out[op++] = (in2 >>> 20) & 0xf;
+        out[op++] = (in2 >>> 24) & 0xf;
+        out[op++] = (in2 >>> 28) & 0xf;
+        out[op++] = (in3 >>> 0) & 0xf;
+        out[op++] = (in3 >>> 4) & 0xf;
+        out[op++] = (in3 >>> 8) & 0xf;
+        out[op++] = (in3 >>> 12) & 0xf;
+        out[op++] = (in3 >>> 16) & 0xf;
+        out[op++] = (in3 >>> 20) & 0xf;
+        out[op++] = (in3 >>> 24) & 0xf;
+        out[op++] = (in3 >>> 28) & 0xf;
+    }
+}
+function fastUnpack256_5(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        const in2 = inValues[ip++] >>> 0;
+        const in3 = inValues[ip++] >>> 0;
+        const in4 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0x1f;
+        out[op++] = (in0 >>> 5) & 0x1f;
+        out[op++] = (in0 >>> 10) & 0x1f;
+        out[op++] = (in0 >>> 15) & 0x1f;
+        out[op++] = (in0 >>> 20) & 0x1f;
+        out[op++] = (in0 >>> 25) & 0x1f;
+        out[op++] = ((in0 >>> 30) | ((in1 & 0x7) << 2)) & 0x1f;
+        out[op++] = (in1 >>> 3) & 0x1f;
+        out[op++] = (in1 >>> 8) & 0x1f;
+        out[op++] = (in1 >>> 13) & 0x1f;
+        out[op++] = (in1 >>> 18) & 0x1f;
+        out[op++] = (in1 >>> 23) & 0x1f;
+        out[op++] = ((in1 >>> 28) | ((in2 & 0x1) << 4)) & 0x1f;
+        out[op++] = (in2 >>> 1) & 0x1f;
+        out[op++] = (in2 >>> 6) & 0x1f;
+        out[op++] = (in2 >>> 11) & 0x1f;
+        out[op++] = (in2 >>> 16) & 0x1f;
+        out[op++] = (in2 >>> 21) & 0x1f;
+        out[op++] = (in2 >>> 26) & 0x1f;
+        out[op++] = ((in2 >>> 31) | ((in3 & 0xf) << 1)) & 0x1f;
+        out[op++] = (in3 >>> 4) & 0x1f;
+        out[op++] = (in3 >>> 9) & 0x1f;
+        out[op++] = (in3 >>> 14) & 0x1f;
+        out[op++] = (in3 >>> 19) & 0x1f;
+        out[op++] = (in3 >>> 24) & 0x1f;
+        out[op++] = ((in3 >>> 29) | ((in4 & 0x3) << 3)) & 0x1f;
+        out[op++] = (in4 >>> 2) & 0x1f;
+        out[op++] = (in4 >>> 7) & 0x1f;
+        out[op++] = (in4 >>> 12) & 0x1f;
+        out[op++] = (in4 >>> 17) & 0x1f;
+        out[op++] = (in4 >>> 22) & 0x1f;
+        out[op++] = (in4 >>> 27) & 0x1f;
+    }
+}
+function fastUnpack256_6(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        const in2 = inValues[ip++] >>> 0;
+        const in3 = inValues[ip++] >>> 0;
+        const in4 = inValues[ip++] >>> 0;
+        const in5 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0x3f;
+        out[op++] = (in0 >>> 6) & 0x3f;
+        out[op++] = (in0 >>> 12) & 0x3f;
+        out[op++] = (in0 >>> 18) & 0x3f;
+        out[op++] = (in0 >>> 24) & 0x3f;
+        out[op++] = ((in0 >>> 30) | ((in1 & 0xf) << 2)) & 0x3f;
+        out[op++] = (in1 >>> 4) & 0x3f;
+        out[op++] = (in1 >>> 10) & 0x3f;
+        out[op++] = (in1 >>> 16) & 0x3f;
+        out[op++] = (in1 >>> 22) & 0x3f;
+        out[op++] = ((in1 >>> 28) | ((in2 & 0x3) << 4)) & 0x3f;
+        out[op++] = (in2 >>> 2) & 0x3f;
+        out[op++] = (in2 >>> 8) & 0x3f;
+        out[op++] = (in2 >>> 14) & 0x3f;
+        out[op++] = (in2 >>> 20) & 0x3f;
+        out[op++] = (in2 >>> 26) & 0x3f;
+        out[op++] = (in3 >>> 0) & 0x3f;
+        out[op++] = (in3 >>> 6) & 0x3f;
+        out[op++] = (in3 >>> 12) & 0x3f;
+        out[op++] = (in3 >>> 18) & 0x3f;
+        out[op++] = (in3 >>> 24) & 0x3f;
+        out[op++] = ((in3 >>> 30) | ((in4 & 0xf) << 2)) & 0x3f;
+        out[op++] = (in4 >>> 4) & 0x3f;
+        out[op++] = (in4 >>> 10) & 0x3f;
+        out[op++] = (in4 >>> 16) & 0x3f;
+        out[op++] = (in4 >>> 22) & 0x3f;
+        out[op++] = ((in4 >>> 28) | ((in5 & 0x3) << 4)) & 0x3f;
+        out[op++] = (in5 >>> 2) & 0x3f;
+        out[op++] = (in5 >>> 8) & 0x3f;
+        out[op++] = (in5 >>> 14) & 0x3f;
+        out[op++] = (in5 >>> 20) & 0x3f;
+        out[op++] = (in5 >>> 26) & 0x3f;
+    }
+}
+function fastUnpack256_7(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        const in2 = inValues[ip++] >>> 0;
+        const in3 = inValues[ip++] >>> 0;
+        const in4 = inValues[ip++] >>> 0;
+        const in5 = inValues[ip++] >>> 0;
+        const in6 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0x7f;
+        out[op++] = (in0 >>> 7) & 0x7f;
+        out[op++] = (in0 >>> 14) & 0x7f;
+        out[op++] = (in0 >>> 21) & 0x7f;
+        out[op++] = ((in0 >>> 28) | ((in1 & 0x7) << 4)) & 0x7f;
+        out[op++] = (in1 >>> 3) & 0x7f;
+        out[op++] = (in1 >>> 10) & 0x7f;
+        out[op++] = (in1 >>> 17) & 0x7f;
+        out[op++] = (in1 >>> 24) & 0x7f;
+        out[op++] = ((in1 >>> 31) | ((in2 & 0x3f) << 1)) & 0x7f;
+        out[op++] = (in2 >>> 6) & 0x7f;
+        out[op++] = (in2 >>> 13) & 0x7f;
+        out[op++] = (in2 >>> 20) & 0x7f;
+        out[op++] = ((in2 >>> 27) | ((in3 & 0x3) << 5)) & 0x7f;
+        out[op++] = (in3 >>> 2) & 0x7f;
+        out[op++] = (in3 >>> 9) & 0x7f;
+        out[op++] = (in3 >>> 16) & 0x7f;
+        out[op++] = (in3 >>> 23) & 0x7f;
+        out[op++] = ((in3 >>> 30) | ((in4 & 0x1f) << 2)) & 0x7f;
+        out[op++] = (in4 >>> 5) & 0x7f;
+        out[op++] = (in4 >>> 12) & 0x7f;
+        out[op++] = (in4 >>> 19) & 0x7f;
+        out[op++] = ((in4 >>> 26) | ((in5 & 0x1) << 6)) & 0x7f;
+        out[op++] = (in5 >>> 1) & 0x7f;
+        out[op++] = (in5 >>> 8) & 0x7f;
+        out[op++] = (in5 >>> 15) & 0x7f;
+        out[op++] = (in5 >>> 22) & 0x7f;
+        out[op++] = ((in5 >>> 29) | ((in6 & 0xf) << 3)) & 0x7f;
+        out[op++] = (in6 >>> 4) & 0x7f;
+        out[op++] = (in6 >>> 11) & 0x7f;
+        out[op++] = (in6 >>> 18) & 0x7f;
+        out[op++] = (in6 >>> 25) & 0x7f;
+    }
+}
+function fastUnpack256_8(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let c = 0; c < 8; c++) {
+        const in0 = inValues[ip++] >>> 0;
+        const in1 = inValues[ip++] >>> 0;
+        const in2 = inValues[ip++] >>> 0;
+        const in3 = inValues[ip++] >>> 0;
+        const in4 = inValues[ip++] >>> 0;
+        const in5 = inValues[ip++] >>> 0;
+        const in6 = inValues[ip++] >>> 0;
+        const in7 = inValues[ip++] >>> 0;
+        out[op++] = (in0 >>> 0) & 0xff;
+        out[op++] = (in0 >>> 8) & 0xff;
+        out[op++] = (in0 >>> 16) & 0xff;
+        out[op++] = (in0 >>> 24) & 0xff;
+        out[op++] = (in1 >>> 0) & 0xff;
+        out[op++] = (in1 >>> 8) & 0xff;
+        out[op++] = (in1 >>> 16) & 0xff;
+        out[op++] = (in1 >>> 24) & 0xff;
+        out[op++] = (in2 >>> 0) & 0xff;
+        out[op++] = (in2 >>> 8) & 0xff;
+        out[op++] = (in2 >>> 16) & 0xff;
+        out[op++] = (in2 >>> 24) & 0xff;
+        out[op++] = (in3 >>> 0) & 0xff;
+        out[op++] = (in3 >>> 8) & 0xff;
+        out[op++] = (in3 >>> 16) & 0xff;
+        out[op++] = (in3 >>> 24) & 0xff;
+        out[op++] = (in4 >>> 0) & 0xff;
+        out[op++] = (in4 >>> 8) & 0xff;
+        out[op++] = (in4 >>> 16) & 0xff;
+        out[op++] = (in4 >>> 24) & 0xff;
+        out[op++] = (in5 >>> 0) & 0xff;
+        out[op++] = (in5 >>> 8) & 0xff;
+        out[op++] = (in5 >>> 16) & 0xff;
+        out[op++] = (in5 >>> 24) & 0xff;
+        out[op++] = (in6 >>> 0) & 0xff;
+        out[op++] = (in6 >>> 8) & 0xff;
+        out[op++] = (in6 >>> 16) & 0xff;
+        out[op++] = (in6 >>> 24) & 0xff;
+        out[op++] = (in7 >>> 0) & 0xff;
+        out[op++] = (in7 >>> 8) & 0xff;
+        out[op++] = (in7 >>> 16) & 0xff;
+        out[op++] = (in7 >>> 24) & 0xff;
+    }
+}
+function fastUnpack256_16(inValues, inPos, out, outPos) {
+    let op = outPos;
+    let ip = inPos;
+    for (let i = 0; i < 128; i++) {
+        const in0 = inValues[ip++] >>> 0;
+        out[op++] = in0 & 0xffff;
+        out[op++] = (in0 >>> 16) & 0xffff;
+    }
+}
+function fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth) {
+    const mask = MASKS[bitWidth] >>> 0;
+    let inputWordIndex = inPos;
+    let bitOffset = 0;
+    let currentWord = inValues[inputWordIndex] >>> 0;
+    let op = outPos;
+    for (let c = 0; c < 8; c++) {
+        for (let i = 0; i < 32; i++) {
+            if (bitOffset + bitWidth <= 32) {
+                const value = (currentWord >>> bitOffset) & mask;
+                out[op + i] = value | 0;
+                bitOffset += bitWidth;
+                if (bitOffset === 32) {
+                    bitOffset = 0;
+                    inputWordIndex++;
+                    if (i !== 31) {
+                        currentWord = inValues[inputWordIndex] >>> 0;
+                    }
+                }
+            }
+            else {
+                const lowBits = 32 - bitOffset;
+                const low = currentWord >>> bitOffset;
+                inputWordIndex++;
+                currentWord = inValues[inputWordIndex] >>> 0;
+                const highBits = bitWidth - lowBits;
+                const highMask = (-1 >>> (32 - highBits)) >>> 0;
+                const high = currentWord & highMask;
+                const value = (low | (high << lowBits)) & mask;
+                out[op + i] = value | 0;
+                bitOffset = highBits;
+            }
+        }
+        op += 32;
+        bitOffset = 0;
+        if (c < 7) {
+            currentWord = inValues[inputWordIndex] >>> 0;
+        }
+    }
+}
+
+const MAX_BIT_WIDTH = 32;
+const BIT_WIDTH_SLOTS = MAX_BIT_WIDTH + 1;
+const PAGE_SIZE = normalizePageSize(DEFAULT_PAGE_SIZE);
+const BYTE_CONTAINER_SIZE = ((3 * PAGE_SIZE) / BLOCK_SIZE + PAGE_SIZE) | 0;
+/**
+ * Creates an isolated workspace for decoding.
+ * Reusing a workspace across calls avoids repeated allocations.
+ */
+function createDecoderWorkspace() {
+    const byteContainer = new Uint8Array(BYTE_CONTAINER_SIZE);
+    return {
+        dataToBePacked: new Array(BIT_WIDTH_SLOTS),
+        dataPointers: new Int32Array(BIT_WIDTH_SLOTS),
+        byteContainer,
+        byteContainerI32: new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2),
+        exceptionSizes: new Int32Array(BIT_WIDTH_SLOTS),
+    };
+}
+function createFastPforWireDecodeWorkspace(initialEncodedWordCapacity = 16) {
+    if (initialEncodedWordCapacity < 0) {
+        throw new RangeError(`initialEncodedWordCapacity must be >= 0, got ${initialEncodedWordCapacity}`);
+    }
+    const capacity = Math.max(16, initialEncodedWordCapacity | 0);
+    return {
+        encodedWords: new Uint32Array(capacity),
+        decoderWorkspace: createDecoderWorkspace(),
+    };
+}
+function ensureFastPforWireEncodedWordsCapacity(workspace, requiredWordCount) {
+    if (requiredWordCount <= workspace.encodedWords.length)
+        return workspace.encodedWords;
+    const next = new Uint32Array(Math.max(16, requiredWordCount * 2));
+    workspace.encodedWords = next;
+    return next;
+}
+function materializeByteContainer(inValues, byteContainerStart, byteSize, workspace) {
+    if (workspace.byteContainer.length < byteSize) {
+        workspace.byteContainer = new Uint8Array(byteSize * 2);
+        workspace.byteContainerI32 = undefined;
+    }
+    const byteContainer = workspace.byteContainer;
+    const numFullInts = byteSize >>> 2;
+    if ((byteContainer.byteOffset & 3) === 0) {
+        let intView = workspace.byteContainerI32;
+        if (!intView ||
+            intView.buffer !== byteContainer.buffer ||
+            intView.byteOffset !== byteContainer.byteOffset ||
+            intView.length < numFullInts) {
+            intView = workspace.byteContainerI32 = new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2);
+        }
+        intView.set(inValues.subarray(byteContainerStart, byteContainerStart + numFullInts));
+    }
+    else {
+        for (let i = 0; i < numFullInts; i = (i + 1) | 0) {
+            const val = inValues[(byteContainerStart + i) | 0] | 0;
+            const base = i << 2;
+            byteContainer[base] = val & 0xff;
+            byteContainer[(base + 1) | 0] = (val >>> 8) & 0xff;
+            byteContainer[(base + 2) | 0] = (val >>> 16) & 0xff;
+            byteContainer[(base + 3) | 0] = (val >>> 24) & 0xff;
+        }
+    }
+    const remainder = byteSize & 3;
+    if (remainder > 0) {
+        const lastIntIdx = (byteContainerStart + numFullInts) | 0;
+        const lastVal = inValues[lastIntIdx] | 0;
+        const base = numFullInts << 2;
+        for (let r = 0; r < remainder; r = (r + 1) | 0) {
+            byteContainer[(base + r) | 0] = (lastVal >>> (r << 3)) & 0xff;
+        }
+    }
+    return byteContainer;
+}
+/**
+ * Unpacks the per-bitWidth "exception streams" described by the page's bitmap.
+ *
+ * @remarks
+ * For each bit-width present in the bitmap, a stream header gives the count of outlier values for that
+ * bit-width, followed by packed bits representing those values.
+ *
+ * @param inValues - Packed input (32-bit words).
+ * @param inExcept - Offset (32-bit word index) where the exception bitmap starts.
+ * @param workspace - Decoder workspace used to store the unpacked exception streams.
+ * @returns The new input offset (32-bit word index) after consuming all exception streams.
+ */
+function unpackExceptionStreams(inValues, inExcept, workspace) {
+    const bitmap = inValues[inExcept++] | 0;
+    const dataToBePacked = workspace.dataToBePacked;
+    for (let bitWidth = 2; bitWidth <= MAX_BIT_WIDTH; bitWidth = (bitWidth + 1) | 0) {
+        if (((bitmap >>> (bitWidth - 1)) & 1) === 0)
+            continue;
+        if (inExcept >= inValues.length) {
+            throw new Error(`FastPFOR decode: truncated exception stream header (bitWidth=${bitWidth}, streamWordIndex=${inExcept}, needWords=1, availableWords=${inValues.length - inExcept}, encodedWords=${inValues.length})`);
+        }
+        const size = inValues[inExcept++] >>> 0;
+        const roundedUp = roundUpToMultipleOf32(size);
+        const wordsNeeded = (size * bitWidth + 31) >>> 5;
+        if (inExcept + wordsNeeded > inValues.length) {
+            throw new Error(`FastPFOR decode: truncated exception stream (bitWidth=${bitWidth}, size=${size}, streamWordIndex=${inExcept}, needWords=${wordsNeeded}, availableWords=${inValues.length - inExcept}, encodedWords=${inValues.length})`);
+        }
+        let exceptionStream = dataToBePacked[bitWidth];
+        if (!exceptionStream || exceptionStream.length < roundedUp) {
+            exceptionStream = dataToBePacked[bitWidth] = new Uint32Array(roundedUp);
+        }
+        let j = 0;
+        for (; j < size; j = (j + 32) | 0) {
+            fastUnpack32(inValues, inExcept, exceptionStream, j, bitWidth);
+            inExcept = (inExcept + bitWidth) | 0;
+        }
+        const overflow = (j - size) | 0;
+        inExcept = (inExcept - ((overflow * bitWidth) >>> 5)) | 0;
+        workspace.exceptionSizes[bitWidth] = size;
+    }
+    return inExcept;
+}
+/**
+ * Unpacks one 256-value block from the packed bitstream using a specialized implementation for common widths.
+ *
+ * @param inValues - Packed input (32-bit words).
+ * @param inPos - Input offset (32-bit word index) where the packed block starts.
+ * @param out - Output buffer.
+ * @param outPos - Output offset where the 256 values will be written.
+ * @param bitWidth - Base bit-width used for this block.
+ * @returns The new input offset (32-bit word index) right after the packed block data.
+ */
+function unpackBlock256(inValues, inPos, out, outPos, bitWidth) {
+    switch (bitWidth) {
+        case 1:
+            fastUnpack256_1(inValues, inPos, out, outPos);
+            break;
+        case 2:
+            fastUnpack256_2(inValues, inPos, out, outPos);
+            break;
+        case 3:
+            fastUnpack256_3(inValues, inPos, out, outPos);
+            break;
+        case 4:
+            fastUnpack256_4(inValues, inPos, out, outPos);
+            break;
+        case 5:
+            fastUnpack256_5(inValues, inPos, out, outPos);
+            break;
+        case 6:
+            fastUnpack256_6(inValues, inPos, out, outPos);
+            break;
+        case 7:
+            fastUnpack256_7(inValues, inPos, out, outPos);
+            break;
+        case 8:
+            fastUnpack256_8(inValues, inPos, out, outPos);
+            break;
+        case 16:
+            fastUnpack256_16(inValues, inPos, out, outPos);
+            break;
+        default:
+            fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth);
+            break;
+    }
+    return (inPos + (bitWidth << 3)) | 0;
+}
+/**
+ * Reads and validates the 2-byte block header from the byteContainer.
+ *
+ * @remarks
+ * The header is `[bitWidth, exceptionCount]`, both stored as single bytes.
+ *
+ * @param byteContainer - Byte metadata buffer for the page.
+ * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
+ * @param bytePosIn - Current offset in `byteContainer`.
+ * @param block - Block index within the page (for error messages).
+ * @returns The parsed header and the updated `bytePosIn`.
+ */
+function readBlockHeader(byteContainer, byteContainerLen, bytePosIn, block) {
+    if (bytePosIn + 2 > byteContainerLen) {
+        throw new Error(`FastPFOR decode: byteContainer underflow at block=${block} (need 2 bytes for [bitWidth, exceptionCount], bytePos=${bytePosIn}, byteSize=${byteContainerLen})`);
+    }
+    const bitWidth = byteContainer[bytePosIn++];
+    const exceptionCount = byteContainer[bytePosIn++];
+    if (bitWidth > MAX_BIT_WIDTH) {
+        throw new Error(`FastPFOR decode: invalid bitWidth=${bitWidth} at block=${block} (expected 0..${MAX_BIT_WIDTH}). This likely indicates corrupted or truncated input.`);
+    }
+    return { bitWidth, exceptionCount, bytePosIn };
+}
+/**
+ * Reads and validates the exception header for a block.
+ *
+ * @remarks
+ * The header contains `maxBits` (1 byte), which defines the width of the outlier values as
+ * `exceptionBitWidth = maxBits - bitWidth`.
+ *
+ * @param byteContainer - Byte metadata buffer for the page.
+ * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
+ * @param bytePosIn - Current offset in `byteContainer`.
+ * @param bitWidth - Base bit-width for the block.
+ * @param exceptionCount - Number of exceptions/outliers in this block.
+ * @param block - Block index within the page (for error messages).
+ * @returns Parsed `maxBits`, `exceptionBitWidth`, and the updated `bytePosIn`.
+ */
+function readBlockExceptionHeader(byteContainer, byteContainerLen, bytePosIn, bitWidth, exceptionCount, block) {
+    if (bytePosIn + 1 > byteContainerLen) {
+        throw new Error(`FastPFOR decode: exception header underflow at block=${block} (need 1 byte for maxBits, bytePos=${bytePosIn}, byteSize=${byteContainerLen})`);
+    }
+    const maxBits = byteContainer[bytePosIn++];
+    if (maxBits < bitWidth || maxBits > MAX_BIT_WIDTH) {
+        throw new Error(`FastPFOR decode: invalid maxBits=${maxBits} at block=${block} (bitWidth=${bitWidth}, expected ${bitWidth}..${MAX_BIT_WIDTH})`);
+    }
+    const exceptionBitWidth = (maxBits - bitWidth) | 0;
+    if (exceptionBitWidth < 1 || exceptionBitWidth > MAX_BIT_WIDTH) {
+        throw new Error(`FastPFOR decode: invalid exceptionBitWidth=${exceptionBitWidth} at block=${block} (bitWidth=${bitWidth}, maxBits=${maxBits})`);
+    }
+    if (bytePosIn + exceptionCount > byteContainerLen) {
+        throw new Error(`FastPFOR decode: exception positions underflow at block=${block} (need=${exceptionCount}, have=${byteContainerLen - bytePosIn})`);
+    }
+    return { maxBits, exceptionBitWidth, bytePosIn };
+}
+/**
+ * Applies (block-local) FastPFOR "exceptions" (outliers) to an already-unpacked base 256-value block.
+ *
+ * @param out - Output buffer containing the base unpacked values for the block.
+ * @param blockOutPos - Offset in `out` where the 256-value block starts.
+ * @param bitWidth - Base bit-width for the block.
+ * @param exceptionCount - Number of exceptions/outliers in this block.
+ * @param byteContainer - Byte metadata buffer for the page.
+ * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
+ * @param bytePosIn - Current offset in `byteContainer` (right after `[bitWidth, exceptionCount]`).
+ * @param workspace - Decoder workspace holding the unpacked exception streams.
+ * @param block - Block index within the page (for error messages).
+ * @returns The updated `bytePosIn` after consuming the exception metadata bytes.
+ *
+ * The exception metadata is stored in `byteContainer`:
+ * - `maxBits` (1 byte): the maximum bit-width of any value in the block
+ * - `exceptionCount` exception positions (1 byte each, 0..255)
+ *
+ * The exception values themselves are read from the pre-unpacked exception streams stored in `workspace`.
+ * Returns the new position in the byteContainer after consuming the exception metadata bytes.
+ */
+function applyBlockExceptions(out, blockOutPos, bitWidth, exceptionCount, byteContainer, byteContainerLen, bytePosIn, workspace, block) {
+    const { maxBits, exceptionBitWidth, bytePosIn: afterHeaderPos, } = readBlockExceptionHeader(byteContainer, byteContainerLen, bytePosIn, bitWidth, exceptionCount, block);
+    bytePosIn = afterHeaderPos;
+    if (exceptionBitWidth === 1) {
+        const shift = 1 << bitWidth;
+        for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
+            const pos = byteContainer[bytePosIn++];
+            out[(pos + blockOutPos) | 0] |= shift;
+        }
+        return bytePosIn;
+    }
+    const exceptionValues = workspace.dataToBePacked[exceptionBitWidth];
+    if (!exceptionValues) {
+        throw new Error(`FastPFOR decode: missing exception stream for exceptionBitWidth=${exceptionBitWidth} (bitWidth=${bitWidth}, maxBits=${maxBits}) at block ${block}`);
+    }
+    const exceptionPointers = workspace.dataPointers;
+    let exPtr = exceptionPointers[exceptionBitWidth] | 0;
+    const exSize = workspace.exceptionSizes[exceptionBitWidth] | 0;
+    if (exPtr + exceptionCount > exSize) {
+        throw new Error(`FastPFOR decode: exception stream overflow for exceptionBitWidth=${exceptionBitWidth} (ptr=${exPtr}, need ${exceptionCount}, size=${exSize}) at block ${block}`);
+    }
+    for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
+        const pos = byteContainer[bytePosIn++];
+        const val = exceptionValues[exPtr++] | 0;
+        out[(pos + blockOutPos) | 0] |= val << bitWidth;
+    }
+    exceptionPointers[exceptionBitWidth] = exPtr;
+    return bytePosIn;
+}
+function decodePageBlocks(inValues, pageStart, inPos, packedEnd, out, outPos, blocks, byteContainer, byteContainerLen, workspace) {
+    let tmpInPos = inPos | 0;
+    let bytePosIn = 0;
+    for (let run = 0; run < blocks; run = (run + 1) | 0) {
+        const header = readBlockHeader(byteContainer, byteContainerLen, bytePosIn, run);
+        bytePosIn = header.bytePosIn;
+        const bitWidth = header.bitWidth;
+        const exceptionCount = header.exceptionCount;
+        const blockOutPos = (outPos + run * BLOCK_SIZE) | 0;
+        switch (bitWidth) {
+            case 0:
+                out.fill(0, blockOutPos, blockOutPos + BLOCK_SIZE);
+                break;
+            case 32:
+                for (let i = 0; i < BLOCK_SIZE; i = (i + 1) | 0) {
+                    out[(blockOutPos + i) | 0] = inValues[(tmpInPos + i) | 0] | 0;
+                }
+                tmpInPos = (tmpInPos + BLOCK_SIZE) | 0;
+                break;
+            default:
+                tmpInPos = unpackBlock256(inValues, tmpInPos, out, blockOutPos, bitWidth);
+                break;
+        }
+        if (exceptionCount > 0) {
+            bytePosIn = applyBlockExceptions(out, blockOutPos, bitWidth, exceptionCount, byteContainer, byteContainerLen, bytePosIn, workspace, run);
+        }
+    }
+    if (tmpInPos !== packedEnd) {
+        throw new Error(`FastPFOR decode: packed region mismatch (pageStart=${pageStart}, packedStart=${inPos}, consumedPackedEnd=${tmpInPos}, expectedPackedEnd=${packedEnd}, packedWords=${packedEnd - inPos}, encoded.length=${inValues.length})`);
+    }
+    return;
+}
+/**
+ * Decodes one FastPFOR page (aligned to 256-value blocks).
+ */
+function decodePage(inValues, out, inPos, outPos, thisSize, workspace) {
+    const pageStart = inPos | 0;
+    const whereMeta = inValues[pageStart] | 0;
+    if (whereMeta <= 0 || pageStart + whereMeta > inValues.length - 1) {
+        throw new Error(`FastPFOR decode: invalid whereMeta=${whereMeta} at pageStart=${pageStart} (expected > 0 and pageStart+whereMeta < encoded.length=${inValues.length})`);
+    }
+    const packedStart = (pageStart + 1) | 0;
+    const packedEnd = (pageStart + whereMeta) | 0;
+    const byteSize = inValues[packedEnd] >>> 0;
+    const metaInts = (byteSize + 3) >>> 2;
+    const byteContainerStart = packedEnd + 1;
+    const bitmapPos = byteContainerStart + metaInts;
+    if (bitmapPos >= inValues.length) {
+        throw new Error(`FastPFOR decode: invalid byteSize=${byteSize} (metaInts=${metaInts}, pageStart=${pageStart}, packedEnd=${packedEnd}, byteContainerStart=${byteContainerStart}) causes bitmapPos=${bitmapPos} out of bounds (encoded.length=${inValues.length})`);
+    }
+    const byteContainer = materializeByteContainer(inValues, byteContainerStart, byteSize, workspace);
+    const byteContainerLen = byteSize;
+    const inExcept = unpackExceptionStreams(inValues, bitmapPos, workspace);
+    const exceptionPointers = workspace.dataPointers;
+    exceptionPointers.fill(0);
+    const startOutPos = outPos | 0;
+    const blocks = (thisSize / BLOCK_SIZE) | 0;
+    decodePageBlocks(inValues, pageStart, packedStart, packedEnd, out, startOutPos, blocks, byteContainer, byteContainerLen, workspace);
+    return inExcept;
+}
+function decodeAlignedPages(inValues, out, inPos, outPos, outLength, workspace) {
+    const alignedOutLength = greatestMultiple(outLength, BLOCK_SIZE);
+    const finalOut = outPos + alignedOutLength;
+    let tmpOutPos = outPos;
+    let tmpInPos = inPos;
+    while (tmpOutPos !== finalOut) {
+        const thisSize = Math.min(PAGE_SIZE, finalOut - tmpOutPos);
+        tmpInPos = decodePage(inValues, out, tmpInPos, tmpOutPos, thisSize, workspace);
+        tmpOutPos = (tmpOutPos + thisSize) | 0;
+    }
+    return tmpInPos;
+}
+/**
+ * Decodes the VariableByte tail (MSB=1 terminator, opposite of Protobuf Varint).
+ */
+function decodeVByte(inValues, inPos, inLength, out, outPos, expectedCount) {
+    if (expectedCount === 0)
+        return inPos;
+    let bitOffset = 0;
+    let wordIndex = inPos;
+    const finalWordIndex = inPos + inLength;
+    const outPos0 = outPos;
+    let tmpOutPos = outPos;
+    const targetOut = outPos + expectedCount;
+    let accumulator = 0;
+    let accumulatorShift = 0;
+    while (wordIndex < finalWordIndex && tmpOutPos < targetOut) {
+        const word = inValues[wordIndex];
+        const byte = (word >>> bitOffset) & 0xff;
+        bitOffset += 8;
+        wordIndex += bitOffset >>> 5;
+        bitOffset &= 31;
+        accumulator |= (byte & 0x7f) << accumulatorShift;
+        if ((byte & 0x80) !== 0) {
+            out[tmpOutPos++] = accumulator | 0;
+            accumulator = 0;
+            accumulatorShift = 0;
+        }
+        else {
+            accumulatorShift += 7;
+            if (accumulatorShift > 28) {
+                throw new Error(`FastPFOR VByte: unterminated value (expected MSB=1 terminator within 5 bytes; shift=${accumulatorShift}, partial=${accumulator}, decoded=${tmpOutPos - outPos0}/${expectedCount}, inPos=${wordIndex}, inEnd=${finalWordIndex})`);
+            }
+        }
+    }
+    if (tmpOutPos !== targetOut) {
+        throw new Error(`FastPFOR VByte: truncated stream (decoded=${tmpOutPos - outPos0}, expected=${expectedCount}, consumedWords=${wordIndex - inPos}/${inLength}, vbyteStart=${inPos}, vbyteEnd=${finalWordIndex})`);
+    }
+    return wordIndex;
+}
+/**
+ * Decodes a sequence of FastPFOR-encoded integers.
+ *
+ * @param encoded The input buffer containing FastPFOR encoded data.
+ * @param numValues The number of integers expected to be decoded.
+ * @param workspace Optional workspace for reuse across calls. If omitted, a new workspace is created per call.
+ */
+function decodeFastPforInt32(encoded, numValues, workspace) {
+    let inPos = 0;
+    let outPos = 0;
+    const decoded = new Uint32Array(numValues);
+    const decoderWorkspace = workspace ?? createDecoderWorkspace();
+    if (encoded.length > 0) {
+        const alignedLength = encoded[inPos] | 0;
+        inPos = (inPos + 1) | 0;
+        if ((alignedLength & (BLOCK_SIZE - 1)) !== 0) {
+            throw new Error(`FastPFOR decode: invalid alignedLength=${alignedLength} (expected multiple of ${BLOCK_SIZE})`);
+        }
+        if (outPos + alignedLength > decoded.length) {
+            throw new Error(`FastPFOR decode: output buffer too small (outPos=${outPos}, alignedLength=${alignedLength}, out.length=${decoded.length})`);
+        }
+        inPos = decodeAlignedPages(encoded, decoded, inPos, outPos, alignedLength, decoderWorkspace);
+        outPos = (outPos + alignedLength) | 0;
+    }
+    const remainingLength = (encoded.length - inPos) | 0;
+    const expectedTail = (numValues - outPos) | 0;
+    decodeVByte(encoded, inPos, remainingLength, decoded, outPos, expectedTail);
+    return decoded;
+}
+function fastUnpack32(inValues, inPos, out, outPos, bitWidth) {
+    switch (bitWidth) {
+        case 2:
+            fastUnpack32_2(inValues, inPos, out, outPos);
+            return;
+        case 3:
+            fastUnpack32_3(inValues, inPos, out, outPos);
+            return;
+        case 4:
+            fastUnpack32_4(inValues, inPos, out, outPos);
+            return;
+        case 5:
+            fastUnpack32_5(inValues, inPos, out, outPos);
+            return;
+        case 6:
+            fastUnpack32_6(inValues, inPos, out, outPos);
+            return;
+        case 7:
+            fastUnpack32_7(inValues, inPos, out, outPos);
+            return;
+        case 8:
+            fastUnpack32_8(inValues, inPos, out, outPos);
+            return;
+        case 9:
+            fastUnpack32_9(inValues, inPos, out, outPos);
+            return;
+        case 10:
+            fastUnpack32_10(inValues, inPos, out, outPos);
+            return;
+        case 11:
+            fastUnpack32_11(inValues, inPos, out, outPos);
+            return;
+        case 12:
+            fastUnpack32_12(inValues, inPos, out, outPos);
+            return;
+        case 16:
+            fastUnpack32_16(inValues, inPos, out, outPos);
+            return;
+        case 32:
+            for (let i = 0; i < 32; i = (i + 1) | 0) {
+                out[(outPos + i) | 0] = inValues[(inPos + i) | 0] | 0;
+            }
+            return;
+        default:
+            break;
+    }
+    const valueMask = MASKS[bitWidth] >>> 0;
+    let inputWordIndex = inPos;
+    let bitOffset = 0;
+    let currentWord = inValues[inputWordIndex] >>> 0;
+    for (let i = 0; i < 32; i++) {
+        if (bitOffset + bitWidth <= 32) {
+            const value = (currentWord >>> bitOffset) & valueMask;
+            out[outPos + i] = value | 0;
+            bitOffset += bitWidth;
+            if (bitOffset === 32) {
+                bitOffset = 0;
+                inputWordIndex++;
+                if (i !== 31)
+                    currentWord = inValues[inputWordIndex] >>> 0;
+            }
+        }
+        else {
+            const lowBits = 32 - bitOffset;
+            const low = currentWord >>> bitOffset;
+            inputWordIndex++;
+            currentWord = inValues[inputWordIndex] >>> 0;
+            const highMask = MASKS[bitWidth - lowBits] >>> 0;
+            const high = currentWord & highMask;
+            const value = (low | (high << lowBits)) & valueMask;
+            out[outPos + i] = value | 0;
+            bitOffset = bitWidth - lowBits;
+        }
+    }
+}
+
+/**
+ * Decodes big-endian bytes into `out` without allocating the output buffer.
+ *
+ * This function does not copy `bytes`; it writes decoded words into the provided `out` array.
+ * For aligned inputs it may create a temporary typed-array view (`Uint32Array`) over `bytes.buffer`
+ * to speed up decoding.
+ *
+ * If `byteLength` is not a multiple of 4, the final word is padded with zeros.
+ *
+ * @returns Number of int32 words written.
+ * @throws RangeError If `(offset, byteLength)` is out of bounds, or if `out` is too small.
+ */
+function decodeBigEndianInt32sInto(bytes, offset, byteLength, out) {
+    if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
+        throw new RangeError(`decodeBigEndianInt32sInto: out of bounds (offset=${offset}, byteLength=${byteLength}, bytes.length=${bytes.length})`);
+    }
+    const numCompleteInts = Math.floor(byteLength / 4);
+    const hasTrailingBytes = byteLength % 4 !== 0;
+    const numInts = hasTrailingBytes ? numCompleteInts + 1 : numCompleteInts;
+    if (out.length < numInts) {
+        throw new RangeError(`decodeBigEndianInt32sInto: out.length=${out.length} < ${numInts}`);
+    }
+    if (numCompleteInts > 0) {
+        const absoluteOffset = bytes.byteOffset + offset;
+        if ((absoluteOffset & 3) === 0) {
+            const u32 = new Uint32Array(bytes.buffer, absoluteOffset, numCompleteInts);
+            for (let i = 0; i < numCompleteInts; i++) {
+                out[i] = bswap32(u32[i]) | 0;
+            }
+        }
+        else {
+            for (let i = 0; i < numCompleteInts; i++) {
+                const base = offset + i * 4;
+                out[i] = (bytes[base] << 24) | (bytes[base + 1] << 16) | (bytes[base + 2] << 8) | bytes[base + 3] | 0;
+            }
+        }
+    }
+    if (hasTrailingBytes) {
+        const base = offset + numCompleteInts * 4;
+        const remaining = byteLength - numCompleteInts * 4;
+        let v = 0;
+        for (let i = 0; i < remaining; i++) {
+            v |= bytes[base + i] << (24 - i * 8);
+        }
+        out[numCompleteInts] = v | 0;
+    }
+    return numInts;
+}
+
+//based on https://github.com/mapbox/pbf/blob/main/index.js
+function decodeVarintInt32(buf, bufferOffset, numValues) {
+    const dst = new Uint32Array(numValues);
+    let dstOffset = 0;
+    let offset = bufferOffset.get();
+    for (let i = 0; i < dst.length; i++) {
+        let b = buf[offset++];
+        let val = b & 0x7f;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+        b = buf[offset++];
+        val |= (b & 0x7f) << 7;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+        b = buf[offset++];
+        val |= (b & 0x7f) << 14;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+        b = buf[offset++];
+        val |= (b & 0x7f) << 21;
+        if (b < 0x80) {
+            dst[dstOffset++] = val;
+            continue;
+        }
+        b = buf[offset++];
+        val |= (b & 0x0f) << 28;
+        dst[dstOffset++] = val;
+    }
+    bufferOffset.set(offset);
+    return dst;
+}
+function decodeVarintInt64(src, offset, numValues) {
+    const dst = new BigUint64Array(numValues);
+    for (let i = 0; i < dst.length; i++) {
+        dst[i] = decodeVarintInt64Value(src, offset);
+    }
+    return dst;
+}
+// Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
+function decodeVarintInt64Value(bytes, pos) {
+    let value = 0n;
+    let shift = 0;
+    let index = pos.get();
+    while (index < bytes.length) {
+        const b = bytes[index++];
+        value |= BigInt(b & 0x7f) << BigInt(shift);
+        if ((b & 0x80) === 0) {
+            break;
+        }
+        shift += 7;
+        if (shift >= 64) {
+            throw new Error("Varint too long");
+        }
+    }
+    pos.set(index);
+    return value;
+}
+/*
+ * Since decoding Int64 values to BigInt is more than an order of magnitude slower in the tests then using a Float64,
+ * this decoding method limits the max size of a Long value to 53 bits
+ */
+function decodeVarintFloat64(src, offset, numValues) {
+    const dst = new Float64Array(numValues);
+    for (let i = 0; i < numValues; i++) {
+        dst[i] = decodeVarintFloat64Value(src, offset);
+    }
+    return dst;
+}
+//based on https://github.com/mapbox/pbf/blob/main/index.js
+function decodeVarintFloat64Value(buf, offset) {
+    let val;
+    let b;
+    b = buf[offset.get()];
+    offset.increment();
+    val = b & 0x7f;
+    if (b < 0x80)
+        return val;
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x7f) << 7;
+    if (b < 0x80)
+        return val;
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x7f) << 14;
+    if (b < 0x80)
+        return val;
+    b = buf[offset.get()];
+    offset.increment();
+    val |= (b & 0x7f) << 21;
+    if (b < 0x80)
+        return val;
+    b = buf[offset.get()];
+    val |= (b & 0x0f) << 28;
+    return decodeVarintRemainder(val, buf, offset);
+}
+function decodeVarintRemainder(l, buf, offset) {
+    let h;
+    let b;
+    b = buf[offset.get()];
+    offset.increment();
+    h = (b & 0x70) >> 4;
+    if (b < 0x80)
+        return h * 0x100000000 + (l >>> 0);
+    b = buf[offset.get()];
+    offset.increment();
+    h |= (b & 0x7f) << 3;
+    if (b < 0x80)
+        return h * 0x100000000 + (l >>> 0);
+    b = buf[offset.get()];
+    offset.increment();
+    h |= (b & 0x7f) << 10;
+    if (b < 0x80)
+        return h * 0x100000000 + (l >>> 0);
+    b = buf[offset.get()];
+    offset.increment();
+    h |= (b & 0x7f) << 17;
+    if (b < 0x80)
+        return h * 0x100000000 + (l >>> 0);
+    b = buf[offset.get()];
+    offset.increment();
+    h |= (b & 0x7f) << 24;
+    if (b < 0x80)
+        return h * 0x100000000 + (l >>> 0);
+    b = buf[offset.get()];
+    offset.increment();
+    h |= (b & 0x01) << 31;
+    if (b < 0x80)
+        return h * 0x100000000 + (l >>> 0);
+    throw new Error("Expected varint not more than 10 bytes");
+}
+function decodeFastPfor(encodedBytes, expectedValueCount, encodedByteLength, offset) {
+    const workspace = createFastPforWireDecodeWorkspace(encodedByteLength >>> 2);
+    return decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace);
+}
+function decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace) {
+    const inputByteOffset = offset.get();
+    if ((encodedByteLength & 3) !== 0) {
+        throw new Error(`FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`);
+    }
+    const encodedWordCount = encodedByteLength >>> 2;
+    const encodedWordBuffer = ensureFastPforWireEncodedWordsCapacity(workspace, encodedWordCount);
+    decodeBigEndianInt32sInto(encodedBytes, inputByteOffset, encodedByteLength, encodedWordBuffer);
+    const decodedValues = decodeFastPforInt32(encodedWordBuffer.subarray(0, encodedWordCount), expectedValueCount, workspace.decoderWorkspace);
+    offset.add(encodedByteLength);
+    return decodedValues;
+}
+function decodeZigZagInt32Value(encoded) {
+    return (encoded >>> 1) ^ -(encoded & 1);
+}
+function decodeZigZagInt64Value(encoded) {
+    return (encoded >> 1n) ^ -(encoded & 1n);
+}
+function decodeZigZagFloat64Value(encoded) {
+    return encoded % 2 === 1 ? (encoded + 1) / -2 : encoded / 2;
+}
+function decodeZigZagInt32(encodedData) {
+    const decodedValues = new Int32Array(encodedData.length);
+    for (let i = 0; i < encodedData.length; i++) {
+        decodedValues[i] = decodeZigZagInt32Value(encodedData[i]);
+    }
+    return decodedValues;
+}
+function decodeZigZagInt64(encodedData) {
+    const decodedValues = new BigInt64Array(encodedData.length);
+    for (let i = 0; i < encodedData.length; i++) {
+        decodedValues[i] = decodeZigZagInt64Value(encodedData[i]);
+    }
+    return decodedValues;
+}
+function decodeZigZagFloat64(encodedData) {
+    for (let i = 0; i < encodedData.length; i++) {
+        encodedData[i] = decodeZigZagFloat64Value(encodedData[i]);
+    }
+}
+function decodeUnsignedRleInt32(encodedData, numRuns, numTotalValues) {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += encodedData[i];
+        }
+    }
+    const decodedValues = new Uint32Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = encodedData[i];
+        const value = encodedData[i + numRuns];
+        decodedValues.fill(value, offset, offset + runLength);
+        offset += runLength;
+    }
+    return decodedValues;
+}
+function decodeUnsignedRleInt64(encodedData, numRuns, numTotalValues) {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += Number(encodedData[i]);
+        }
+    }
+    const decodedValues = new BigUint64Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = Number(encodedData[i]);
+        const value = encodedData[i + numRuns];
+        decodedValues.fill(value, offset, offset + runLength);
+        offset += runLength;
+    }
+    return decodedValues;
+}
+function decodeUnsignedRleFloat64(encodedData, numRuns, numTotalValues) {
+    const decodedValues = new Float64Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = encodedData[i];
+        const value = encodedData[i + numRuns];
+        decodedValues.fill(value, offset, offset + runLength);
+        offset += runLength;
+    }
+    return decodedValues;
+}
+/*
+ * In place decoding of the zigzag encoded delta values.
+ * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
+ */
+function decodeZigZagDeltaInt32(data) {
+    const decodedValues = new Int32Array(data.length);
+    decodedValues[0] = decodeZigZagInt32Value(data[0]);
+    const sz0 = (data.length / 4) * 4;
+    let i = 1;
+    if (sz0 >= 4) {
+        for (; i < sz0 - 4; i += 4) {
+            const data1 = data[i];
+            const data2 = data[i + 1];
+            const data3 = data[i + 2];
+            const data4 = data[i + 3];
+            decodedValues[i] = decodeZigZagInt32Value(data1) + decodedValues[i - 1];
+            decodedValues[i + 1] = decodeZigZagInt32Value(data2) + decodedValues[i];
+            decodedValues[i + 2] = decodeZigZagInt32Value(data3) + decodedValues[i + 1];
+            decodedValues[i + 3] = decodeZigZagInt32Value(data4) + decodedValues[i + 2];
+        }
+    }
+    for (; i !== data.length; ++i) {
+        decodedValues[i] = decodeZigZagInt32Value(data[i]) + decodedValues[i - 1];
+    }
+    return decodedValues;
+}
+function decodeZigZagDeltaInt64(data) {
+    const decodedValues = new BigInt64Array(data.length);
+    decodedValues[0] = decodeZigZagInt64Value(data[0]);
+    const sz0 = (data.length / 4) * 4;
+    let i = 1;
+    if (sz0 >= 4) {
+        for (; i < sz0 - 4; i += 4) {
+            const data1 = data[i];
+            const data2 = data[i + 1];
+            const data3 = data[i + 2];
+            const data4 = data[i + 3];
+            decodedValues[i] = decodeZigZagInt64Value(data1) + decodedValues[i - 1];
+            decodedValues[i + 1] = decodeZigZagInt64Value(data2) + decodedValues[i];
+            decodedValues[i + 2] = decodeZigZagInt64Value(data3) + decodedValues[i + 1];
+            decodedValues[i + 3] = decodeZigZagInt64Value(data4) + decodedValues[i + 2];
+        }
+    }
+    for (; i !== decodedValues.length; ++i) {
+        decodedValues[i] = decodeZigZagInt64Value(data[i]) + decodedValues[i - 1];
+    }
+    return decodedValues;
+}
+function decodeZigZagDeltaFloat64(data) {
+    data[0] = decodeZigZagFloat64Value(data[0]);
+    const sz0 = (data.length / 4) * 4;
+    let i = 1;
+    if (sz0 >= 4) {
+        for (; i < sz0 - 4; i += 4) {
+            const data1 = data[i];
+            const data2 = data[i + 1];
+            const data3 = data[i + 2];
+            const data4 = data[i + 3];
+            data[i] = decodeZigZagFloat64Value(data1) + data[i - 1];
+            data[i + 1] = decodeZigZagFloat64Value(data2) + data[i];
+            data[i + 2] = decodeZigZagFloat64Value(data3) + data[i + 1];
+            data[i + 3] = decodeZigZagFloat64Value(data4) + data[i + 2];
+        }
+    }
+    for (; i !== data.length; ++i) {
+        data[i] = decodeZigZagFloat64Value(data[i]) + data[i - 1];
+    }
+}
+function decodeZigZagRleInt32(data, numRuns, numTotalValues) {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += data[i];
+        }
+    }
+    const decodedValues = new Int32Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = data[i];
+        let value = data[i + numRuns];
+        value = decodeZigZagInt32Value(value);
+        decodedValues.fill(value, offset, offset + runLength);
+        offset += runLength;
+    }
+    return decodedValues;
+}
+function decodeZigZagRleInt64(data, numRuns, numTotalValues) {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += Number(data[i]);
+        }
+    }
+    const decodedValues = new BigInt64Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = Number(data[i]);
+        let value = data[i + numRuns];
+        value = decodeZigZagInt64Value(value);
+        decodedValues.fill(value, offset, offset + runLength);
+        offset += runLength;
+    }
+    return decodedValues;
+}
+function decodeZigZagRleFloat64(data, numRuns, numTotalValues) {
+    const decodedValues = new Float64Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = data[i];
+        let value = data[i + numRuns];
+        value = decodeZigZagFloat64Value(value);
+        decodedValues.fill(value, offset, offset + runLength);
+        offset += runLength;
+    }
+    return decodedValues;
+}
+/*
+ * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
+ */
+function fastInverseDelta(data) {
+    const sz0 = (data.length / 4) * 4;
+    let i = 1;
+    if (sz0 >= 4) {
+        for (let a = data[0]; i < sz0 - 4; i += 4) {
+            a = data[i] += a;
+            a = data[i + 1] += a;
+            a = data[i + 2] += a;
+            a = data[i + 3] += a;
+        }
+    }
+    while (i !== data.length) {
+        data[i] += data[i - 1];
+        ++i;
+    }
+}
+function inverseDelta(data) {
+    let prevValue = 0;
+    for (let i = 0; i < data.length; i++) {
+        data[i] += prevValue;
+        prevValue = data[i];
+    }
+}
+/*
+ * In place decoding of the zigzag delta encoded Vec2.
+ * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
+ */
+function decodeComponentwiseDeltaVec2(data) {
+    if (data.length < 2)
+        return new Int32Array(data);
+    const decodedData = new Int32Array(data.length);
+    decodedData[0] = decodeZigZagInt32Value(data[0]);
+    decodedData[1] = decodeZigZagInt32Value(data[1]);
+    const sz0 = (data.length / 4) * 4;
+    let i = 2;
+    if (sz0 >= 4) {
+        for (; i < sz0 - 4; i += 4) {
+            const x1 = data[i];
+            const y1 = data[i + 1];
+            const x2 = data[i + 2];
+            const y2 = data[i + 3];
+            decodedData[i] = decodeZigZagInt32Value(x1) + decodedData[i - 2];
+            decodedData[i + 1] = decodeZigZagInt32Value(y1) + decodedData[i - 1];
+            decodedData[i + 2] = decodeZigZagInt32Value(x2) + decodedData[i];
+            decodedData[i + 3] = decodeZigZagInt32Value(y2) + decodedData[i + 1];
+        }
+    }
+    for (; i !== data.length; i += 2) {
+        decodedData[i] = decodeZigZagInt32Value(data[i]) + decodedData[i - 2];
+        decodedData[i + 1] = decodeZigZagInt32Value(data[i + 1]) + decodedData[i - 1];
+    }
+    return decodedData;
+}
+function decodeComponentwiseDeltaVec2Scaled(data, scale, min, max) {
+    if (data.length < 2)
+        return new Int32Array(data);
+    const decodedData = new Int32Array(data.length);
+    let previousVertexX = decodeZigZagInt32Value(data[0]);
+    let previousVertexY = decodeZigZagInt32Value(data[1]);
+    decodedData[0] = clamp(Math.round(previousVertexX * scale), min, max);
+    decodedData[1] = clamp(Math.round(previousVertexY * scale), min, max);
+    const sz0 = data.length / 16;
+    let i = 2;
+    if (sz0 >= 4) {
+        for (; i < sz0 - 4; i += 4) {
+            const x1 = data[i];
+            const y1 = data[i + 1];
+            const currentVertexX = decodeZigZagInt32Value(x1) + previousVertexX;
+            const currentVertexY = decodeZigZagInt32Value(y1) + previousVertexY;
+            decodedData[i] = clamp(Math.round(currentVertexX * scale), min, max);
+            decodedData[i + 1] = clamp(Math.round(currentVertexY * scale), min, max);
+            const x2 = data[i + 2];
+            const y2 = data[i + 3];
+            previousVertexX = decodeZigZagInt32Value(x2) + currentVertexX;
+            previousVertexY = decodeZigZagInt32Value(y2) + currentVertexY;
+            decodedData[i + 2] = clamp(Math.round(previousVertexX * scale), min, max);
+            decodedData[i + 3] = clamp(Math.round(previousVertexY * scale), min, max);
+        }
+    }
+    for (; i !== data.length; i += 2) {
+        previousVertexX += decodeZigZagInt32Value(data[i]);
+        previousVertexY += decodeZigZagInt32Value(data[i + 1]);
+        decodedData[i] = clamp(Math.round(previousVertexX * scale), min, max);
+        decodedData[i + 1] = clamp(Math.round(previousVertexY * scale), min, max);
+    }
+    return decodedData;
+}
+function clamp(n, min, max) {
+    return Math.min(max, Math.max(min, n));
+}
+/* Transform data to allow util access ------------------------------------------------------------------------ */
+function decodeZigZagDeltaOfDeltaInt32(data) {
+    const decodedData = new Int32Array(data.length + 1);
+    decodedData[0] = 0;
+    decodedData[1] = decodeZigZagInt32Value(data[0]);
+    let deltaSum = decodedData[1];
+    for (let i = 2; i !== decodedData.length; ++i) {
+        const zigZagValue = data[i - 1];
+        const delta = decodeZigZagInt32Value(zigZagValue);
+        deltaSum += delta;
+        decodedData[i] = decodedData[i - 1] + deltaSum;
+    }
+    return new Uint32Array(decodedData);
+}
+function decodeZigZagRleDeltaInt32(data, numRuns, numTotalValues) {
+    const decodedValues = new Int32Array(numTotalValues + 1);
+    decodedValues[0] = 0;
+    let offset = 1;
+    let previousValue = decodedValues[0];
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = data[i];
+        let value = data[i + numRuns];
+        value = decodeZigZagInt32Value(value);
+        for (let j = offset; j < offset + runLength; j++) {
+            decodedValues[j] = value + previousValue;
+            previousValue = decodedValues[j];
+        }
+        offset += runLength;
+    }
+    return decodedValues;
+}
+function decodeRleDeltaInt32(data, numRuns, numTotalValues) {
+    const decodedValues = new Uint32Array(numTotalValues + 1);
+    decodedValues[0] = 0;
+    let offset = 1;
+    let previousValue = decodedValues[0];
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = data[i];
+        const value = data[i + numRuns];
+        for (let j = offset; j < offset + runLength; j++) {
+            decodedValues[j] = value + previousValue;
+            previousValue = decodedValues[j];
+        }
+        offset += runLength;
+    }
+    return decodedValues;
+}
+/**
+ * Decode Delta-RLE with multiple runs by fully reconstructing values.
+ *
+ * @param data RLE encoded data: [run1, run2, ..., value1, value2, ...]
+ * @param numRuns Number of runs in the RLE encoding
+ * @param numValues Total number of values to reconstruct
+ * @returns Reconstructed values with deltas applied
+ */
+function decodeDeltaRleInt32(data, numRuns, numValues) {
+    const result = new Int32Array(numValues);
+    let outPos = 0;
+    let previousValue = 0;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = data[i];
+        const zigZagDelta = data[i + numRuns];
+        const delta = decodeZigZagInt32Value(zigZagDelta);
+        for (let j = 0; j < runLength; j++) {
+            previousValue += delta;
+            result[outPos++] = previousValue;
+        }
+    }
+    return result;
+}
+/**
+ * Decode Delta-RLE with multiple runs for 64-bit integers.
+ */
+function decodeDeltaRleInt64(data, numRuns, numValues) {
+    const result = new BigInt64Array(numValues);
+    let outPos = 0;
+    let previousValue = 0n;
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = Number(data[i]);
+        const zigZagDelta = data[i + numRuns];
+        const delta = decodeZigZagInt64Value(zigZagDelta);
+        for (let j = 0; j < runLength; j++) {
+            previousValue += delta;
+            result[outPos++] = previousValue;
+        }
+    }
+    return result;
+}
+function decodeUnsignedZigZagDeltaInt32(data) {
+    const decodedValues = new Uint32Array(data.length);
+    decodedValues[0] = decodeZigZagInt32Value(data[0]) >>> 0;
+    for (let i = 1; i < data.length; i++) {
+        decodedValues[i] = (decodedValues[i - 1] + decodeZigZagInt32Value(data[i])) >>> 0;
+    }
+    return decodedValues;
+}
+function decodeUnsignedZigZagDeltaInt64(data) {
+    const decodedValues = new BigUint64Array(data.length);
+    decodedValues[0] = BigInt.asUintN(64, decodeZigZagInt64Value(data[0]));
+    for (let i = 1; i < data.length; i++) {
+        decodedValues[i] = BigInt.asUintN(64, decodedValues[i - 1] + decodeZigZagInt64Value(data[i]));
+    }
+    return decodedValues;
+}
+function decodeUnsignedComponentwiseDeltaVec2(data) {
+    if (data.length < 2) {
+        return new Uint32Array(data);
+    }
+    const decodedData = new Uint32Array(data.length);
+    decodedData[0] = decodeZigZagInt32Value(data[0]) >>> 0;
+    decodedData[1] = decodeZigZagInt32Value(data[1]) >>> 0;
+    for (let i = 2; i < data.length; i += 2) {
+        decodedData[i] = (decodedData[i - 2] + decodeZigZagInt32Value(data[i])) >>> 0;
+        decodedData[i + 1] = (decodedData[i - 1] + decodeZigZagInt32Value(data[i + 1])) >>> 0;
+    }
+    return decodedData;
+}
+function decodeUnsignedComponentwiseDeltaVec2Scaled(data, scale, min, max) {
+    const scaledValues = decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
+    return new Uint32Array(scaledValues);
+}
+function decodeUnsignedConstRleInt32(data) {
+    return data[1];
+}
+function decodeZigZagConstRleInt32(data) {
+    return decodeZigZagInt32Value(data[1]);
+}
+function decodeZigZagSequenceRleInt32(data) {
+    /* base value and delta value are equal */
+    if (data.length === 2) {
+        const value = decodeZigZagInt32Value(data[1]);
+        return [value, value];
+    }
+    /* base value and delta value are not equal -> 2 runs and 2 values*/
+    const base = decodeZigZagInt32Value(data[2]);
+    const delta = decodeZigZagInt32Value(data[3]);
+    return [base, delta];
+}
+function decodeUnsignedConstRleInt64(data) {
+    return data[1];
+}
+function decodeZigZagConstRleInt64(data) {
+    return decodeZigZagInt64Value(data[1]);
+}
+function decodeZigZagSequenceRleInt64(data) {
+    /* base value and delta value are equal */
+    if (data.length === 2) {
+        const value = decodeZigZagInt64Value(data[1]);
+        return [value, value];
+    }
+    /* base value and delta value are not equal -> 2 runs and 2 values*/
+    const base = decodeZigZagInt64Value(data[2]);
+    const delta = decodeZigZagInt64Value(data[3]);
+    return [base, delta];
+}
+
+var PhysicalStreamType;
+(function (PhysicalStreamType) {
+    PhysicalStreamType["PRESENT"] = "PRESENT";
+    PhysicalStreamType["DATA"] = "DATA";
+    PhysicalStreamType["OFFSET"] = "OFFSET";
+    PhysicalStreamType["LENGTH"] = "LENGTH";
+})(PhysicalStreamType || (PhysicalStreamType = {}));
+
+var DictionaryType;
+(function (DictionaryType) {
+    DictionaryType["NONE"] = "NONE";
+    DictionaryType["SINGLE"] = "SINGLE";
+    DictionaryType["SHARED"] = "SHARED";
+    DictionaryType["VERTEX"] = "VERTEX";
+    DictionaryType["MORTON"] = "MORTON";
+    DictionaryType["FSST"] = "FSST";
+})(DictionaryType || (DictionaryType = {}));
+
+var OffsetType;
+(function (OffsetType) {
+    OffsetType["VERTEX"] = "VERTEX";
+    OffsetType["INDEX"] = "INDEX";
+    OffsetType["STRING"] = "STRING";
+    OffsetType["KEY"] = "KEY";
+})(OffsetType || (OffsetType = {}));
+
+var LengthType;
+(function (LengthType) {
+    LengthType["VAR_BINARY"] = "VAR_BINARY";
+    LengthType["GEOMETRIES"] = "GEOMETRIES";
+    LengthType["PARTS"] = "PARTS";
+    LengthType["RINGS"] = "RINGS";
+    LengthType["TRIANGLES"] = "TRIANGLES";
+    LengthType["SYMBOL"] = "SYMBOL";
+    LengthType["DICTIONARY"] = "DICTIONARY";
+})(LengthType || (LengthType = {}));
+
+const PHYSICAL_STREAM_TYPE_BY_ID = [
+    PhysicalStreamType.PRESENT,
+    PhysicalStreamType.DATA,
+    PhysicalStreamType.OFFSET,
+    PhysicalStreamType.LENGTH,
+];
+const LOGICAL_LEVEL_TECHNIQUE_BY_ID = [
+    LogicalLevelTechnique.NONE,
+    LogicalLevelTechnique.DELTA,
+    LogicalLevelTechnique.COMPONENTWISE_DELTA,
+    LogicalLevelTechnique.RLE,
+    LogicalLevelTechnique.MORTON,
+    LogicalLevelTechnique.PDE,
+];
+const PHYSICAL_LEVEL_TECHNIQUE_BY_ID = [
+    PhysicalLevelTechnique.NONE,
+    PhysicalLevelTechnique.FAST_PFOR,
+    PhysicalLevelTechnique.VARINT,
+];
+const DICTIONARY_TYPE_BY_ID = [
+    DictionaryType.NONE,
+    DictionaryType.SINGLE,
+    DictionaryType.SHARED,
+    DictionaryType.VERTEX,
+    DictionaryType.MORTON,
+    DictionaryType.FSST,
+];
+const OFFSET_TYPE_BY_ID = [
+    OffsetType.VERTEX,
+    OffsetType.INDEX,
+    OffsetType.STRING,
+    OffsetType.KEY,
+];
+const LENGTH_TYPE_BY_ID = [
+    LengthType.VAR_BINARY,
+    LengthType.GEOMETRIES,
+    LengthType.PARTS,
+    LengthType.RINGS,
+    LengthType.TRIANGLES,
+    LengthType.SYMBOL,
+    LengthType.DICTIONARY,
+];
+function decodeStreamMetadata(tile, offset) {
+    const streamMetadata = decodeStreamMetadataInternal(tile, offset);
+    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.MORTON) {
+        return decodePartialMortonEncodedStreamMetadata(streamMetadata, tile, offset);
+    }
+    if ((LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique1 ||
+        LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique2) &&
+        PhysicalLevelTechnique.NONE !== streamMetadata.physicalLevelTechnique) {
+        return decodePartialRleEncodedStreamMetadata(streamMetadata, tile, offset);
+    }
+    return streamMetadata;
+}
+function decodePartialMortonEncodedStreamMetadata(streamMetadata, tile, offset) {
+    const mortonInfo = decodeVarintInt32(tile, offset, 2);
+    return {
+        physicalStreamType: streamMetadata.physicalStreamType,
+        logicalStreamType: streamMetadata.logicalStreamType,
+        logicalLevelTechnique1: streamMetadata.logicalLevelTechnique1,
+        logicalLevelTechnique2: streamMetadata.logicalLevelTechnique2,
+        physicalLevelTechnique: streamMetadata.physicalLevelTechnique,
+        numValues: streamMetadata.numValues,
+        byteLength: streamMetadata.byteLength,
+        decompressedCount: streamMetadata.decompressedCount,
+        numBits: mortonInfo[0],
+        coordinateShift: mortonInfo[1],
+    };
+}
+function decodePartialRleEncodedStreamMetadata(streamMetadata, tile, offset) {
+    const rleInfo = decodeVarintInt32(tile, offset, 2);
+    return {
+        physicalStreamType: streamMetadata.physicalStreamType,
+        logicalStreamType: streamMetadata.logicalStreamType,
+        logicalLevelTechnique1: streamMetadata.logicalLevelTechnique1,
+        logicalLevelTechnique2: streamMetadata.logicalLevelTechnique2,
+        physicalLevelTechnique: streamMetadata.physicalLevelTechnique,
+        numValues: streamMetadata.numValues,
+        byteLength: streamMetadata.byteLength,
+        decompressedCount: rleInfo[1],
+        runs: rleInfo[0],
+        numRleValues: rleInfo[1],
+    };
+}
+function decodeStreamMetadataInternal(tile, offset) {
+    const stream_type = tile[offset.get()];
+    const physicalStreamType = PHYSICAL_STREAM_TYPE_BY_ID[stream_type >> 4];
+    let logicalStreamType = {};
+    switch (physicalStreamType) {
+        case PhysicalStreamType.DATA:
+            logicalStreamType = {
+                dictionaryType: DICTIONARY_TYPE_BY_ID[stream_type & 0xf],
+            };
+            break;
+        case PhysicalStreamType.OFFSET:
+            logicalStreamType = {
+                offsetType: OFFSET_TYPE_BY_ID[stream_type & 0xf],
+            };
+            break;
+        case PhysicalStreamType.LENGTH:
+            logicalStreamType = {
+                lengthType: LENGTH_TYPE_BY_ID[stream_type & 0xf],
+            };
+            break;
+    }
+    offset.increment();
+    const encodings_header = tile[offset.get()];
+    const llt1 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header >> 5];
+    const llt2 = LOGICAL_LEVEL_TECHNIQUE_BY_ID[(encodings_header >> 2) & 0x7];
+    const plt = PHYSICAL_LEVEL_TECHNIQUE_BY_ID[encodings_header & 0x3];
+    offset.increment();
+    const sizeInfo = decodeVarintInt32(tile, offset, 2);
+    const numValues = sizeInfo[0];
+    const byteLength = sizeInfo[1];
+    return {
+        physicalStreamType,
+        logicalStreamType,
+        logicalLevelTechnique1: llt1,
+        logicalLevelTechnique2: llt2,
+        physicalLevelTechnique: plt,
+        numValues,
+        byteLength,
+        decompressedCount: numValues,
+    };
+}
+
+var VectorType;
+(function (VectorType) {
+    VectorType[VectorType["FLAT"] = 0] = "FLAT";
+    VectorType[VectorType["CONST"] = 1] = "CONST";
+    VectorType[VectorType["SEQUENCE"] = 2] = "SEQUENCE";
+    VectorType[VectorType["DICTIONARY"] = 3] = "DICTIONARY";
+    VectorType[VectorType["FSST_DICTIONARY"] = 4] = "FSST_DICTIONARY";
+})(VectorType || (VectorType = {}));
+
+class BitVector {
+    /**
+     * @param values The byte buffer containing the bit values in least-significant bit (LSB)
+     *     numbering
+     */
+    constructor(values, size) {
+        this.values = values;
+        this._size = size;
+    }
+    get(index) {
+        const byteIndex = Math.floor(index / 8);
+        const bitIndex = index % 8;
+        const b = this.values[byteIndex];
+        return ((b >> bitIndex) & 1) === 1;
+    }
+    set(index, value) {
+        //TODO: refactor -> improve quick and dirty solution
+        const byteIndex = Math.floor(index / 8);
+        const bitIndex = index % 8;
+        this.values[byteIndex] = this.values[byteIndex] | ((value ? 1 : 0) << bitIndex);
+    }
+    getInt(index) {
+        const byteIndex = Math.floor(index / 8);
+        const bitIndex = index % 8;
+        const b = this.values[byteIndex];
+        return (b >> bitIndex) & 1;
+    }
+    size() {
+        return this._size;
+    }
+    getBuffer() {
+        return this.values;
+    }
+}
+
+/**
+ * Generic unpacking function.
+ * Reconstructs the full array by inserting default values at null positions.
+ *
+ * @param dataStream The compact data stream containing only non-null values
+ * @param presentBits BitVector indicating which positions have values (null if non-nullable)
+ * @param defaultValue The default value to insert at null positions (0, 0n, etc.)
+ * @returns Full array with default values at null positions
+ */
+function unpackNullable(dataStream, presentBits, defaultValue) {
+    // Non-nullable case: return data stream as-is
+    if (!presentBits) {
+        return dataStream;
+    }
+    const size = presentBits.size();
+    // Create new array of same type with full size
+    const constructor = dataStream.constructor;
+    const result = new constructor(size);
+    let counter = 0;
+    for (let i = 0; i < size; i++) {
+        // If position has a value, take from data stream; otherwise use default
+        result[i] = presentBits.get(i) ? dataStream[counter++] : defaultValue;
+    }
+    return result;
+}
+/**
+ * Special case for boolean columns because BitVector is not directly compatible with TypedArray.
+ *
+ * @param dataStream The compact BitVector data containing only non-null boolean values
+ * @param dataStreamSize The number of actual values in dataStream
+ * @param presentBits BitVector indicating which positions have values (null if non-nullable)
+ * @returns Uint8Array buffer for BitVector with false at null positions
+ */
+function unpackNullableBoolean(dataStream, dataStreamSize, presentBits) {
+    // Non-nullable case
+    if (!presentBits) {
+        return dataStream;
+    }
+    const numFeatures = presentBits.size();
+    const bitVector = new BitVector(dataStream, dataStreamSize);
+    const result = new BitVector(new Uint8Array(Math.ceil(numFeatures / 8)), numFeatures);
+    let counter = 0;
+    for (let i = 0; i < numFeatures; i++) {
+        // If position has a value, take from data stream; otherwise use false
+        const value = presentBits.get(i) ? bitVector.get(counter++) : false;
+        result.set(i, value);
+    }
+    return result.getBuffer();
+}
+
+function decodeSignedInt32Stream(data, offset, streamMetadata, scalingData, nullabilityBuffer) {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    return decodeSignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
+}
+function decodeUnsignedInt32Stream(data, offset, streamMetadata, scalingData, nullabilityBuffer) {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    return decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
+}
+function decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata) {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    return decodeLengthToOffsetBuffer(values, streamMetadata);
+}
+function decodePhysicalLevelTechnique(data, offset, streamMetadata) {
+    const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
+    switch (physicalLevelTechnique) {
+        case PhysicalLevelTechnique.FAST_PFOR:
+            return decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
+        case PhysicalLevelTechnique.VARINT:
+            return decodeVarintInt32(data, offset, streamMetadata.numValues);
+        case PhysicalLevelTechnique.NONE: {
+            const dataOffset = offset.get();
+            const byteLength = streamMetadata.byteLength;
+            offset.add(byteLength);
+            const slice = data.subarray(dataOffset, offset.get());
+            return new Uint32Array(slice);
+        }
+        default:
+            throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
+    }
+}
+function decodeSignedConstInt32Stream(data, offset, streamMetadata) {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    if (values.length === 1) {
+        return decodeZigZagInt32Value(values[0]);
+    }
+    return decodeZigZagConstRleInt32(values);
+}
+function decodeUnsignedConstInt32Stream(data, offset, streamMetadata) {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    if (values.length === 1) {
+        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA) {
+            return decodeZigZagInt32Value(values[0]);
+        }
+        return values[0];
+    }
+    return decodeUnsignedConstRleInt32(values);
+}
+function decodeSequenceInt32Stream(data, offset, streamMetadata) {
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
+    return decodeZigZagSequenceRleInt32(values);
+}
+function decodeSequenceInt64Stream(data, offset, streamMetadata) {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+    return decodeZigZagSequenceRleInt64(values);
+}
+function decodeSignedInt64Stream(data, offset, streamMetadata, nullabilityBuffer) {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+    return decodeSignedInt64(values, streamMetadata, nullabilityBuffer);
+}
+function decodeUnsignedInt64Stream(data, offset, streamMetadata, nullabilityBuffer) {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+    return decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer);
+}
+function decodeSignedInt64AsFloat64Stream(data, offset, streamMetadata) {
+    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
+    return decodeFloat64Values(values, streamMetadata, true);
+}
+function decodeUnsignedInt64AsFloat64Stream(data, offset, streamMetadata) {
+    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
+    return decodeFloat64Values(values, streamMetadata, false);
+}
+function decodeSignedConstInt64Stream(data, offset, streamMetadata) {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+    if (values.length === 1) {
+        return decodeZigZagInt64Value(values[0]);
+    }
+    return decodeZigZagConstRleInt64(values);
+}
+function decodeUnsignedConstInt64Stream(data, offset, streamMetadata) {
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
+    if (values.length === 1) {
+        return values[0];
+    }
+    return decodeUnsignedConstRleInt64(values);
+}
+/**
+ * This method decodes integer streams.
+ * Currently the encoder uses only fixed combinations of encodings.
+ * For performance reasons it is also uses a fixed combination of the encodings on the decoding side.
+ * The following encodings and combinations are used:
+ *   - Morton Delta -> always sorted so not ZigZag encoding needed
+ *   - Delta -> currently always in combination with ZigZag encoding
+ *   - Rle -> in combination with ZigZag encoding if data type is signed
+ *   - Delta Rle
+ *   - Componentwise Delta -> always ZigZag encoding is used
+ */
+function decodeSignedInt32(values, streamMetadata, scalingData, nullabilityBuffer) {
+    let decodedValues;
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const rleMetadata = streamMetadata;
+                if (!nullabilityBuffer) {
+                    return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+                }
+                values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeZigZagDeltaInt32(values);
+            }
+            else {
+                decodedValues = decodeZigZagDeltaInt32(values);
+            }
+            break;
+        case LogicalLevelTechnique.RLE:
+            decodedValues = decodeZigZagRleInt32(values, streamMetadata.runs, streamMetadata.numRleValues);
+            break;
+        case LogicalLevelTechnique.MORTON:
+            fastInverseDelta(values);
+            decodedValues = new Int32Array(values);
+            break;
+        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+            if (scalingData && !nullabilityBuffer) {
+                return decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
+            }
+            decodedValues = decodeComponentwiseDeltaVec2(values);
+            break;
+        case LogicalLevelTechnique.NONE:
+            decodedValues = decodeZigZagInt32(values);
+            break;
+        default:
+            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+    }
+    if (nullabilityBuffer) {
+        return unpackNullable(decodedValues, nullabilityBuffer, 0);
+    }
+    return decodedValues;
+}
+function decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer) {
+    let decodedValues;
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const rleMetadata = streamMetadata;
+                const deltaValues = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeUnsignedZigZagDeltaInt32(deltaValues);
+            }
+            else {
+                decodedValues = decodeUnsignedZigZagDeltaInt32(values);
+            }
+            break;
+        case LogicalLevelTechnique.RLE:
+            decodedValues = decodeUnsignedRleInt32(values, streamMetadata.runs, streamMetadata.numRleValues);
+            break;
+        case LogicalLevelTechnique.MORTON:
+            fastInverseDelta(values);
+            decodedValues = values;
+            break;
+        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+            if (scalingData && !nullabilityBuffer) {
+                decodedValues = decodeUnsignedComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
+            }
+            else {
+                decodedValues = decodeUnsignedComponentwiseDeltaVec2(values);
+            }
+            break;
+        case LogicalLevelTechnique.NONE:
+            decodedValues = values;
+            break;
+        default:
+            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+    }
+    if (nullabilityBuffer) {
+        return unpackNullable(decodedValues, nullabilityBuffer, 0);
+    }
+    return decodedValues;
+}
+function decodeSignedInt64(values, streamMetadata, nullabilityBuffer) {
+    let decodedValues;
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const rleMetadata = streamMetadata;
+                if (!nullabilityBuffer) {
+                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                }
+                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeZigZagDeltaInt64(values);
+            }
+            else {
+                decodedValues = decodeZigZagDeltaInt64(values);
+            }
+            break;
+        case LogicalLevelTechnique.RLE:
+            decodedValues = decodeZigZagRleInt64(values, streamMetadata.runs, streamMetadata.numRleValues);
+            break;
+        case LogicalLevelTechnique.NONE:
+            decodedValues = decodeZigZagInt64(values);
+            break;
+        default:
+            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+    }
+    if (nullabilityBuffer) {
+        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
+    }
+    return decodedValues;
+}
+function decodeUnsignedInt64(values, streamMetadata, nullabilityBuffer) {
+    let decodedValues;
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const rleMetadata = streamMetadata;
+                const deltaValues = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                decodedValues = decodeUnsignedZigZagDeltaInt64(deltaValues);
+            }
+            else {
+                decodedValues = decodeUnsignedZigZagDeltaInt64(values);
+            }
+            break;
+        case LogicalLevelTechnique.RLE:
+            decodedValues = decodeUnsignedRleInt64(values, streamMetadata.runs, streamMetadata.numRleValues);
+            break;
+        case LogicalLevelTechnique.NONE:
+            decodedValues = values;
+            break;
+        default:
+            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+    }
+    if (nullabilityBuffer) {
+        return unpackNullable(decodedValues, nullabilityBuffer, 0n);
+    }
+    return decodedValues;
+}
+function decodeFloat64Values(values, streamMetadata, isSigned) {
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const rleMetadata = streamMetadata;
+                values = decodeUnsignedRleFloat64(values, rleMetadata.runs, rleMetadata.numRleValues);
+            }
+            decodeZigZagDeltaFloat64(values);
+            return values;
+        case LogicalLevelTechnique.RLE:
+            return decodeRleFloat64(values, streamMetadata, isSigned);
+        case LogicalLevelTechnique.NONE:
+            if (isSigned) {
+                decodeZigZagFloat64(values);
+            }
+            return values;
+        default:
+            throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+    }
+}
+function decodeLengthToOffsetBuffer(values, streamMetadata) {
+    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
+        return decodeZigZagDeltaOfDeltaInt32(values);
+    }
+    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.RLE &&
+        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
+        const rleMetadata = streamMetadata;
+        return decodeRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+    }
+    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.NONE &&
+        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
+        //TODO: use fastInverseDelta again and check what are the performance problems in zoom 14
+        //fastInverseDelta(values);
+        inverseDelta(values);
+        const offsets = new Uint32Array(streamMetadata.numValues + 1);
+        offsets[0] = 0;
+        offsets.set(values, 1);
+        return offsets;
+    }
+    if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        const rleMetadata = streamMetadata;
+        const decodedValues = decodeZigZagRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+        fastInverseDelta(decodedValues);
+        return new Uint32Array(decodedValues);
+    }
+    throw new Error("Only delta encoding is supported for transforming length to offset streams yet.");
+}
+function getVectorType(streamMetadata, sizeOrNullabilityBuffer, data, offset, varintWidth = "int32") {
+    const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
+    if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
+        return streamMetadata.runs === 1 ? VectorType.CONST : VectorType.FLAT;
+    }
+    if (logicalLevelTechnique1 !== LogicalLevelTechnique.DELTA ||
+        streamMetadata.logicalLevelTechnique2 !== LogicalLevelTechnique.RLE) {
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+    }
+    const numFeatures = sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
+    const rleMetadata = streamMetadata;
+    if (rleMetadata.numRleValues !== numFeatures) {
+        return VectorType.FLAT;
+    }
+    // Single run is always a sequence
+    if (rleMetadata.runs === 1) {
+        return VectorType.SEQUENCE;
+    }
+    if (rleMetadata.runs !== 2) {
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+    }
+    // Two runs can be a sequence if both deltas are equal to 1
+    const savedOffset = offset.get();
+    if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+        if (isDeltaRleSequenceVarintWidth(data, offset, varintWidth)) {
+            return VectorType.SEQUENCE;
+        }
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+    }
+    const byteOffset = offset.get();
+    const values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+    offset.set(savedOffset);
+    // Check if both deltas are encoded 1
+    const zigZagOne = 2;
+    if (values[2] === zigZagOne && values[3] === zigZagOne) {
+        return VectorType.SEQUENCE;
+    }
+    return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+}
+function isDeltaRleSequenceVarintWidth(data, offset, varintWidth) {
+    const peekOffset = new IntWrapper(offset.get());
+    if (varintWidth === "int64") {
+        const values = decodeVarintInt64(data, peekOffset, 4);
+        return values[2] === 2n && values[3] === 2n;
+    }
+    const values = decodeVarintInt32(data, peekOffset, 4);
+    return values[2] === 2 && values[3] === 2;
+}
+function decodeRleFloat64(data, streamMetadata, isSigned) {
+    return isSigned
+        ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
+        : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
+}
+
+class Int64FlatVector extends FixedSizeVector {
+    getValueFromBuffer(index) {
+        return this.dataBuffer[index];
+    }
+}
+
+class Int64SequenceVector extends SequenceVector {
+    constructor(name, baseValue, delta, size) {
+        super(name, BigInt64Array.of(baseValue), delta, size);
+    }
+    getValueFromBuffer(index) {
+        return this.dataBuffer[0] + BigInt(index) * this.delta;
+    }
+}
+
+function decodeZOrderCurve(mortonCode, numBits, coordinateShift) {
+    const x = decodeMorton(mortonCode, numBits) - coordinateShift;
+    const y = decodeMorton(mortonCode >> 1, numBits) - coordinateShift;
+    return { x, y };
+}
+function decodeMorton(code, numBits) {
+    let coordinate = 0;
+    for (let i = 0; i < numBits; i++) {
+        coordinate |= (code & (1 << (2 * i))) >> i;
+    }
+    return coordinate;
+}
+
+var GEOMETRY_TYPE;
+(function (GEOMETRY_TYPE) {
+    GEOMETRY_TYPE[GEOMETRY_TYPE["POINT"] = 0] = "POINT";
+    GEOMETRY_TYPE[GEOMETRY_TYPE["LINESTRING"] = 1] = "LINESTRING";
+    GEOMETRY_TYPE[GEOMETRY_TYPE["POLYGON"] = 2] = "POLYGON";
+    GEOMETRY_TYPE[GEOMETRY_TYPE["MULTIPOINT"] = 3] = "MULTIPOINT";
+    GEOMETRY_TYPE[GEOMETRY_TYPE["MULTILINESTRING"] = 4] = "MULTILINESTRING";
+    GEOMETRY_TYPE[GEOMETRY_TYPE["MULTIPOLYGON"] = 5] = "MULTIPOLYGON";
+})(GEOMETRY_TYPE || (GEOMETRY_TYPE = {}));
+var SINGLE_PART_GEOMETRY_TYPE;
+(function (SINGLE_PART_GEOMETRY_TYPE) {
+    SINGLE_PART_GEOMETRY_TYPE[SINGLE_PART_GEOMETRY_TYPE["POINT"] = 0] = "POINT";
+    SINGLE_PART_GEOMETRY_TYPE[SINGLE_PART_GEOMETRY_TYPE["LINESTRING"] = 1] = "LINESTRING";
+    SINGLE_PART_GEOMETRY_TYPE[SINGLE_PART_GEOMETRY_TYPE["POLYGON"] = 2] = "POLYGON";
+})(SINGLE_PART_GEOMETRY_TYPE || (SINGLE_PART_GEOMETRY_TYPE = {}));
+
+var VertexBufferType;
+(function (VertexBufferType) {
+    VertexBufferType[VertexBufferType["MORTON"] = 0] = "MORTON";
+    VertexBufferType[VertexBufferType["VEC_2"] = 1] = "VEC_2";
+    VertexBufferType[VertexBufferType["VEC_3"] = 2] = "VEC_3";
+})(VertexBufferType || (VertexBufferType = {}));
+
+function convertGeometryVector(geometryVector) {
+    const geometries = new Array(geometryVector.numGeometries);
+    let partOffsetCounter = 1;
+    let ringOffsetsCounter = 1;
+    let geometryOffsetsCounter = 1;
+    let geometryCounter = 0;
+    let vertexBufferOffset = 0;
+    let vertexOffsetsOffset = 0;
+    const mortonSettings = geometryVector.mortonSettings;
+    const topologyVector = geometryVector.topologyVector;
+    const geometryOffsets = topologyVector.geometryOffsets;
+    const partOffsets = topologyVector.partOffsets;
+    const ringOffsets = topologyVector.ringOffsets;
+    const vertexOffsets = geometryVector.vertexOffsets;
+    const nonOffset = !vertexOffsets || vertexOffsets.length === 0;
+    const containsPolygon = geometryVector.containsPolygonGeometry();
+    const vertexBuffer = geometryVector.vertexBuffer;
+    for (let i = 0; i < geometryVector.numGeometries; i++) {
+        const geometryType = geometryVector.geometryType(i);
+        switch (geometryType) {
+            case GEOMETRY_TYPE.POINT:
+                {
+                    let x;
+                    let y;
+                    if (nonOffset) {
+                        x = vertexBuffer[vertexBufferOffset++];
+                        y = vertexBuffer[vertexBufferOffset++];
+                    }
+                    else if (geometryVector.vertexBufferType === VertexBufferType.MORTON) {
+                        const offset = vertexOffsets[vertexOffsetsOffset++];
+                        const mortonCode = vertexBuffer[offset];
+                        const vertex = decodeZOrderCurve(mortonCode, mortonSettings.numBits, mortonSettings.coordinateShift);
+                        x = vertex.x;
+                        y = vertex.y;
+                    }
+                    else {
+                        const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+                        x = vertexBuffer[offset];
+                        y = vertexBuffer[offset + 1];
+                    }
+                    geometries[geometryCounter++] = [[new Point(x, y)]];
+                    if (geometryOffsets)
+                        geometryOffsetsCounter++;
+                    if (partOffsets)
+                        partOffsetCounter++;
+                    if (ringOffsets)
+                        ringOffsetsCounter++;
+                }
+                break;
+            case GEOMETRY_TYPE.MULTIPOINT:
+                {
+                    const numPoints = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
+                    geometryOffsetsCounter++;
+                    const points = new Array(numPoints);
+                    if (nonOffset) {
+                        for (let j = 0; j < numPoints; j++) {
+                            const x = vertexBuffer[vertexBufferOffset++];
+                            const y = vertexBuffer[vertexBufferOffset++];
+                            points[j] = new Point(x, y);
+                        }
+                    }
+                    else {
+                        for (let j = 0; j < numPoints; j++) {
+                            const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+                            const x = vertexBuffer[offset];
+                            const y = vertexBuffer[offset + 1];
+                            points[j] = new Point(x, y);
+                        }
+                    }
+                    geometries[geometryCounter++] = points.map((point) => [point]);
+                    // MULTIPOINT must increment offset counters like POINT does
+                    partOffsetCounter += numPoints;
+                    ringOffsetsCounter += numPoints;
+                }
+                break;
+            case GEOMETRY_TYPE.LINESTRING:
+                {
+                    let numVertices;
+                    if (containsPolygon) {
+                        numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                        ringOffsetsCounter++;
+                    }
+                    else {
+                        numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                    }
+                    partOffsetCounter++;
+                    let vertices;
+                    if (nonOffset) {
+                        vertices = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, false);
+                        vertexBufferOffset += numVertices * 2;
+                    }
+                    else {
+                        vertices = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false, mortonSettings);
+                        vertexOffsetsOffset += numVertices;
+                    }
+                    geometries[geometryCounter++] = [vertices];
+                    if (geometryOffsets)
+                        geometryOffsetsCounter++;
+                }
+                break;
+            case GEOMETRY_TYPE.POLYGON:
+                {
+                    const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                    partOffsetCounter++;
+                    const rings = new Array(numRings - 1);
+                    let shell;
+                    let numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                    ringOffsetsCounter++;
+                    if (nonOffset) {
+                        shell = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, true);
+                        vertexBufferOffset += numVertices * 2;
+                        for (let j = 0; j < rings.length; j++) {
+                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                            rings[j] = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, true);
+                            vertexBufferOffset += numVertices * 2;
+                        }
+                    }
+                    else {
+                        shell = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, true, mortonSettings);
+                        vertexOffsetsOffset += numVertices;
+                        for (let j = 0; j < rings.length; j++) {
+                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                            rings[j] = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, true, mortonSettings);
+                            vertexOffsetsOffset += numVertices;
+                        }
+                    }
+                    geometries[geometryCounter++] = [shell].concat(rings);
+                    if (geometryOffsets)
+                        geometryOffsetsCounter++;
+                }
+                break;
+            case GEOMETRY_TYPE.MULTILINESTRING:
+                {
+                    const numLineStrings = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
+                    geometryOffsetsCounter++;
+                    const lineStrings = new Array(numLineStrings);
+                    for (let j = 0; j < numLineStrings; j++) {
+                        let numVertices;
+                        if (containsPolygon) {
+                            numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                        }
+                        else {
+                            numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        }
+                        partOffsetCounter++;
+                        if (nonOffset) {
+                            lineStrings[j] = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, false);
+                            vertexBufferOffset += numVertices * 2;
+                        }
+                        else {
+                            const vertices = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false, mortonSettings);
+                            lineStrings[j] = vertices;
+                            vertexOffsetsOffset += numVertices;
+                        }
+                    }
+                    geometries[geometryCounter++] = lineStrings;
+                }
+                break;
+            case GEOMETRY_TYPE.MULTIPOLYGON:
+                {
+                    const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
+                    geometryOffsetsCounter++;
+                    const polygons = new Array(numPolygons);
+                    for (let j = 0; j < numPolygons; j++) {
+                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        partOffsetCounter++;
+                        let shell;
+                        const rings = new Array(numRings - 1);
+                        const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                        ringOffsetsCounter++;
+                        if (nonOffset) {
+                            shell = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numVertices, true);
+                            vertexBufferOffset += numVertices * 2;
+                        }
+                        else {
+                            shell = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, true, mortonSettings);
+                            vertexOffsetsOffset += numVertices;
+                        }
+                        for (let k = 0; k < rings.length; k++) {
+                            const numRingVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                            if (nonOffset) {
+                                rings[k] = getLineStringOrRing(vertexBuffer, vertexBufferOffset, numRingVertices, true);
+                                vertexBufferOffset += numRingVertices * 2;
+                            }
+                            else {
+                                rings[k] = decodeDictionaryEncodedLineStringOrRing(geometryVector.vertexBufferType, vertexBuffer, vertexOffsets, vertexOffsetsOffset, numRingVertices, true, mortonSettings);
+                                vertexOffsetsOffset += numRingVertices;
+                            }
+                        }
+                        polygons[j] = [shell].concat(rings);
+                    }
+                    geometries[geometryCounter++] = polygons.flat();
+                }
+                break;
+            default:
+                throw new Error(`The specified geometry type (${geometryType}) is currently not supported.`);
+        }
+    }
+    return geometries;
+}
+function decodeDictionaryEncodedLineStringOrRing(vertexBufferType, vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString, mortonSettings) {
+    if (vertexBufferType === VertexBufferType.MORTON) {
+        return decodeMortonDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString, mortonSettings);
+    }
+    else {
+        return decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString);
+    }
+}
+function getLineStringOrRing(vertexBuffer, startIndex, numVertices, closeLineString) {
+    const vertices = new Array(closeLineString ? numVertices + 1 : numVertices);
+    for (let i = 0; i < numVertices * 2; i += 2) {
+        const x = vertexBuffer[startIndex + i];
+        const y = vertexBuffer[startIndex + i + 1];
+        vertices[i / 2] = new Point(x, y);
+    }
+    if (closeLineString) {
+        vertices[vertices.length - 1] = vertices[0];
+    }
+    return vertices;
+}
+function decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString) {
+    const vertices = new Array(closeLineString ? numVertices + 1 : numVertices);
+    for (let i = 0; i < numVertices * 2; i += 2) {
+        const offset = vertexOffsets[vertexOffset + i / 2] * 2;
+        const x = vertexBuffer[offset];
+        const y = vertexBuffer[offset + 1];
+        vertices[i / 2] = new Point(x, y);
+    }
+    if (closeLineString) {
+        vertices[vertices.length - 1] = vertices[0];
+    }
+    return vertices;
+}
+function decodeMortonDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeLineString, mortonSettings) {
+    const vertices = new Array(closeLineString ? numVertices + 1 : numVertices);
+    for (let i = 0; i < numVertices; i++) {
+        const offset = vertexOffsets[vertexOffset + i];
+        const mortonEncodedVertex = vertexBuffer[offset];
+        const vertex = decodeZOrderCurve(mortonEncodedVertex, mortonSettings.numBits, mortonSettings.coordinateShift);
+        vertices[i] = new Point(vertex.x, vertex.y);
+    }
+    if (closeLineString) {
+        vertices[vertices.length - 1] = vertices[0];
+    }
+    return vertices;
+}
+
+class GeometryVector {
+    constructor(_vertexBufferType, _topologyVector, _vertexOffsets, _vertexBuffer, _mortonSettings) {
+        this._vertexBufferType = _vertexBufferType;
+        this._topologyVector = _topologyVector;
+        this._vertexOffsets = _vertexOffsets;
+        this._vertexBuffer = _vertexBuffer;
+        this._mortonSettings = _mortonSettings;
+    }
+    get vertexBufferType() {
+        return this._vertexBufferType;
+    }
+    get topologyVector() {
+        return this._topologyVector;
+    }
+    get vertexOffsets() {
+        return this._vertexOffsets;
+    }
+    get vertexBuffer() {
+        return this._vertexBuffer;
+    }
+    /* Allows faster access to the vertices since morton encoding is currently not used in the POC. Morton encoding
+       will be used after adapting the shader to decode the morton codes on the GPU. */
+    getSimpleEncodedVertex(index) {
+        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
+        const x = this.vertexBuffer[offset];
+        const y = this.vertexBuffer[offset + 1];
+        return [x, y];
+    }
+    //TODO: add scaling information to the constructor
+    getVertex(index) {
+        if (this.vertexOffsets && this.mortonSettings) {
+            //TODO: move decoding of the morton codes on the GPU in the vertex shader
+            const vertexOffset = this.vertexOffsets[index];
+            const mortonEncodedVertex = this.vertexBuffer[vertexOffset];
+            //TODO: improve performance -> inline calculation and move to decoding of VertexBuffer
+            const vertex = decodeZOrderCurve(mortonEncodedVertex, this.mortonSettings.numBits, this.mortonSettings.coordinateShift);
+            return [vertex.x, vertex.y];
+        }
+        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
+        const x = this.vertexBuffer[offset];
+        const y = this.vertexBuffer[offset + 1];
+        return [x, y];
+    }
+    getGeometries() {
+        return convertGeometryVector(this);
+    }
+    get mortonSettings() {
+        return this._mortonSettings;
+    }
+}
+
+function createConstGeometryVector(numGeometries, geometryType, topologyVector, vertexOffsets, vertexBuffer) {
+    return new ConstGeometryVector(numGeometries, geometryType, VertexBufferType.VEC_2, topologyVector, vertexOffsets, vertexBuffer);
+}
+function createMortonEncodedConstGeometryVector(numGeometries, geometryType, topologyVector, vertexOffsets, vertexBuffer, mortonInfo) {
+    return new ConstGeometryVector(numGeometries, geometryType, VertexBufferType.MORTON, topologyVector, vertexOffsets, vertexBuffer, mortonInfo);
+}
+class ConstGeometryVector extends GeometryVector {
+    constructor(_numGeometries, _geometryType, vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings) {
+        super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
+        this._numGeometries = _numGeometries;
+        this._geometryType = _geometryType;
+    }
+    geometryType(_index) {
+        return this._geometryType;
+    }
+    get numGeometries() {
+        return this._numGeometries;
+    }
+    containsPolygonGeometry() {
+        return this._geometryType === GEOMETRY_TYPE.POLYGON || this._geometryType === GEOMETRY_TYPE.MULTIPOLYGON;
+    }
+    containsSingleGeometryType() {
+        return true;
+    }
+}
+
+function createFlatGeometryVector(geometryTypes, topologyVector, vertexOffsets, vertexBuffer) {
+    return new FlatGeometryVector(VertexBufferType.VEC_2, geometryTypes, topologyVector, vertexOffsets, vertexBuffer);
+}
+function createFlatGeometryVectorMortonEncoded(geometryTypes, topologyVector, vertexOffsets, vertexBuffer, mortonInfo) {
+    return new FlatGeometryVector(VertexBufferType.MORTON, geometryTypes, topologyVector, vertexOffsets, vertexBuffer, mortonInfo);
+}
+class FlatGeometryVector extends GeometryVector {
+    constructor(vertexBufferType, _geometryTypes, topologyVector, vertexOffsets, vertexBuffer, mortonSettings) {
+        super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
+        this._geometryTypes = _geometryTypes;
+    }
+    geometryType(index) {
+        return this._geometryTypes[index];
+    }
+    get numGeometries() {
+        return this._geometryTypes.length;
+    }
+    containsPolygonGeometry() {
+        for (let i = 0; i < this.numGeometries; i++) {
+            if (this.geometryType(i) === GEOMETRY_TYPE.POLYGON || this.geometryType(i) === GEOMETRY_TYPE.MULTIPOLYGON) {
+                return true;
+            }
+        }
+        return false;
+    }
+    containsSingleGeometryType() {
+        return false;
+    }
+}
+
+class GpuVector {
+    constructor(_triangleOffsets, _indexBuffer, _vertexBuffer, _topologyVector) {
+        this._triangleOffsets = _triangleOffsets;
+        this._indexBuffer = _indexBuffer;
+        this._vertexBuffer = _vertexBuffer;
+        this._topologyVector = _topologyVector;
+    }
+    get triangleOffsets() {
+        return this._triangleOffsets;
+    }
+    get indexBuffer() {
+        return this._indexBuffer;
+    }
+    get vertexBuffer() {
+        return this._vertexBuffer;
+    }
+    get topologyVector() {
+        return this._topologyVector;
+    }
+    /**
+     * Returns geometries as coordinate arrays by extracting polygon outlines from topology.
+     * The vertexBuffer contains the outline vertices, separate from the tessellated triangles.
+     */
+    getGeometries() {
+        if (!this._topologyVector) {
+            throw new Error("Cannot convert GpuVector to coordinates without topology information");
+        }
+        const geometries = new Array(this.numGeometries);
+        const topology = this._topologyVector;
+        const partOffsets = topology.partOffsets;
+        const ringOffsets = topology.ringOffsets;
+        const geometryOffsets = topology.geometryOffsets;
+        // Use counters to track position in offset arrays (like Java implementation)
+        let vertexBufferOffset = 0;
+        let partOffsetCounter = 1;
+        let ringOffsetsCounter = 1;
+        let geometryOffsetsCounter = 1;
+        for (let i = 0; i < this.numGeometries; i++) {
+            const geometryType = this.geometryType(i);
+            switch (geometryType) {
+                case GEOMETRY_TYPE.POLYGON:
+                    {
+                        // Get number of rings for this polygon
+                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        partOffsetCounter++;
+                        const rings = [];
+                        for (let j = 0; j < numRings; j++) {
+                            // Get number of vertices in this ring
+                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                            const ring = [];
+                            for (let k = 0; k < numVertices; k++) {
+                                const x = this._vertexBuffer[vertexBufferOffset++];
+                                const y = this._vertexBuffer[vertexBufferOffset++];
+                                ring.push(new Point(x, y));
+                            }
+                            // Close the ring by duplicating the first vertex (MVT format requirement)
+                            if (ring.length > 0) {
+                                ring.push(ring[0]);
+                            }
+                            rings.push(ring);
+                        }
+                        geometries[i] = rings;
+                        if (geometryOffsets)
+                            geometryOffsetsCounter++;
+                    }
+                    break;
+                case GEOMETRY_TYPE.MULTIPOLYGON:
+                    {
+                        // Get number of polygons in this multipolygon
+                        const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
+                        geometryOffsetsCounter++;
+                        const allRings = [];
+                        for (let p = 0; p < numPolygons; p++) {
+                            // Get number of rings in this polygon
+                            const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                            partOffsetCounter++;
+                            for (let j = 0; j < numRings; j++) {
+                                // Get number of vertices in this ring
+                                const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                                ringOffsetsCounter++;
+                                const ring = [];
+                                for (let k = 0; k < numVertices; k++) {
+                                    const x = this._vertexBuffer[vertexBufferOffset++];
+                                    const y = this._vertexBuffer[vertexBufferOffset++];
+                                    ring.push(new Point(x, y));
+                                }
+                                // Close the ring by duplicating the first vertex (MVT format requirement)
+                                if (ring.length > 0) {
+                                    ring.push(ring[0]);
+                                }
+                                allRings.push(ring);
+                            }
+                        }
+                        geometries[i] = allRings;
+                    }
+                    break;
+            }
+        }
+        return geometries;
+    }
+    [Symbol.iterator]() {
+        /*for(let i = 1; i < this.triangleOffsets.length; i++) {
+           const numTriangles = this.triangleOffsets[i] - this.triangleOffsets[i-1];
+           const startIndex = this.triangleOffsets[i-1] * 3;
+           const endIndex = this.triangleOffsets[i] * 3;
+       }
+
+        while (index < this.numGeometries) {
+            yield geometries[index++];
+        }*/
+        //throw new Error("Iterator on a GpuVector is not implemented yet.");
+        return null;
+    }
+}
+
+function createConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
+    return new ConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
+}
+//TODO: extend from GeometryVector -> make topology vector optional
+class ConstGpuVector extends GpuVector {
+    constructor(_numGeometries, _geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
+        super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
+        this._numGeometries = _numGeometries;
+        this._geometryType = _geometryType;
+    }
+    geometryType(_index) {
+        return this._geometryType;
+    }
+    get numGeometries() {
+        return this._numGeometries;
+    }
+    containsSingleGeometryType() {
+        return true;
+    }
+}
+
+function createFlatGpuVector(geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
+    return new FlatGpuVector(geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
+}
+//TODO: extend from GeometryVector -> make topology vector optional
+class FlatGpuVector extends GpuVector {
+    constructor(_geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector) {
+        super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
+        this._geometryTypes = _geometryTypes;
+    }
+    geometryType(index) {
+        return this._geometryTypes[index];
+    }
+    get numGeometries() {
+        return this._geometryTypes.length;
+    }
+    containsSingleGeometryType() {
+        return false;
+    }
+}
+
+// TODO: get rid of numFeatures parameter
+function decodeGeometryColumn(tile, numStreams, offset, numFeatures, scalingData) {
+    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
+    const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
+    let vertexOffsets;
+    let vertexBuffer;
+    let mortonSettings;
+    let indexBuffer;
+    if (geometryTypesVectorType === VectorType.CONST) {
+        /* All geometries in the column have the same geometry type */
+        const geometryType = decodeUnsignedConstInt32Stream(tile, offset, geometryTypeMetadata);
+        // Variables for const geometry path (directly decoded as offsets)
+        let geometryOffsets;
+        let partOffsets;
+        let ringOffsets;
+        //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
+        // in one FeatureTable?
+        let triangleOffsets;
+        for (let i = 0; i < numStreams - 1; i++) {
+            const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
+            switch (geometryStreamMetadata.physicalStreamType) {
+                case PhysicalStreamType.LENGTH:
+                    switch (geometryStreamMetadata.logicalStreamType.lengthType) {
+                        case LengthType.GEOMETRIES:
+                            geometryOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
+                            break;
+                        case LengthType.PARTS:
+                            partOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
+                            break;
+                        case LengthType.RINGS:
+                            ringOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
+                            break;
+                        case LengthType.TRIANGLES:
+                            triangleOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
+                    }
+                    break;
+                case PhysicalStreamType.OFFSET: {
+                    switch (geometryStreamMetadata.logicalStreamType.offsetType) {
+                        case OffsetType.VERTEX:
+                            vertexOffsets = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                            break;
+                        case OffsetType.INDEX:
+                            indexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                            break;
+                    }
+                    break;
+                }
+                case PhysicalStreamType.DATA: {
+                    if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
+                        vertexBuffer = decodeSignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
+                    }
+                    else {
+                        const mortonMetadata = geometryStreamMetadata;
+                        mortonSettings = {
+                            numBits: mortonMetadata.numBits,
+                            coordinateShift: mortonMetadata.coordinateShift,
+                        };
+                        vertexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
+                    }
+                    break;
+                }
+            }
+        }
+        if (indexBuffer) {
+            if (geometryOffsets !== undefined || partOffsets !== undefined) {
+                /* Case when the indices of a Polygon outline are encoded in the tile */
+                const topologyVector = { geometryOffsets, partOffsets, ringOffsets };
+                return createConstGpuVector(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
+            }
+            /* Case when the no Polygon outlines are encoded in the tile */
+            return createConstGpuVector(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer);
+        }
+        return mortonSettings === undefined
+            ? /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
+                createConstGeometryVector(numFeatures, geometryType, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer)
+            : createMortonEncodedConstGeometryVector(numFeatures, geometryType, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer, mortonSettings);
+    }
+    /* Different geometry types are mixed in the geometry column */
+    const geometryTypeVector = decodeUnsignedInt32Stream(tile, offset, geometryTypeMetadata);
+    // Variables for flat geometry path (decoded as lengths, then converted to offsets)
+    let geometryLengths;
+    let partLengths;
+    let ringLengths;
+    //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
+    // in one FeatureTable?
+    let triangleOffsets;
+    for (let i = 0; i < numStreams - 1; i++) {
+        const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
+        switch (geometryStreamMetadata.physicalStreamType) {
+            case PhysicalStreamType.LENGTH:
+                switch (geometryStreamMetadata.logicalStreamType.lengthType) {
+                    case LengthType.GEOMETRIES:
+                        geometryLengths = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                        break;
+                    case LengthType.PARTS:
+                        partLengths = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                        break;
+                    case LengthType.RINGS:
+                        ringLengths = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                        break;
+                    case LengthType.TRIANGLES:
+                        triangleOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
+                }
+                break;
+            case PhysicalStreamType.OFFSET:
+                switch (geometryStreamMetadata.logicalStreamType.offsetType) {
+                    case OffsetType.VERTEX:
+                        vertexOffsets = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                        break;
+                    case OffsetType.INDEX:
+                        indexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata);
+                        break;
+                }
+                break;
+            case PhysicalStreamType.DATA:
+                if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
+                    vertexBuffer = decodeSignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
+                }
+                else {
+                    const mortonMetadata = geometryStreamMetadata;
+                    mortonSettings = {
+                        numBits: mortonMetadata.numBits,
+                        coordinateShift: mortonMetadata.coordinateShift,
+                    };
+                    vertexBuffer = decodeUnsignedInt32Stream(tile, offset, geometryStreamMetadata, scalingData);
+                }
+                break;
+        }
+    }
+    // TODO: refactor the following instructions -> decode in one pass for performance reasons
+    /* Calculate the offsets from the length buffer for util access */
+    let geometryOffsets;
+    let partOffsets;
+    let ringOffsets;
+    if (geometryLengths) {
+        geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryLengths, 2);
+        if (partLengths && ringLengths) {
+            partOffsets = decodeLevel1LengthStream(geometryTypeVector, geometryOffsets, partLengths, false);
+            ringOffsets = decodeLevel2LengthStream(geometryTypeVector, geometryOffsets, partOffsets, ringLengths);
+        }
+        else if (partLengths) {
+            partOffsets = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partLengths);
+        }
+    }
+    else if (partLengths && ringLengths) {
+        partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 1);
+        ringOffsets = decodeLevel1LengthStream(geometryTypeVector, partOffsets, ringLengths, true);
+    }
+    else if (partLengths) {
+        partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 0);
+    }
+    if (indexBuffer && !partOffsets) {
+        /* Case when the indices of a Polygon outline are not encoded in the data so no
+         *  topology data are present in the tile */
+        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
+    }
+    if (indexBuffer) {
+        /* Case when the indices of a Polygon outline are encoded in the tile */
+        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer, {
+            geometryOffsets,
+            partOffsets,
+            ringOffsets,
+        });
+    }
+    return mortonSettings === undefined /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
+        ? createFlatGeometryVector(geometryTypeVector, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer)
+        : createFlatGeometryVectorMortonEncoded(geometryTypeVector, { geometryOffsets, partOffsets, ringOffsets }, vertexOffsets, vertexBuffer, mortonSettings);
+}
+/*
+ * Handle the parsing of the different topology length buffers separate not generic to reduce the
+ * branching and improve the performance
+ */
+function decodeRootLengthStream(geometryTypes, rootLengthStream, bufferId) {
+    const rootBufferOffsets = new Uint32Array(geometryTypes.length + 1);
+    let previousOffset = 0;
+    rootBufferOffsets[0] = previousOffset;
+    let rootLengthCounter = 0;
+    for (let i = 0; i < geometryTypes.length; i++) {
+        /* Test if the geometry has and entry in the root buffer
+         * BufferId: 2 GeometryOffsets -> MultiPolygon, MultiLineString, MultiPoint
+         * BufferId: 1 PartOffsets -> Polygon
+         * BufferId: 0 PartOffsets, RingOffsets -> LineString
+         * */
+        previousOffset = rootBufferOffsets[i + 1] =
+            previousOffset + (geometryTypes[i] > bufferId ? rootLengthStream[rootLengthCounter++] : 1);
+    }
+    return rootBufferOffsets;
+}
+function decodeLevel1LengthStream(geometryTypes, rootOffsetBuffer, level1LengthBuffer, isLineStringPresent) {
+    const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
+    let previousOffset = 0;
+    level1BufferOffsets[0] = previousOffset;
+    let level1BufferCounter = 1;
+    let level1LengthBufferCounter = 0;
+    for (let i = 0; i < geometryTypes.length; i++) {
+        const geometryType = geometryTypes[i];
+        const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
+        if (geometryType === 5 ||
+            geometryType === 2 ||
+            (isLineStringPresent && (geometryType === 4 || geometryType === 1))) {
+            /* For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
+             * a value in the level1LengthBuffer exists */
+            for (let j = 0; j < numGeometries; j++) {
+                previousOffset = level1BufferOffsets[level1BufferCounter++] =
+                    previousOffset + level1LengthBuffer[level1LengthBufferCounter++];
+            }
+        }
+        else {
+            /* For MultiPoint and Point and in some cases for MultiLineString and LineString no value in the
+             * level1LengthBuffer exists */
+            for (let j = 0; j < numGeometries; j++) {
+                level1BufferOffsets[level1BufferCounter++] = ++previousOffset;
+            }
+        }
+    }
+    return level1BufferOffsets;
+}
+/*
+ * Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
+ */
+function decodeLevel1WithoutRingBufferLengthStream(geometryTypes, rootOffsetBuffer, level1LengthBuffer) {
+    const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
+    let previousOffset = 0;
+    level1BufferOffsets[0] = previousOffset;
+    let level1OffsetBufferCounter = 1;
+    let level1LengthCounter = 0;
+    for (let i = 0; i < geometryTypes.length; i++) {
+        const geometryType = geometryTypes[i];
+        const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
+        if (geometryType === 4 || geometryType === 1) {
+            /* For MultiLineString and LineString a value in the level1LengthBuffer exists */
+            for (let j = 0; j < numGeometries; j++) {
+                previousOffset = level1BufferOffsets[level1OffsetBufferCounter++] =
+                    previousOffset + level1LengthBuffer[level1LengthCounter++];
+            }
+        }
+        else {
+            /* For MultiPoint and Point no value in level1LengthBuffer exists */
+            for (let j = 0; j < numGeometries; j++) {
+                level1BufferOffsets[level1OffsetBufferCounter++] = ++previousOffset;
+            }
+        }
+    }
+    return level1BufferOffsets;
+}
+function decodeLevel2LengthStream(geometryTypes, rootOffsetBuffer, level1OffsetBuffer, level2LengthBuffer) {
+    const level2BufferOffsets = new Uint32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
+    let previousOffset = 0;
+    level2BufferOffsets[0] = previousOffset;
+    let level1OffsetBufferCounter = 1;
+    let level2OffsetBufferCounter = 1;
+    let level2LengthBufferCounter = 0;
+    for (let i = 0; i < geometryTypes.length; i++) {
+        const geometryType = geometryTypes[i];
+        const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
+        if (geometryType !== 0 && geometryType !== 3) {
+            /* For MultiPolygon, MultiLineString, Polygon and LineString a value in level2LengthBuffer
+             * exists */
+            for (let j = 0; j < numGeometries; j++) {
+                const numParts = level1OffsetBuffer[level1OffsetBufferCounter] - level1OffsetBuffer[level1OffsetBufferCounter - 1];
+                level1OffsetBufferCounter++;
+                for (let k = 0; k < numParts; k++) {
+                    previousOffset = level2BufferOffsets[level2OffsetBufferCounter++] =
+                        previousOffset + level2LengthBuffer[level2LengthBufferCounter++];
+                }
+            }
+        }
+        else {
+            /* For MultiPoint and Point no value in level2LengthBuffer exists */
+            for (let j = 0; j < numGeometries; j++) {
+                level2BufferOffsets[level2OffsetBufferCounter++] = ++previousOffset;
+                level1OffsetBufferCounter++;
+            }
+        }
+    }
+    return level2BufferOffsets;
+}
+
+class BooleanFlatVector extends Vector {
+    constructor(name, dataVector, sizeOrNullabilityBuffer) {
+        super(name, dataVector.getBuffer(), sizeOrNullabilityBuffer);
+        this.dataVector = dataVector;
+    }
+    getValueFromBuffer(index) {
+        return this.dataVector.get(index);
+    }
+}
+
+class FloatFlatVector extends FixedSizeVector {
+    getValueFromBuffer(index) {
+        return this.dataBuffer[index];
+    }
+}
+
+class Int64ConstVector extends Vector {
+    constructor(name, value, sizeOrNullabilityBuffer, isSigned) {
+        super(name, isSigned ? BigInt64Array.of(value) : BigUint64Array.of(value), sizeOrNullabilityBuffer);
+    }
+    getValueFromBuffer(_index) {
+        return this.dataBuffer[0];
+    }
+}
+
+function skipColumn(numStreams, tile, offset) {
+    //TODO: add size of column in Mlt for fast skipping
+    for (let i = 0; i < numStreams; i++) {
+        const streamMetadata = decodeStreamMetadata(tile, offset);
+        offset.add(streamMetadata.byteLength);
+    }
+}
+function decodeBooleanRle(buffer, numBooleans, byteLength, pos, nullabilityBuffer) {
+    const numBytes = Math.ceil(numBooleans / 8.0);
+    const values = decodeByteRle(buffer, numBytes, byteLength, pos);
+    if (nullabilityBuffer) {
+        return unpackNullableBoolean(values, numBooleans, nullabilityBuffer);
+    }
+    return values;
+}
+function decodeByteRle(buffer, numBytes, byteLength, pos) {
+    const values = new Uint8Array(numBytes);
+    let valueOffset = 0;
+    const streamEndPos = pos.get() + byteLength;
+    while (valueOffset < numBytes) {
+        if (pos.get() >= streamEndPos) {
+            break;
+        }
+        const header = buffer[pos.increment()];
+        /* Runs */
+        if (header <= 0x7f) {
+            const numRuns = header + 3;
+            const value = buffer[pos.increment()];
+            const endValueOffset = Math.min(valueOffset + numRuns, numBytes);
+            values.fill(value, valueOffset, endValueOffset);
+            valueOffset = endValueOffset;
+        }
+        else {
+            /* Literals */
+            const numLiterals = 256 - header;
+            for (let i = 0; i < numLiterals && valueOffset < numBytes; i++) {
+                values[valueOffset++] = buffer[pos.increment()];
+            }
+        }
+    }
+    pos.set(streamEndPos);
+    return values;
+}
+function decodeFloatsLE(encodedValues, pos, numValues, nullabilityBuffer) {
+    const currentPos = pos.get();
+    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
+    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
+    const fb = new Float32Array(newBuf);
+    pos.set(newOffset);
+    if (nullabilityBuffer) {
+        return unpackNullable(fb, nullabilityBuffer, 0);
+    }
+    return fb;
+}
+function decodeDoublesLE(encodedValues, pos, numValues, nullabilityBuffer) {
+    const currentPos = pos.get();
+    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
+    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
+    const fb = new Float64Array(newBuf);
+    pos.set(newOffset);
+    if (nullabilityBuffer) {
+        return unpackNullable(fb, nullabilityBuffer, 0);
+    }
+    return fb;
+}
+const TEXT_DECODER_MIN_LENGTH = 12;
+const utf8TextDecoder = new TextDecoder();
+// Source: https://github.com/mapbox/pbf/issues/106
+function decodeString$2(buf, pos, end) {
+    if (end - pos >= TEXT_DECODER_MIN_LENGTH) {
+        // longer strings are fast with the built-in browser TextDecoder API
+        return utf8TextDecoder.decode(buf.subarray(pos, end));
+    }
+    // short strings are fast with custom implementation
+    return readUtf8(buf, pos, end);
+}
+function readUtf8(buf, pos, end) {
+    let str = "";
+    let i = pos;
+    while (i < end) {
+        const b0 = buf[i];
+        let c = null; // codepoint
+        let bytesPerSequence = b0 > 0xef ? 4 : b0 > 0xdf ? 3 : b0 > 0xbf ? 2 : 1;
+        if (i + bytesPerSequence > end)
+            break;
+        let b1;
+        let b2;
+        let b3;
+        if (bytesPerSequence === 1) {
+            if (b0 < 0x80) {
+                c = b0;
+            }
+        }
+        else if (bytesPerSequence === 2) {
+            b1 = buf[i + 1];
+            if ((b1 & 0xc0) === 0x80) {
+                c = ((b0 & 0x1f) << 0x6) | (b1 & 0x3f);
+                if (c <= 0x7f) {
+                    c = null;
+                }
+            }
+        }
+        else if (bytesPerSequence === 3) {
+            b1 = buf[i + 1];
+            b2 = buf[i + 2];
+            if ((b1 & 0xc0) === 0x80 && (b2 & 0xc0) === 0x80) {
+                c = ((b0 & 0xf) << 0xc) | ((b1 & 0x3f) << 0x6) | (b2 & 0x3f);
+                if (c <= 0x7ff || (c >= 0xd800 && c <= 0xdfff)) {
+                    c = null;
+                }
+            }
+        }
+        else if (bytesPerSequence === 4) {
+            b1 = buf[i + 1];
+            b2 = buf[i + 2];
+            b3 = buf[i + 3];
+            if ((b1 & 0xc0) === 0x80 && (b2 & 0xc0) === 0x80 && (b3 & 0xc0) === 0x80) {
+                c = ((b0 & 0xf) << 0x12) | ((b1 & 0x3f) << 0xc) | ((b2 & 0x3f) << 0x6) | (b3 & 0x3f);
+                if (c <= 0xffff || c >= 0x110000) {
+                    c = null;
+                }
+            }
+        }
+        if (c === null) {
+            c = 0xfffd;
+            bytesPerSequence = 1;
+        }
+        else if (c > 0xffff) {
+            c -= 0x10000;
+            str += String.fromCharCode(((c >>> 10) & 0x3ff) | 0xd800);
+            c = 0xdc00 | (c & 0x3ff);
+        }
+        str += String.fromCharCode(c);
+        i += bytesPerSequence;
+    }
+    return str;
+}
+function getVectorTypeBooleanStream(numFeatures, byteLength, data, offset) {
+    const valuesPerRun = 0x83;
+    // TODO: use VectorType metadata field for to test which VectorType is used
+    return Math.ceil(numFeatures / valuesPerRun) * 2 === byteLength &&
+        /* Test the first value byte if all bits are set to true */
+        (data[offset.get() + 1] & 0xff) === (bitCount(numFeatures) << 2) - 1
+        ? VectorType.CONST
+        : VectorType.FLAT;
+}
+function bitCount(number) {
+    //TODO: refactor to get rid of special case handling
+    return number === 0 ? 1 : Math.floor(Math.log2(number) + 1);
+}
+
+class VariableSizeVector extends Vector {
+    constructor(name, offsetBuffer, dataBuffer, sizeOrNullabilityBuffer) {
+        super(name, dataBuffer, sizeOrNullabilityBuffer);
+        this.offsetBuffer = offsetBuffer;
+    }
+}
+
+class StringFlatVector extends VariableSizeVector {
+    constructor(name, offsetBuffer, dataBuffer, nullabilityBuffer) {
+        super(name, offsetBuffer, dataBuffer, nullabilityBuffer ?? offsetBuffer.length - 1);
+    }
+    getValueFromBuffer(index) {
+        const start = this.offsetBuffer[index];
+        const end = this.offsetBuffer[index + 1];
+        return decodeString$2(this.dataBuffer, start, end);
+    }
+}
+
+class StringDictionaryVector extends VariableSizeVector {
+    constructor(name, indexBuffer, offsetBuffer, dictionaryBuffer, nullabilityBuffer) {
+        super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
+        this.indexBuffer = indexBuffer;
+        this.indexBuffer = indexBuffer;
+    }
+    getValueFromBuffer(index) {
+        const offset = this.indexBuffer[index];
+        const start = this.offsetBuffer[offset];
+        const end = this.offsetBuffer[offset + 1];
+        return decodeString$2(this.dataBuffer, start, end);
+    }
+}
+
+/**
+ * Decode FSST compressed data
+ *
+ * @param symbols           Array of symbols, where each symbol can be between 1 and 8 bytes
+ * @param symbolLengths     Array of symbol lengths, length of each symbol in symbols array
+ * @param compressedData    FSST Compressed data, where each entry is an index to the symbols array
+ * @returns                 Decoded data as Uint8Array
+ */
+//TODO: improve -> quick and dirty implementation
+function decodeFsst(symbols, symbolLengths, compressedData) {
+    //TODO: use typed array directly
+    const decodedData = [];
+    const symbolOffsets = new Array(symbolLengths.length).fill(0);
+    for (let i = 1; i < symbolLengths.length; i++) {
+        symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
+    }
+    for (let i = 0; i < compressedData.length; i++) {
+        if (compressedData[i] === 255) {
+            decodedData.push(compressedData[++i]);
+        }
+        else {
+            const symbolLength = symbolLengths[compressedData[i]];
+            const symbolOffset = symbolOffsets[compressedData[i]];
+            for (let j = 0; j < symbolLength; j++) {
+                decodedData.push(symbols[symbolOffset + j]);
+            }
+        }
+    }
+    return new Uint8Array(decodedData);
+}
+
+class StringFsstDictionaryVector extends VariableSizeVector {
+    constructor(name, indexBuffer, offsetBuffer, dictionaryBuffer, symbolOffsetBuffer, symbolTableBuffer, nullabilityBuffer) {
+        super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
+        this.indexBuffer = indexBuffer;
+        this.symbolOffsetBuffer = symbolOffsetBuffer;
+        this.symbolTableBuffer = symbolTableBuffer;
+    }
+    getValueFromBuffer(index) {
+        if (this.decodedDictionary == null) {
+            if (this.symbolLengthBuffer == null) {
+                // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
+                this.symbolLengthBuffer = this.offsetToLengthBuffer(this.symbolOffsetBuffer);
+            }
+            this.decodedDictionary = decodeFsst(this.symbolTableBuffer, this.symbolLengthBuffer, this.dataBuffer);
+        }
+        const offset = this.indexBuffer[index];
+        const start = this.offsetBuffer[offset];
+        const end = this.offsetBuffer[offset + 1];
+        return decodeString$2(this.decodedDictionary, start, end);
+    }
+    // TODO: get rid of that conversion
+    offsetToLengthBuffer(offsetBuffer) {
+        const lengthBuffer = new Uint32Array(offsetBuffer.length - 1);
+        let previousOffset = offsetBuffer[0];
+        for (let i = 1; i < offsetBuffer.length; i++) {
+            const offset = offsetBuffer[i];
+            lengthBuffer[i - 1] = offset - previousOffset;
+            previousOffset = offset;
+        }
+        return lengthBuffer;
+    }
+}
+
+function decodeString$1(name, data, offset, numStreams, bitVector) {
+    let dictionaryLengthStream = null;
+    let offsetStream = null;
+    let dictionaryStream = null;
+    let symbolLengthStream = null;
+    let symbolTableStream = null;
+    let nullabilityBuffer = bitVector ?? null;
+    let plainLengthStream = null;
+    let plainDataStream = null;
+    for (let i = 0; i < numStreams; i++) {
+        const streamMetadata = decodeStreamMetadata(data, offset);
+        switch (streamMetadata.physicalStreamType) {
+            case PhysicalStreamType.PRESENT: {
+                const presentData = decodeBooleanRle(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
+                const presentStream = new BitVector(presentData, streamMetadata.numValues);
+                nullabilityBuffer = bitVector ?? presentStream;
+                break;
+            }
+            case PhysicalStreamType.OFFSET: {
+                offsetStream = decodeUnsignedInt32Stream(data, offset, streamMetadata, undefined, nullabilityBuffer);
+                break;
+            }
+            case PhysicalStreamType.LENGTH: {
+                const lengthStream = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
+                if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
+                    dictionaryLengthStream = lengthStream;
+                }
+                else if (LengthType.SYMBOL === streamMetadata.logicalStreamType.lengthType) {
+                    symbolLengthStream = lengthStream;
+                }
+                else {
+                    // Plain string encoding uses VAR_BINARY length type
+                    plainLengthStream = lengthStream;
+                }
+                break;
+            }
+            case PhysicalStreamType.DATA: {
+                const dataStream = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
+                offset.add(streamMetadata.byteLength);
+                const dictType = streamMetadata.logicalStreamType.dictionaryType;
+                if (DictionaryType.FSST === dictType) {
+                    symbolTableStream = dataStream;
+                }
+                else if (DictionaryType.SINGLE === dictType || DictionaryType.SHARED === dictType) {
+                    dictionaryStream = dataStream;
+                }
+                else if (DictionaryType.NONE === dictType) {
+                    plainDataStream = dataStream;
+                }
+                break;
+            }
+        }
+    }
+    return (decodeFsstDictionaryVector(name, symbolTableStream, offsetStream, dictionaryLengthStream, dictionaryStream, symbolLengthStream, nullabilityBuffer) ??
+        decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
+        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer));
+}
+function decodeFsstDictionaryVector(name, symbolTableStream, offsetStream, dictionaryLengthStream, dictionaryStream, symbolLengthStream, nullabilityBuffer) {
+    if (!symbolTableStream) {
+        return null;
+    }
+    return new StringFsstDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, symbolLengthStream, symbolTableStream, nullabilityBuffer);
+}
+function decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) {
+    if (!dictionaryStream) {
+        return null;
+    }
+    return nullabilityBuffer
+        ? new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, nullabilityBuffer)
+        : new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream);
+}
+function decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer) {
+    if (!plainLengthStream || !plainDataStream) {
+        return null;
+    }
+    if (offsetStream) {
+        return nullabilityBuffer
+            ? new StringDictionaryVector(name, offsetStream, plainLengthStream, plainDataStream, nullabilityBuffer)
+            : new StringDictionaryVector(name, offsetStream, plainLengthStream, plainDataStream);
+    }
+    if (nullabilityBuffer && nullabilityBuffer.size() !== plainLengthStream.length - 1) {
+        const sparseOffsetStream = new Uint32Array(nullabilityBuffer.size());
+        let valueIndex = 0;
+        for (let i = 0; i < nullabilityBuffer.size(); i++) {
+            if (nullabilityBuffer.get(i)) {
+                sparseOffsetStream[i] = valueIndex++;
+            }
+            else {
+                sparseOffsetStream[i] = 0;
+            }
+        }
+        return new StringDictionaryVector(name, sparseOffsetStream, plainLengthStream, plainDataStream, nullabilityBuffer);
+    }
+    return nullabilityBuffer
+        ? new StringFlatVector(name, plainLengthStream, plainDataStream, nullabilityBuffer)
+        : new StringFlatVector(name, plainLengthStream, plainDataStream);
+}
+function decodeSharedDictionary(data, offset, column, propertyColumnNames) {
+    let dictionaryOffsetBuffer = null;
+    let dictionaryBuffer = null;
+    let symbolOffsetBuffer = null;
+    let symbolTableBuffer = null;
+    let dictionaryStreamDecoded = false;
+    while (!dictionaryStreamDecoded) {
+        const streamMetadata = decodeStreamMetadata(data, offset);
+        switch (streamMetadata.physicalStreamType) {
+            case PhysicalStreamType.LENGTH:
+                if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
+                    dictionaryOffsetBuffer = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
+                }
+                else {
+                    symbolOffsetBuffer = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
+                }
+                break;
+            case PhysicalStreamType.DATA:
+                if (DictionaryType.SINGLE === streamMetadata.logicalStreamType.dictionaryType ||
+                    DictionaryType.SHARED === streamMetadata.logicalStreamType.dictionaryType) {
+                    dictionaryBuffer = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
+                    dictionaryStreamDecoded = true;
+                }
+                else {
+                    symbolTableBuffer = data.subarray(offset.get(), offset.get() + streamMetadata.byteLength);
+                }
+                offset.add(streamMetadata.byteLength);
+                break;
+        }
+    }
+    const childFields = column.complexType.children;
+    const stringDictionaryVectors = [];
+    let i = 0;
+    for (const childField of childFields) {
+        const numStreams = decodeVarintInt32(data, offset, 1)[0];
+        if (numStreams === 0) {
+            /* Column is not present in the tile */
+            continue;
+        }
+        const columnName = childField.name ? `${column.name}${childField.name}` : column.name;
+        if (propertyColumnNames) {
+            if (!propertyColumnNames.has(columnName)) {
+                //TODO: add size of sub column to Mlt for faster skipping
+                skipColumn(numStreams, data, offset);
+                continue;
+            }
+        }
+        if (childField.type !== "scalarField" || childField.scalarField.physicalType !== ScalarType.STRING) {
+            throw new Error("Currently only scalar string fields are implemented for a struct.");
+        }
+        if ((numStreams > 1 && !childField.nullable) || (numStreams === 1 && childField.nullable)) {
+            throw new Error(`The number of streams for the child field ${childField.name} does not match its nullability. nullibilty: ${childField.nullable}, numStreams: ${numStreams}`);
+        }
+        let presentStreamBitVector;
+        if (childField.nullable) {
+            const presentStreamMetadata = decodeStreamMetadata(data, offset);
+            const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
+            presentStreamBitVector = new BitVector(presentStream, presentStreamMetadata.numValues);
+        }
+        const offsetStreamMetadata = decodeStreamMetadata(data, offset);
+        const offsetStream = decodeUnsignedInt32Stream(data, offset, offsetStreamMetadata, undefined, presentStreamBitVector);
+        stringDictionaryVectors[i++] = symbolTableBuffer
+            ? new StringFsstDictionaryVector(columnName, offsetStream, dictionaryOffsetBuffer, dictionaryBuffer, symbolOffsetBuffer, symbolTableBuffer, presentStreamBitVector)
+            : new StringDictionaryVector(columnName, offsetStream, dictionaryOffsetBuffer, dictionaryBuffer, presentStreamBitVector);
+    }
+    return stringDictionaryVectors;
+}
+
+function decodePropertyColumn(data, offset, columnMetadata, numStreams, numFeatures, propertyColumnNames) {
+    if (columnMetadata.type === "scalarType") {
+        if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
+            skipColumn(numStreams, data, offset);
+            return null;
+        }
+        return decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, columnMetadata.scalarType, columnMetadata);
+    }
+    if (numStreams === 0) {
+        return null;
+    }
+    return decodeSharedDictionary(data, offset, columnMetadata, propertyColumnNames);
+}
+function decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, column, columnMetadata) {
+    let nullabilityBuffer = null;
+    if (numStreams === 0) {
+        return null;
+    }
+    if (columnMetadata.nullable) {
+        const presentStreamMetadata = decodeStreamMetadata(data, offset);
+        const numValues = presentStreamMetadata.numValues;
+        const streamDataStart = offset.get();
+        const presentVector = decodeBooleanRle(data, numValues, presentStreamMetadata.byteLength, offset);
+        offset.set(streamDataStart + presentStreamMetadata.byteLength);
+        nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues);
+    }
+    const sizeOrNullabilityBuffer = nullabilityBuffer ?? numFeatures;
+    const scalarType = column.physicalType;
+    switch (scalarType) {
+        case ScalarType.UINT_32:
+        case ScalarType.INT_32:
+            return decodeInt32Column(data, offset, columnMetadata, column, sizeOrNullabilityBuffer);
+        case ScalarType.STRING: {
+            // In embedded format: numStreams includes nullability stream if column is nullable
+            const stringDataStreams = columnMetadata.nullable ? numStreams - 1 : numStreams;
+            return decodeString$1(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer);
+        }
+        case ScalarType.BOOLEAN:
+            return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, sizeOrNullabilityBuffer);
+        case ScalarType.UINT_64:
+        case ScalarType.INT_64:
+            return decodeInt64Column(data, offset, columnMetadata, sizeOrNullabilityBuffer, column);
+        case ScalarType.FLOAT:
+            return decodeFloatColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
+        case ScalarType.DOUBLE:
+            return decodeDoubleColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
+        default:
+            throw new Error(`The specified data type for the field is currently not supported: ${column}`);
+    }
+}
+function decodeBooleanColumn(data, offset, column, _numFeatures, sizeOrNullabilityBuffer) {
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
+    const numValues = dataStreamMetadata.numValues;
+    const streamDataStart = offset.get();
+    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
+    const dataStream = decodeBooleanRle(data, numValues, dataStreamMetadata.byteLength, offset, nullabilityBuffer);
+    offset.set(streamDataStart + dataStreamMetadata.byteLength);
+    const dataVector = new BitVector(dataStream, numValues);
+    return new BooleanFlatVector(column.name, dataVector, sizeOrNullabilityBuffer);
+}
+function decodeFloatColumn(data, offset, column, sizeOrNullabilityBuffer) {
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
+    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
+    const dataStream = decodeFloatsLE(data, offset, dataStreamMetadata.numValues, nullabilityBuffer);
+    return new FloatFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
+}
+function decodeDoubleColumn(data, offset, column, sizeOrNullabilityBuffer) {
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
+    const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
+    const dataStream = decodeDoublesLE(data, offset, dataStreamMetadata.numValues, nullabilityBuffer);
+    return new DoubleFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
+}
+function decodeInt64Column(data, offset, column, sizeOrNullabilityBuffer, scalarColumn) {
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
+    const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset, "int64");
+    const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
+    if (vectorType === VectorType.FLAT) {
+        const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
+        const dataStream = isSigned
+            ? decodeSignedInt64Stream(data, offset, dataStreamMetadata, nullabilityBuffer)
+            : decodeUnsignedInt64Stream(data, offset, dataStreamMetadata, nullabilityBuffer);
+        return new Int64FlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
+    }
+    if (vectorType === VectorType.SEQUENCE) {
+        const id = decodeSequenceInt64Stream(data, offset, dataStreamMetadata);
+        return new Int64SequenceVector(column.name, id[0], id[1], dataStreamMetadata.numRleValues);
+    }
+    const constValue = isSigned
+        ? decodeSignedConstInt64Stream(data, offset, dataStreamMetadata)
+        : decodeUnsignedConstInt64Stream(data, offset, dataStreamMetadata);
+    return new Int64ConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
+}
+function decodeInt32Column(data, offset, column, scalarColumn, sizeOrNullabilityBuffer) {
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
+    const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
+    const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
+    if (vectorType === VectorType.FLAT) {
+        const nullabilityBuffer = isNullabilityBuffer(sizeOrNullabilityBuffer) ? sizeOrNullabilityBuffer : undefined;
+        const dataStream = isSigned
+            ? decodeSignedInt32Stream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer)
+            : decodeUnsignedInt32Stream(data, offset, dataStreamMetadata, undefined, nullabilityBuffer);
+        return new Int32FlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
+    }
+    if (vectorType === VectorType.SEQUENCE) {
+        const id = decodeSequenceInt32Stream(data, offset, dataStreamMetadata);
+        return new Int32SequenceVector(column.name, id[0], id[1], dataStreamMetadata.numRleValues);
+    }
+    const constValue = isSigned
+        ? decodeSignedConstInt32Stream(data, offset, dataStreamMetadata)
+        : decodeUnsignedConstInt32Stream(data, offset, dataStreamMetadata);
+    return new Int32ConstVector(column.name, constValue, sizeOrNullabilityBuffer, isSigned);
+}
+function isNullabilityBuffer(sizeOrNullabilityBuffer) {
+    return sizeOrNullabilityBuffer instanceof BitVector;
+}
+
+/**
+ * The type code is a single varint32 that encodes:
+ * - Physical or logical type
+ * - Nullable flag
+ * - Whether the column has a name (typeCode >= 10)
+ * - Whether the column has children (typeCode == 30 for STRUCT)
+ * - For ID types: whether it uses long (64-bit) IDs
+ */
+/**
+ * Decodes a type code into a Column structure.
+ *
+ * ID type codes (0..3):
+ * - Bit 0: nullable
+ * - Bit 1: longID (0/1 -> uint32 IDs, 2/3 -> uint64 IDs)
+ *
+ * ID columns are kept as logical types so they remain distinguishable
+ * from feature properties that may also be named "id".
+ */
+function decodeColumnType(typeCode) {
+    switch (typeCode) {
+        case 0:
+        case 1:
+        case 2:
+        case 3: {
+            const column = {};
+            column.nullable = (typeCode & 1) !== 0;
+            column.columnScope = ColumnScope.FEATURE;
+            const scalarCol = {};
+            scalarCol.type = "logicalType";
+            scalarCol.logicalType = LogicalScalarType.ID;
+            scalarCol.longID = (typeCode & 2) !== 0;
+            column.scalarType = scalarCol;
+            column.type = "scalarType";
+            return column;
+        }
+        case 4: {
+            // GEOMETRY (non-nullable, no children)
+            const column = {};
+            column.nullable = false;
+            column.columnScope = ColumnScope.FEATURE;
+            const complexCol = {};
+            complexCol.type = "physicalType";
+            complexCol.physicalType = ComplexType.GEOMETRY;
+            column.type = "complexType";
+            column.complexType = complexCol;
+            return column;
+        }
+        case 30: {
+            // STRUCT (non-nullable with children)
+            const column = {};
+            column.nullable = false;
+            column.columnScope = ColumnScope.FEATURE;
+            const complexCol = {};
+            complexCol.type = "physicalType";
+            complexCol.physicalType = ComplexType.STRUCT;
+            column.type = "complexType";
+            column.complexType = complexCol;
+            return column;
+        }
+        default:
+            return mapScalarType(typeCode);
+    }
+}
+/**
+ * Returns true if this type code requires a name to be stored.
+ * ID (0-3) and GEOMETRY (4) columns have implicit names.
+ * All other types (>= 10) require explicit names.
+ */
+function columnTypeHasName(typeCode) {
+    return typeCode >= 10;
+}
+/**
+ * Returns true if this type code has child fields.
+ * Only STRUCT (typeCode 30) has children.
+ */
+function columnTypeHasChildren(typeCode) {
+    return typeCode === 30;
+}
+/**
+ * Determines if a stream count needs to be read for this column.
+ * Mirrors the logic in cpp/include/mlt/metadata/type_map.hpp lines 85-122
+ */
+function hasStreamCount(column) {
+    if (column.type === "scalarType") {
+        const scalarCol = column.scalarType;
+        if (scalarCol.type === "physicalType") {
+            const physicalType = scalarCol.physicalType;
+            switch (physicalType) {
+                case ScalarType.BOOLEAN:
+                case ScalarType.INT_8:
+                case ScalarType.UINT_8:
+                case ScalarType.INT_32:
+                case ScalarType.UINT_32:
+                case ScalarType.INT_64:
+                case ScalarType.UINT_64:
+                case ScalarType.FLOAT:
+                case ScalarType.DOUBLE:
+                    return false;
+                case ScalarType.STRING:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        if (scalarCol.type === "logicalType") {
+            return false;
+        }
+    }
+    else if (column.type === "complexType") {
+        const complexCol = column.complexType;
+        if (complexCol.type === "physicalType") {
+            const physicalType = complexCol.physicalType;
+            switch (physicalType) {
+                case ComplexType.GEOMETRY:
+                case ComplexType.STRUCT:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+    console.warn("Unexpected column type in hasStreamCount", column);
+    return false;
+}
+function isLogicalIdColumn(column) {
+    return (column.type === "scalarType" &&
+        column.scalarType?.type === "logicalType" &&
+        column.scalarType.logicalType === LogicalScalarType.ID);
+}
+function isGeometryColumn(column) {
+    return (column.type === "complexType" &&
+        column.complexType?.type === "physicalType" &&
+        column.complexType.physicalType === ComplexType.GEOMETRY);
+}
+/**
+ * Maps a scalar type code to a Column with ScalarType.
+ * Type codes 10-29 encode scalar types with nullable flag.
+ * Even codes are non-nullable, odd codes are nullable.
+ */
+function mapScalarType(typeCode) {
+    let scalarType;
+    switch (typeCode) {
+        case 10:
+        case 11:
+            scalarType = ScalarType.BOOLEAN;
+            break;
+        case 12:
+        case 13:
+            scalarType = ScalarType.INT_8;
+            break;
+        case 14:
+        case 15:
+            scalarType = ScalarType.UINT_8;
+            break;
+        case 16:
+        case 17:
+            scalarType = ScalarType.INT_32;
+            break;
+        case 18:
+        case 19:
+            scalarType = ScalarType.UINT_32;
+            break;
+        case 20:
+        case 21:
+            scalarType = ScalarType.INT_64;
+            break;
+        case 22:
+        case 23:
+            scalarType = ScalarType.UINT_64;
+            break;
+        case 24:
+        case 25:
+            scalarType = ScalarType.FLOAT;
+            break;
+        case 26:
+        case 27:
+            scalarType = ScalarType.DOUBLE;
+            break;
+        case 28:
+        case 29:
+            scalarType = ScalarType.STRING;
+            break;
+        default:
+            return null;
+    }
+    const column = {};
+    column.nullable = (typeCode & 1) !== 0;
+    column.columnScope = ColumnScope.FEATURE;
+    const scalarCol = {};
+    scalarCol.type = "physicalType";
+    scalarCol.physicalType = scalarType;
+    column.type = "scalarType";
+    column.scalarType = scalarCol;
+    return column;
+}
+
+const textDecoder = new TextDecoder();
+const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT)";
+const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
+/**
+ * Decodes a length-prefixed UTF-8 string.
+ * Layout: [len: varint32][bytes: len]
+ */
+function decodeString(src, offset) {
+    const length = decodeVarintInt32(src, offset, 1)[0];
+    if (length === 0) {
+        return "";
+    }
+    const start = offset.get();
+    const end = start + length;
+    const view = src.subarray(start, end);
+    offset.add(length);
+    return textDecoder.decode(view);
+}
+/**
+ * Converts a Column to a Field.
+ * Used when decoding Field metadata which has the same format as Column.
+ */
+function columnToField(column) {
+    return {
+        name: column.name,
+        nullable: column.nullable,
+        scalarField: column.scalarType,
+        complexField: column.complexType,
+        type: column.type === "scalarType" ? "scalarField" : "complexField",
+    };
+}
+/**
+ * Decodes a Field used as part of complex types (STRUCT children).
+ */
+function decodeField(src, offset) {
+    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
+    if (typeCode < 10 || typeCode > 30) {
+        throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
+    }
+    const column = decodeColumnType(typeCode);
+    if (columnTypeHasName(typeCode)) {
+        column.name = decodeString(src, offset);
+    }
+    if (columnTypeHasChildren(typeCode)) {
+        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
+        column.complexType.children = new Array(childCount);
+        for (let i = 0; i < childCount; i++) {
+            column.complexType.children[i] = decodeField(src, offset);
+        }
+    }
+    return columnToField(column);
+}
+/**
+ * The typeCode encodes the column type, nullable flag, and whether it has name/children.
+ */
+function decodeColumn(src, offset) {
+    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
+    const column = decodeColumnType(typeCode);
+    if (!column) {
+        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
+    }
+    if (columnTypeHasName(typeCode)) {
+        column.name = decodeString(src, offset);
+    }
+    else {
+        // ID and GEOMETRY columns have implicit names
+        if (typeCode >= 0 && typeCode <= 3) {
+            column.name = "id";
+        }
+        else if (typeCode === 4) {
+            column.name = "geometry";
+        }
+    }
+    if (columnTypeHasChildren(typeCode)) {
+        // Only STRUCT (typeCode 30) has children
+        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
+        const complexCol = column.complexType;
+        complexCol.children = new Array(childCount);
+        for (let i = 0; i < childCount; i++) {
+            complexCol.children[i] = decodeField(src, offset);
+        }
+    }
+    return column;
+}
+/**
+ * Top-level decoder for embedded tileset metadata.
+ * Reads exactly ONE FeatureTableSchema from the stream.
+ *
+ * @param bytes The byte array containing the metadata
+ * @param offset The current offset in the byte array (will be advanced)
+ */
+function decodeEmbeddedTileSetMetadata(bytes, offset) {
+    const meta = {};
+    meta.featureTables = [];
+    const table = {};
+    table.name = decodeString(bytes, offset);
+    const extent = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
+    const columnCount = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
+    table.columns = new Array(columnCount);
+    for (let j = 0; j < columnCount; j++) {
+        table.columns[j] = decodeColumn(bytes, offset);
+    }
+    meta.featureTables.push(table);
+    return [meta, extent];
+}
+
+/**
+ * Decodes a tile with embedded metadata (Tag 0x01 format).
+ * This is the primary decoder function for MLT tiles.
+ *
+ * @param tile The tile data to decode (will be decompressed if gzip-compressed)
+ * @param geometryScaling Optional geometry scaling parameters
+ * @param idWithinMaxSafeInteger If true, limits ID values to JavaScript safe integer range (53 bits)
+ */
+function decodeTile(tile, geometryScaling, idWithinMaxSafeInteger = true) {
+    const offset = new IntWrapper(0);
+    const featureTables = [];
+    while (offset.get() < tile.length) {
+        const blockLength = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
+        const blockStart = offset.get();
+        const blockEnd = blockStart + blockLength;
+        if (blockEnd > tile.length) {
+            throw new Error(`Block overruns tile: ${blockEnd} > ${tile.length}`);
+        }
+        const tag = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
+        if (tag !== 1) {
+            // Skip unknown block types
+            offset.set(blockEnd);
+            continue;
+        }
+        const [metadata, extent] = decodeEmbeddedTileSetMetadata(tile, offset);
+        const featureTableMetadata = metadata.featureTables[0];
+        let idVector = null;
+        let geometryVector = null;
+        const propertyVectors = [];
+        let numFeatures = 0;
+        for (const columnMetadata of featureTableMetadata.columns) {
+            const columnName = columnMetadata.name;
+            if (isLogicalIdColumn(columnMetadata)) {
+                let nullabilityBuffer = null;
+                // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
+                if (columnMetadata.nullable) {
+                    const presentStreamMetadata = decodeStreamMetadata(tile, offset);
+                    const streamDataStart = offset.get();
+                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
+                    offset.set(streamDataStart + presentStreamMetadata.byteLength);
+                    nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
+                }
+                const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
+                // decompressedCount is the count WITHOUT nulls, but we may have nulls
+                numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
+                idVector = decodeIdColumn(tile, columnMetadata, offset, columnName, idDataStreamMetadata, nullabilityBuffer ?? numFeatures, idWithinMaxSafeInteger);
+            }
+            else if (isGeometryColumn(columnMetadata)) {
+                const numStreams = decodeVarintInt32(tile, offset, 1)[0];
+                // If no ID column, get numFeatures from geometry type stream metadata
+                if (numFeatures === 0) {
+                    const savedOffset = offset.get();
+                    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
+                    numFeatures = geometryTypeMetadata.decompressedCount;
+                    offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
+                }
+                if (geometryScaling) {
+                    geometryScaling.scale = geometryScaling.extent / extent;
+                }
+                geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
+            }
+            else {
+                const columnHasStreamCount = hasStreamCount(columnMetadata);
+                const numStreams = columnHasStreamCount ? decodeVarintInt32(tile, offset, 1)[0] : 1;
+                if (numStreams === 0) {
+                    continue;
+                }
+                const propertyVector = decodePropertyColumn(tile, offset, columnMetadata, numStreams, numFeatures, undefined);
+                if (propertyVector) {
+                    if (Array.isArray(propertyVector)) {
+                        for (const property of propertyVector) {
+                            propertyVectors.push(property);
+                        }
+                    }
+                    else {
+                        propertyVectors.push(propertyVector);
+                    }
+                }
+            }
+        }
+        const featureTable = new FeatureTable(featureTableMetadata.name, geometryVector, idVector, propertyVectors, extent);
+        featureTables.push(featureTable);
+        offset.set(blockEnd);
+    }
+    return featureTables;
+}
+function decodeIdColumn(tile, columnMetadata, offset, columnName, idDataStreamMetadata, sizeOrNullabilityBuffer, idWithinMaxSafeInteger = false) {
+    const scalarTypeMetadata = columnMetadata.scalarType;
+    if (!scalarTypeMetadata ||
+        scalarTypeMetadata.type !== "logicalType" ||
+        scalarTypeMetadata.logicalType !== LogicalScalarType.ID) {
+        throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
+    }
+    const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
+    const nullabilityBuffer = typeof sizeOrNullabilityBuffer === "number" ? undefined : sizeOrNullabilityBuffer;
+    const vectorType = getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset, idDataType === ScalarType.UINT_64 ? "int64" : "int32");
+    if (idDataType === ScalarType.UINT_32) {
+        switch (vectorType) {
+            case VectorType.FLAT: {
+                const id = decodeUnsignedInt32Stream(tile, offset, idDataStreamMetadata, undefined, nullabilityBuffer);
+                return new Int32FlatVector(columnName, id, sizeOrNullabilityBuffer);
+            }
+            case VectorType.SEQUENCE: {
+                const id = decodeSequenceInt32Stream(tile, offset, idDataStreamMetadata);
+                return new Int32SequenceVector(columnName, id[0], id[1], idDataStreamMetadata.numRleValues);
+            }
+            case VectorType.CONST: {
+                const id = decodeUnsignedConstInt32Stream(tile, offset, idDataStreamMetadata);
+                return new Int32ConstVector(columnName, id, sizeOrNullabilityBuffer, false);
+            }
+        }
+    }
+    switch (vectorType) {
+        case VectorType.FLAT: {
+            if (idWithinMaxSafeInteger) {
+                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata);
+                return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
+            }
+            const id = decodeUnsignedInt64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);
+            return new Int64FlatVector(columnName, id, sizeOrNullabilityBuffer);
+        }
+        case VectorType.SEQUENCE: {
+            const id = decodeSequenceInt64Stream(tile, offset, idDataStreamMetadata);
+            return new Int64SequenceVector(columnName, id[0], id[1], idDataStreamMetadata.numRleValues);
+        }
+        case VectorType.CONST: {
+            const id = decodeUnsignedConstInt64Stream(tile, offset, idDataStreamMetadata);
+            return new Int64ConstVector(columnName, id, sizeOrNullabilityBuffer, false);
+        }
+    }
+    throw new Error("Vector type not supported for id column.");
+}
+
+class MLTVectorTileFeature {
+    constructor(feature, extent) {
+        var _a;
+        this._featureData = feature;
+        this.properties = this._featureData.properties || {};
+        switch ((_a = this._featureData.geometry) === null || _a === void 0 ? void 0 : _a.type) {
+            case GEOMETRY_TYPE.POINT:
+            case GEOMETRY_TYPE.MULTIPOINT:
+                this.type = 1;
+                break;
+            case GEOMETRY_TYPE.LINESTRING:
+            case GEOMETRY_TYPE.MULTILINESTRING:
+                this.type = 2;
+                break;
+            case GEOMETRY_TYPE.POLYGON:
+            case GEOMETRY_TYPE.MULTIPOLYGON:
+                this.type = 3;
+                break;
+            default:
+                this.type = 0;
+        }
+        ;
+        this.extent = extent;
+        this.id = Number(this._featureData.id);
+    }
+    loadGeometry() {
+        const points = [];
+        for (const ring of this._featureData.geometry.coordinates) {
+            const pointRing = [];
+            for (const coord of ring) {
+                pointRing.push(new Point(coord.x, coord.y));
+            }
+            points.push(pointRing);
+        }
+        return points;
+    }
+}
+class MLTVectorTileLayer {
+    constructor(featureTable) {
+        this.features = [];
+        this.featureTable = featureTable;
+        this.name = featureTable.name;
+        this.extent = featureTable.extent;
+        this.version = 2;
+        this.features = featureTable.getFeatures();
+        this.length = this.features.length;
+    }
+    feature(i) {
+        return new MLTVectorTileFeature(this.features[i], this.extent);
+    }
+}
+class MLTVectorTile {
+    constructor(buffer) {
+        this.layers = {};
+        const features = decodeTile(new Uint8Array(buffer));
+        this.layers = features.reduce((acc, f) => (Object.assign(Object.assign({}, acc), { [f.name]: new MLTVectorTileLayer(f) })), {});
     }
 }
 
@@ -56509,6 +56530,18 @@ function registerVectorSource() {
 function registerVideoSource() {
     registry$1.source.video = VideoSource;
 }
+// ===== TILE DECODERS =====
+/**
+ * Registers the MLT (MapLibre Tiles) decoder.
+ * Enables reading tiles served with `encoding: 'mlt'`; MVT tiles need no decoder.
+ *
+ * The decoder pulls in `@maplibre/mlt`, which uses BigInt literals — syntax that
+ * pre-2020 engines cannot parse. Leave it unregistered to keep it out of the
+ * bundle, and out of a legacy build's reach.
+ */
+function registerMLTDecoder() {
+    registry$1.tileDecoder.mlt = MLTVectorTile;
+}
 // ===== PROJECTIONS =====
 /**
  * Registers Mercator projection support.
@@ -57257,7 +57290,7 @@ class VectorTileWorkerSource {
         try {
             const vectorTile = params.encoding !== 'mlt'
                 ? new VectorTile(new Pbf(rawData))
-                : new MLTVectorTile(rawData);
+                : decodeTile$1(params.encoding, rawData);
             return { vectorTile, rawData };
         }
         catch (ex) {
